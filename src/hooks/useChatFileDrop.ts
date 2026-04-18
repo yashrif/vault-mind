@@ -220,7 +220,7 @@ export function useChatFileDrop(props: UseChatFileDropProps): UseChatFileDropRet
           } else {
             // Unsupported file type
             new Notice(
-              `Unsupported file type: ${file.extension}. Supported types: md, pdf, canvas, and images.`
+              `File format .${file.extension} is not supported. Please use PDF, DOCX, TXT, MD, Canvas, or images.`
             );
           }
         }

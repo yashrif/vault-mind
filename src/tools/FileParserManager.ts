@@ -188,7 +188,7 @@ function parsePlainText(binary: ArrayBuffer, extension: string): string {
  * Inline message returned for file types we cannot parse locally yet.
  */
 function makeUnsupportedMessage(file: TFile): string {
-  return `[File "${file.basename}" (.${file.extension}) is not yet supported for parsing. Please convert to PDF, DOCX, TXT, or another supported format.]`;
+  return `[Format .${file.extension} is not supported for parsing. Supported formats include PDF, DOCX, XLSX, TXT, MD, and Canvas.]`;
 }
 
 export class MarkdownParser implements FileParser {
