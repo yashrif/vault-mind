@@ -1,7 +1,7 @@
 import React from "react";
 import { CustomModel } from "@/aiParams";
 import { getProviderLabel } from "@/utils";
-import { Lightbulb, Eye, Globe } from "lucide-react";
+import { Lightbulb, Eye, Globe, Mic } from "lucide-react";
 import { ModelCapability } from "@/constants";
 
 interface ModelDisplayProps {
@@ -45,6 +45,14 @@ export const ModelCapabilityIcons: React.FC<ModelCapabilityIconsProps> = ({
                 <Globe
                   key={index}
                   className="tw-text-model-capabilities-blue"
+                  style={{ width: iconSize, height: iconSize }}
+                />
+              );
+            case ModelCapability.AUDIO_TRANSCRIPTION:
+              return (
+                <Mic
+                  key={index}
+                  className="tw-text-model-capabilities-green"
                   style={{ width: iconSize, height: iconSize }}
                 />
               );

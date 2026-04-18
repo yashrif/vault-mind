@@ -127,7 +127,7 @@ const ModelTableHeader: React.FC<ModelTableHeaderProps> = ({ title, onRefresh, o
 
 const renderCapabilities = (model: CustomModel) => {
   return (
-    <div className="tw-mx-auto tw-grid tw-w-16 tw-grid-cols-3 tw-gap-1">
+    <div className="tw-mx-auto tw-flex tw-w-fit tw-items-center tw-justify-center tw-gap-1.5">
       {CAPABILITY_ORDER.map((capability) => {
         const config = CAPABILITY_ICONS[capability];
         if (!config) return <div key={capability} className="tw-w-4" />;

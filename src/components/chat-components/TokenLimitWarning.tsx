@@ -31,7 +31,7 @@ export const TokenLimitWarning: React.FC<TokenLimitWarningProps> = ({ message, a
 
     // Create update handler
     const handleModelUpdate = (
-      modelType: ModelType,
+      _modelType: ModelType,
       original: CustomModel,
       updated: CustomModel
     ) => {
