@@ -90,8 +90,6 @@ export const BasicSettings: React.FC = () => {
 
   return (
     <div className="tw-space-y-4">
-      
-
       {/* General Section */}
       <section>
         <div className="tw-mb-3 tw-text-xl tw-font-bold">General</div>
@@ -196,9 +194,9 @@ export const BasicSettings: React.FC = () => {
                           with semantic search. <i>Free to use with your own API key.</i>
                         </li>
                         <li>
-                          <strong>Agentic Copilot:</strong> Covers all features of the 2 free
-                          modes, plus advanced features including chat context menu, advanced
-                          search, AI agents, and more.
+                          <strong>Agentic Copilot:</strong> Covers all features of the 2 free modes,
+                          plus advanced features including chat context menu, advanced search, AI
+                          agents, and more.
                         </li>
                       </ul>
                     </div>

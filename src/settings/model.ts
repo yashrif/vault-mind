@@ -649,7 +649,6 @@ function mergeActiveModels(
           ...builtInModel,
           ...model,
           isBuiltIn: true,
-          
         });
       } else {
         modelMap.set(key, {

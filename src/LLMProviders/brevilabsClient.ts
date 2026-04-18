@@ -171,8 +171,7 @@ export class BrevilabsClient {
     context?: Record<string, any>
   ): Promise<{ isValid: boolean | undefined; plan?: string }> {
     // Build the request body with proper structure
-    const requestBody: Record<string, any> = {
-    };
+    const requestBody: Record<string, any> = {};
 
     // Safely spread context if provided, ensuring no conflicts with required fields
     if (context && typeof context === "object") {
@@ -193,10 +192,7 @@ export class BrevilabsClient {
       Object.assign(requestBody, filteredContext);
     }
 
-    const { data, error } = await this.makeRequest<LicenseResponse>(
-      "/license",
-      requestBody
-    );
+    const { data, error } = await this.makeRequest<LicenseResponse>("/license", requestBody);
 
     if (error) {
       return { isValid: undefined };

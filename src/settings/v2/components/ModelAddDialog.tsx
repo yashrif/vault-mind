@@ -595,13 +595,13 @@ export const ModelAddDialog: React.FC<ModelAddDialogProps> = ({
                 <SelectValue placeholder="Select provider" />
               </SelectTrigger>
               <SelectContent container={dialogElement}>
-                {Object.values(
-                  isEmbeddingModel ? EmbeddingModelProviders : ChatModelProviders
-                ).map((provider) => (
-                  <SelectItem key={provider} value={provider}>
-                    {getProviderLabel(provider)}
-                  </SelectItem>
-                ))}
+                {Object.values(isEmbeddingModel ? EmbeddingModelProviders : ChatModelProviders).map(
+                  (provider) => (
+                    <SelectItem key={provider} value={provider}>
+                      {getProviderLabel(provider)}
+                    </SelectItem>
+                  )
+                )}
               </SelectContent>
             </Select>
           </FormField>

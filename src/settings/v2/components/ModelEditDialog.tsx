@@ -118,8 +118,7 @@ export const ModelEditModalContent: React.FC<ModelEditModalContentProps> = ({
     localModel.provider as SettingKeyProviders,
     localModel
   );
-  const showOtherParameters =
-    !isEmbeddingModel;
+  const showOtherParameters = !isEmbeddingModel;
 
   return (
     <div className="tw-space-y-3 tw-p-4">

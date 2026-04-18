@@ -710,7 +710,7 @@ export default class ChatModelManager {
       if (currentModelKey) {
         const model = findCustomModel(currentModelKey, settings.activeModels);
 
-          if (this.isModelConfigValid(model, settings)) {
+        if (this.isModelConfigValid(model, settings)) {
           return model;
         }
       }
