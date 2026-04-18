@@ -2,7 +2,7 @@ import { CopilotPlusWelcomeModal } from "@/components/modals/CopilotPlusWelcomeM
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
-import { PLUS_UTM_MEDIUMS } from "@/constants";
+
 import { checkIsPlusUser, navigateToPlusPage, useIsPlusUser } from "@/plusUtils";
 import { updateSetting, useSettingsValue } from "@/settings/model";
 import { ExternalLink, Loader2 } from "lucide-react";

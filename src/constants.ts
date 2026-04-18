@@ -994,3 +994,5 @@ export enum ABORT_REASON {
   NEW_CHAT = "new-chat",
   UNMOUNT = "component-unmount",
 }
+
+export const PLUS_UTM_MEDIUMS = { SETTINGS: "settings" };

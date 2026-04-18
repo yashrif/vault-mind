@@ -652,7 +652,7 @@ function mergeActiveModels(
           ...builtInModel,
           ...model,
           isBuiltIn: true,
-          believerExclusive: builtInModel.believerExclusive,
+          
         });
       } else {
         modelMap.set(key, {

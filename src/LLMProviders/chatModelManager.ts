@@ -726,7 +726,7 @@ export default class ChatModelManager {
     // Fallback: Find first valid model in settings.activeModels
     // Skip believerExclusive models in fallback to avoid selecting them for non-Believer users
     for (const model of settings.activeModels) {
-      if (model.enabled && !model.believerExclusive && this.isModelConfigValid(model, settings)) {
+      if (model.enabled  && this.isModelConfigValid(model, settings)) {
         return model;
       }
     }

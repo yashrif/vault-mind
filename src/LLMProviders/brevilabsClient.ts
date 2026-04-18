@@ -1,6 +1,7 @@
-import { BREVILABS_API_BASE_URL } from "@/constants";
+const BREVILABS_API_BASE_URL = "https://api.brevilabs.com/v1";
+// Phase 2 refactor placeholder
 import { getDecryptedKey } from "@/encryptionService";
-import { MissingPlusLicenseError } from "@/error";
+import {  } from "@/error";
 import { logInfo } from "@/logger";
 import { turnOffPlus, turnOnPlus } from "@/plusUtils";
 import { getSettings } from "@/settings/model";
@@ -86,7 +87,7 @@ export class BrevilabsClient {
 
   private checkLicenseKey() {
     if (!getSettings().plusLicenseKey) {
-      throw new MissingPlusLicenseError(
+      throw new Error(
         "Copilot Plus license key not found. Please enter your license key in the settings."
       );
     }
