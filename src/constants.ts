@@ -844,7 +844,25 @@ export const COMMAND_ICONS: Partial<Record<CommandId, string>> = {
  * These files can be read directly via `vault.read()` and don't require special parsers.
  * Add new text-based extensions here to enable them everywhere (active note, context, chain).
  */
-export const TEXT_READABLE_EXTENSIONS = ["md", "base", "txt", "xml", "json", "log", "htm", "html", "ts", "tsx", "js", "jsx", "py", "css", "yaml", "yml", "java"];
+export const TEXT_READABLE_EXTENSIONS = [
+  "md",
+  "base",
+  "txt",
+  "xml",
+  "json",
+  "log",
+  "htm",
+  "html",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "py",
+  "css",
+  "yaml",
+  "yml",
+  "java",
+];
 
 /**
  * Binary, heavy, or non-textual formats that require specialized parsers
@@ -854,14 +872,19 @@ export const NON_PREVIEWABLE_EXTENSIONS = [
   "pdf",
   "canvas",
   // Word Docs
-  "doc", "docx", "docm", "dot", "dotm", "rtf",
+  "doc",
+  "docx",
   // Spreadsheets
-  "xls", "xlsx", "xlsm", "xlsb", "xltx", "xltm", "csv", "tsv", "ods",
+  "xls",
+  "xlsx",
+  "xlsm",
+  "xlsb",
+  "csv",
 ];
 
 export const ALLOWED_NOTE_CONTEXT_EXTENSIONS = [
   ...TEXT_READABLE_EXTENSIONS,
-  ...NON_PREVIEWABLE_EXTENSIONS
+  ...NON_PREVIEWABLE_EXTENSIONS,
 ];
 
 export const RESTRICTION_MESSAGES = {
