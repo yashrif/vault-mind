@@ -28,16 +28,14 @@ All file parsing happens locally, in-process. Zero network calls, zero premium b
   - `LocalPdfParser` (`pdfjs-dist` legacy build, worker disabled) → PDF text extraction with existing `PDFCache`
   - `LocalDocxParser` (`mammoth`) → DOCX/DOC/RTF → markdown
   - `LocalSpreadsheetParser` (`xlsx`) → XLSX/XLS/ODS/CSV/TSV → markdown tables
-  - `LocalEpubParser` (`jszip` + `turndown`) → EPUB → markdown
   - `PlainTextParser` → TXT/XML/JSON/LOG/HTML
-  - `UnsupportedFormatParser` → returns a human-readable "not yet supported" string for images/audio/PPTX, flowing into chat context so the LLM can explain to the user
-  - Heavy parsers loaded via dynamic `import()` so esbuild code-splits them — cold-start bundle stays minimal
+  - `UnsupportedFormatParser` → returns a human-readable "not supported" string including PDF, DOCX, XLSX, TXT, MD, and Canvas.
+  - Heavy parsers loaded via dynamic `import()` so esbuild code-splitting them — cold-start bundle stays minimal
 - `brevilabsClient.ts` — Deleted `pdf4llm()`, `docs4llm()`, and `getMimeTypeFromExtension()` helpers
 - `pdfCache.ts` — Introduced local `PdfCacheEntry` type to decouple cache from removed Brevilabs types
 - `constants.ts` — Removed `NON_MARKDOWN_FILES_RESTRICTED` and `URL_PROCESSING_RESTRICTED` from `RESTRICTION_MESSAGES`
-- `contextProcessor.ts` / `Chat.tsx` / `AddContextNoteModal.tsx` — Removed restriction-notice blocks; any file can be added to chat context
+- `contextProcessor.ts` / `Chat.tsx` / `AddContextNoteModal.tsx` — Removed restriction-notice blocks; any file can be added to chat context.
 - `utils.ts` — Simplified `isAllowedFileForChainContext` to allow all files (no chain-based gating)
-
 ---
 
 ## Feature 3: YouTube Video Transcription ❌ Still Gated
@@ -95,15 +93,16 @@ Works via self-host (Firecrawl/Perplexity). Brevilabs route no longer has auth.
 ## Summary
 
 | Feature | Status |
-|---|---|
+| --- | --- |
 | AI Models & Embeddings | ✅ Fully free |
 | Autonomous Agents | ✅ Fully free |
-| File Parsing (PDF/DOCX/XLSX/EPUB) | ✅ Fully free (local parsing, zero network) |
+| File Parsing (PDF/DOCX/XLSX) | ✅ Fully free (local parsing, zero network) |
 | Web Search | ⚠️ Self-host only |
 | YouTube Transcription | ❌ Still gated (2 remaining guards) |
 | Hybrid Search / Rerank | ⚠️ Local semantic works; Brevilabs rerank unauthenticated |
 
 ### Next Steps (Phase 2)
+
 1. Remove `isPlusOnly: true` from `youtubeTranscriptionTool` in `src/tools/builtinTools.ts`
 2. Remove `checkIsPlusUser` guard from YouTube download command in `src/commands/index.ts`
 3. Decide routing strategy for web search without Brevilabs auth (self-host-only or new provider)
