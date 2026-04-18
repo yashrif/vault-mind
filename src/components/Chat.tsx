@@ -41,7 +41,6 @@ import ChainManager from "@/LLMProviders/chainManager";
 import { clearRecordedPromptPayload } from "@/LLMProviders/chainRunner/utils/promptPayloadRecorder";
 import { logFileManager } from "@/logFileManager";
 import CopilotPlugin from "@/main";
-import { useIsPlusUser } from "@/plusUtils";
 import { updateSetting, useSettingsValue } from "@/settings/model";
 import { ChatUIState } from "@/state/ChatUIState";
 import { FileParserManager } from "@/tools/FileParserManager";
@@ -234,7 +233,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
   const [previousMode, setPreviousMode] = useState<ChainType | null>(null);
   const [selectedChain, setSelectedChain] = useChainType();
-  const isPlusUser = useIsPlusUser();
 
   const appContext = useContext(AppContext);
   const app = plugin.app || appContext;
@@ -967,10 +965,8 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                     setSelectedChain(previousMode);
                     setPreviousMode(null);
                   } else {
-                    // default back to chat or plus mode
-                    setSelectedChain(
-                      isPlusUser ? ChainType.COPILOT_PLUS_CHAIN : ChainType.LLM_CHAIN
-                    );
+                    // default back to tool chain mode
+                    setSelectedChain(ChainType.TOOL_CHAIN);
                   }
                 }}
                 showChatUI={(v) => setShowChatUI(v)}

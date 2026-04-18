@@ -260,7 +260,7 @@ export const stringToChainType = (chain: string): ChainType => {
     case "vault_qa":
       return ChainType.VAULT_QA_CHAIN;
     case "copilot_plus":
-      return ChainType.COPILOT_PLUS_CHAIN;
+      return ChainType.TOOL_CHAIN;
     default:
       throw new Error(`Unknown chain type: ${chain}`);
   }
@@ -410,7 +410,7 @@ export function isAllowedFileForNoteContext(file: TFile | null): boolean {
  * @returns true if this is a Plus mode chain, false otherwise
  */
 export function isPlusChain(chainType: ChainType): boolean {
-  return chainType === ChainType.COPILOT_PLUS_CHAIN || chainType === ChainType.PROJECT_CHAIN;
+  return chainType === ChainType.TOOL_CHAIN || chainType === ChainType.PROJECT_CHAIN;
 }
 
 /**

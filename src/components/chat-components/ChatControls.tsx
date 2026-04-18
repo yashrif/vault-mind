@@ -239,7 +239,7 @@ export function ChatControls({
             <Button variant="ghost2" size="fit" className="tw-ml-1 tw-text-sm tw-text-muted">
               {selectedChain === ChainType.LLM_CHAIN && "chat (free)"}
               {selectedChain === ChainType.VAULT_QA_CHAIN && "vault QA (free)"}
-              {selectedChain === ChainType.COPILOT_PLUS_CHAIN && (
+              {selectedChain === ChainType.TOOL_CHAIN && (
                 <div className="tw-flex tw-items-center tw-gap-1">
                   <Sparkles className="tw-size-4" />
                   copilot plus
@@ -267,7 +267,7 @@ export function ChatControls({
             {isPlusUser ? (
               <DropdownMenuItem
                 onSelect={() => {
-                  handleModeChange(ChainType.COPILOT_PLUS_CHAIN);
+                  handleModeChange(ChainType.TOOL_CHAIN);
                 }}
               >
                 <div className="tw-flex tw-items-center tw-gap-1">

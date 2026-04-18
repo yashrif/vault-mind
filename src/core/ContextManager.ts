@@ -94,7 +94,7 @@ export class ContextManager {
       // 3. Extract URLs and process them (for Copilot Plus chain)
       const contextUrls = message.context?.urls || [];
       const urlContextAddition =
-        chainType === ChainType.COPILOT_PLUS_CHAIN
+        chainType === ChainType.TOOL_CHAIN
           ? await this.mention.processUrlList(contextUrls)
           : { urlContext: "", imageUrls: [] };
 

@@ -347,11 +347,11 @@ export function applyPlusSettings(): void {
   });
 
   setModelKey(defaultModelKey);
-  setChainType(ChainType.COPILOT_PLUS_CHAIN);
+  setChainType(ChainType.TOOL_CHAIN);
   setSettings({
     defaultModelKey,
     embeddingModelKey,
-    defaultChainType: ChainType.COPILOT_PLUS_CHAIN,
+    defaultChainType: ChainType.TOOL_CHAIN,
   });
 
   // Ensure indexing happens only once when embedding model changes
