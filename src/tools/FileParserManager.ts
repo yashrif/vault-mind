@@ -42,7 +42,6 @@ const SPREADSHEET_EXTENSIONS = [
   "sylk",
   "prn",
 ];
-const EPUB_EXTENSIONS = ["epub"];
 const PLAIN_TEXT_EXTENSIONS = [
   "txt",
   "xml",
@@ -174,58 +173,6 @@ async function parseSpreadsheetLocal(binary: ArrayBuffer, _extension: string): P
 }
 
 /**
- * Extract text from an EPUB archive by unzipping, walking the OPF spine, and converting HTML to markdown.
- */
-async function parseEpubLocal(binary: ArrayBuffer): Promise<string> {
-  const JSZipMod: any = await import("jszip");
-  const JSZip = JSZipMod.default ?? JSZipMod;
-  const zip = await JSZip.loadAsync(binary);
-
-  const containerFile = zip.file("META-INF/container.xml");
-  if (!containerFile) throw new Error("EPUB missing META-INF/container.xml");
-  const containerXml: string = await containerFile.async("string");
-  const opfPathMatch = containerXml.match(/full-path="([^"]+)"/);
-  if (!opfPathMatch) throw new Error("EPUB container.xml missing rootfile");
-  const opfPath = opfPathMatch[1];
-  const opfDir = opfPath.includes("/") ? opfPath.substring(0, opfPath.lastIndexOf("/") + 1) : "";
-
-  const opfFile = zip.file(opfPath);
-  if (!opfFile) throw new Error(`EPUB missing OPF file ${opfPath}`);
-  const opfXml: string = await opfFile.async("string");
-
-  const manifest: Record<string, string> = {};
-  const itemRegex = /<item\s+([^/>]+)\/?>/g;
-  let m: RegExpExecArray | null;
-  while ((m = itemRegex.exec(opfXml)) !== null) {
-    const attrs = m[1];
-    const idMatch = attrs.match(/\bid="([^"]+)"/);
-    const hrefMatch = attrs.match(/\bhref="([^"]+)"/);
-    const typeMatch = attrs.match(/\bmedia-type="([^"]+)"/);
-    if (idMatch && hrefMatch && typeMatch && /(xhtml|html|xml)/.test(typeMatch[1])) {
-      manifest[idMatch[1]] = hrefMatch[1];
-    }
-  }
-
-  const spineOrder: string[] = [];
-  const itemrefRegex = /<itemref\s+[^>]*idref="([^"]+)"/g;
-  while ((m = itemrefRegex.exec(opfXml)) !== null) {
-    spineOrder.push(m[1]);
-  }
-
-  const turndown = new TurndownService({ headingStyle: "atx" });
-  const parts: string[] = [];
-  for (const id of spineOrder) {
-    const href = manifest[id];
-    if (!href) continue;
-    const entry = zip.file(opfDir + href);
-    if (!entry) continue;
-    const html = await entry.async("string");
-    parts.push(turndown.turndown(html));
-  }
-  return parts.join("\n\n").trim();
-}
-
-/**
  * Decode plain-text formats. Synchronous. HTML is passed through turndown.
  */
 function parsePlainText(binary: ArrayBuffer, extension: string): string {
@@ -346,23 +293,6 @@ export class SpreadsheetParser implements FileParser {
 }
 
 /**
- * Parses EPUB files locally by unzipping and converting HTML to markdown.
- */
-export class EpubParser implements FileParser {
-  supportedExtensions = EPUB_EXTENSIONS;
-
-  async parseFile(file: TFile, vault: Vault): Promise<string> {
-    try {
-      const binary = await vault.readBinary(file);
-      return await parseEpubLocal(binary);
-    } catch (error) {
-      logError(`Error parsing EPUB ${file.path}:`, error);
-      return `[Error: Could not parse ${file.basename}: ${(error as Error).message}]`;
-    }
-  }
-}
-
-/**
  * Reads plain-text / lightly-structured formats (txt, json, xml, log, html) directly from bytes.
  */
 export class PlainTextParser implements FileParser {
@@ -403,7 +333,6 @@ export class ProjectFileParser implements FileParser {
     ...PDF_EXTENSIONS,
     ...DOCX_EXTENSIONS,
     ...SPREADSHEET_EXTENSIONS,
-    ...EPUB_EXTENSIONS,
     ...PLAIN_TEXT_EXTENSIONS,
   ];
   private projectContextCache: ProjectContextCache;
@@ -446,8 +375,6 @@ export class ProjectFileParser implements FileParser {
         content = await parseDocxLocal(binary, ext);
       } else if (SPREADSHEET_EXTENSIONS.includes(ext)) {
         content = await parseSpreadsheetLocal(binary, ext);
-      } else if (EPUB_EXTENSIONS.includes(ext)) {
-        content = await parseEpubLocal(binary);
       } else if (PLAIN_TEXT_EXTENSIONS.includes(ext)) {
         content = parsePlainText(binary, ext);
       } else {
@@ -485,7 +412,6 @@ export class FileParserManager {
       this.registerParser(new PDFParser());
       this.registerParser(new DocxParser());
       this.registerParser(new SpreadsheetParser());
-      this.registerParser(new EpubParser());
       this.registerParser(new PlainTextParser());
     }
 
