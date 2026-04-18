@@ -1,84 +1,19 @@
-import { ConfirmModal } from "@/components/modals/ConfirmModal";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import { SettingItem } from "@/components/ui/setting-item";
-import { DEFAULT_SETTINGS } from "@/constants";
-import { MiyoClient } from "@/miyo/MiyoClient";
-import { getMiyoCustomUrl, getMiyoFolderName } from "@/miyo/miyoUtils";
 import { updateSetting, useSettingsValue } from "@/settings/model";
-import { Notice } from "obsidian";
-import React, { useState } from "react";
+import React from "react";
 import { ToolSettingsSection } from "./ToolSettingsSection";
 
 export const CopilotPlusSettings: React.FC = () => {
   const settings = useSettingsValue();
-  const [isValidatingSelfHost, setIsValidatingSelfHost] = useState(false);
 
   /**
-   * Toggle self-host mode and handle validation requirements.
+   * Toggle self-host mode.
    *
    * @param enabled - Whether self-host mode should be enabled.
    */
   const handleSelfHostModeToggle = async (enabled: boolean) => {
-    if (enabled) {
-      updateSetting("enableSelfHostMode", true);
-    } else {
-      updateSetting("enableSelfHostMode", false);
-      updateSetting("enableMiyo", false);
-    }
-  };
-
-  /**
-   * Toggle Miyo-backed semantic search and refresh the index when enabling.
-   *
-   * @param enabled - Whether Miyo search should be enabled.
-   */
-  const handleMiyoSearchToggle = async (enabled: boolean) => {
-    if (enabled === settings.enableMiyo) {
-      return;
-    }
-
-    if (!enabled) {
-      updateSetting("enableMiyo", false);
-      return;
-    }
-
-    setIsValidatingSelfHost(true);
-    try {
-      const miyoClient = new MiyoClient();
-      const isMiyoAvailable = await miyoClient.isBackendAvailable(getMiyoCustomUrl(settings));
-      if (!isMiyoAvailable) {
-        new Notice("Miyo app is not available. Please start the Miyo app and try again.");
-        return;
-      }
-    } finally {
-      setIsValidatingSelfHost(false);
-    }
-
-    const confirmChange = async () => {
-      if (enabled && settings.embeddingBatchSize !== DEFAULT_SETTINGS.embeddingBatchSize) {
-        updateSetting("embeddingBatchSize", DEFAULT_SETTINGS.embeddingBatchSize);
-      }
-
-      updateSetting("enableMiyo", enabled);
-
-      if (enabled && !settings.enableSemanticSearchV3) {
-        updateSetting("enableSemanticSearchV3", true);
-      }
-
-      if (settings.enableSemanticSearchV3 || enabled) {
-        const VectorStoreManager = (await import("@/search/vectorStoreManager")).default;
-        await VectorStoreManager.getInstance().indexVaultToVectorStore(false, {
-          userInitiated: true,
-        });
-      }
-    };
-
-    new ConfirmModal(
-      app,
-      confirmChange,
-      `Enabling Miyo Search will use your current vault folder name as the Miyo folder identifier and request a scan from Miyo. Make sure this folder is already registered in Miyo. Embedding Batch Size will be reset to the default (${DEFAULT_SETTINGS.embeddingBatchSize}) for local stability. Continue?`,
-      "Request Miyo Scan"
-    ).open();
+    updateSetting("enableSelfHostMode", enabled);
   };
 
   return (
@@ -173,8 +108,8 @@ export const CopilotPlusSettings: React.FC = () => {
               description={
                 <div className="tw-flex tw-items-center tw-gap-1.5">
                   <span className="tw-leading-none">
-                    Use your own infrastructure for LLMs, embeddings and local document
-                    understanding with our desktop app Miyo.
+                    Use your own infrastructure for web search, YouTube transcripts, and semantic
+                    search backends.
                   </span>
                   <HelpTooltip
                     content={
@@ -183,9 +118,9 @@ export const CopilotPlusSettings: React.FC = () => {
                           Self-Host Mode
                         </div>
                         <div className="tw-text-xs tw-text-muted">
-                          Connect to your own self-hosted backend (e.g., Miyo) for complete control
-                          over your AI infrastructure. This allows offline usage and custom model
-                          deployments.
+                          Bring your own API keys for Firecrawl / Perplexity (web search) and
+                          Supadata (YouTube transcripts), or point at a self-hosted semantic search
+                          backend.
                         </div>
                       </div>
                     }
@@ -194,49 +129,10 @@ export const CopilotPlusSettings: React.FC = () => {
               }
               checked={settings.enableSelfHostMode}
               onCheckedChange={handleSelfHostModeToggle}
-              disabled={isValidatingSelfHost}
             />
 
             {settings.enableSelfHostMode && (
               <>
-                <SettingItem
-                  type="text"
-                  title="Remote Miyo Server URL (Optional)"
-                  description="Leave blank when accessing Miyo locally. Set this only when Miyo is running on a remote machine — it will override the local service discovery."
-                  value={settings.miyoServerUrl || ""}
-                  onChange={(value) => updateSetting("miyoServerUrl", value)}
-                />
-
-                <SettingItem
-                  type="switch"
-                  title="Enable Miyo"
-                  description="Use Miyo as your local search, PDF parsing, and context hub. Copilot will send the current vault folder name to Miyo and can request scans, but folder registration is managed in Miyo."
-                  checked={settings.enableMiyo}
-                  onCheckedChange={handleMiyoSearchToggle}
-                  disabled={isValidatingSelfHost}
-                />
-
-                {settings.enableMiyo && (
-                  <>
-                    <SettingItem
-                      type="switch"
-                      title="Search everything in Miyo"
-                      description="When enabled, Miyo searches all indexed content across all folders. When disabled, searches are limited to the current vault folder only."
-                      checked={settings.miyoSearchAll}
-                      onCheckedChange={(checked) => updateSetting("miyoSearchAll", checked)}
-                    />
-
-                    {!settings.miyoSearchAll && (
-                      <div className="tw-text-xs tw-text-muted">
-                        Folder identifier sent to Miyo:{" "}
-                        <span className="tw-font-medium tw-text-normal">
-                          {getMiyoFolderName(app)}
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
-
                 <SettingItem
                   type="select"
                   title="Web Search Provider"

@@ -20,14 +20,23 @@ All model and provider locks removed.
 
 ---
 
-## Feature 2: Advanced File Parsing (PDFs & Non-Markdown) ⚠️ Partial
+## Feature 2: Advanced File Parsing (PDFs & Non-Markdown) ✅ Done
 
-Parsing works via self-host (Miyo) when enabled. Direct Brevilabs route has no auth (removed license key).
+All file parsing happens locally, in-process. Zero network calls, zero premium backend. Miyo removed entirely.
 
-- `FileParserManager.ts` — Routes to Miyo when `isSelfHostModeValid()`, falls back to `BrevilabsClient` (unauthenticated — will fail without a self-host setup)
-- `constants.ts` — `NON_MARKDOWN_FILES_RESTRICTED` and `URL_PROCESSING_RESTRICTED` strings still exist but are no longer enforced at the model/chain level
-
-**Remaining:** Decide whether to route PDF parsing through the user's own provider or require self-host. Remove `NON_MARKDOWN_FILES_RESTRICTED` and `URL_PROCESSING_RESTRICTED` constants if no longer used.
+- `FileParserManager.ts` — Rewritten as a dispatch registry of local parsers:
+  - `LocalPdfParser` (`pdfjs-dist` legacy build, worker disabled) → PDF text extraction with existing `PDFCache`
+  - `LocalDocxParser` (`mammoth`) → DOCX/DOC/RTF → markdown
+  - `LocalSpreadsheetParser` (`xlsx`) → XLSX/XLS/ODS/CSV/TSV → markdown tables
+  - `LocalEpubParser` (`jszip` + `turndown`) → EPUB → markdown
+  - `PlainTextParser` → TXT/XML/JSON/LOG/HTML
+  - `UnsupportedFormatParser` → returns a human-readable "not yet supported" string for images/audio/PPTX, flowing into chat context so the LLM can explain to the user
+  - Heavy parsers loaded via dynamic `import()` so esbuild code-splits them — cold-start bundle stays minimal
+- `brevilabsClient.ts` — Deleted `pdf4llm()`, `docs4llm()`, and `getMimeTypeFromExtension()` helpers
+- `pdfCache.ts` — Introduced local `PdfCacheEntry` type to decouple cache from removed Brevilabs types
+- `constants.ts` — Removed `NON_MARKDOWN_FILES_RESTRICTED` and `URL_PROCESSING_RESTRICTED` from `RESTRICTION_MESSAGES`
+- `contextProcessor.ts` / `Chat.tsx` / `AddContextNoteModal.tsx` — Removed restriction-notice blocks; any file can be added to chat context
+- `utils.ts` — Simplified `isAllowedFileForChainContext` to allow all files (no chain-based gating)
 
 ---
 
@@ -64,7 +73,8 @@ Works via self-host (Firecrawl/Perplexity). Brevilabs route no longer has auth.
 ## Feature 6: Hybrid & Advanced Semantic Search ✅ Done (functionally)
 
 - `hybridRetriever.ts` — Uses `BrevilabsClient.rerank()` which no longer requires a license key (auth header removed)
-- Rerank requests will reach the Brevilabs API unauthenticated; server may reject them. Self-host (Miyo) semantic search is fully operational.
+- Rerank requests will reach the Brevilabs API unauthenticated; server may reject them. Local Orama-backed semantic search is fully operational.
+- Miyo semantic retriever and index backend deleted — `SelfHostRetriever` (for user-supplied backends) + `MergedSemanticRetriever` (Orama, local) + `TieredLexicalRetriever` handle all cases
 
 **Remaining:** If Brevilabs rerank is needed without a license, an alternative rerank strategy (local or different provider) may be needed.
 
@@ -72,12 +82,13 @@ Works via self-host (Firecrawl/Perplexity). Brevilabs route no longer has auth.
 
 ## Infrastructure & Scaffolding ✅ Done
 
-- `plusUtils.ts` — Recreated as minimal stub: `checkIsPlusUser` always `true`; self-host mode functions kept for Phase 2
-- `brevilabsClient.ts` — License key auth headers removed; client still functional for API calls
+- `plusUtils.ts` — Recreated as minimal stub: `checkIsPlusUser` always `true`; self-host mode functions kept (still used for user-supplied Firecrawl/Perplexity/Supadata keys)
+- `brevilabsClient.ts` — License key auth headers removed; client still functional for `rerank`, `url4llm`, `webSearch`, `youtube4llm`, `twitter4llm`
 - `PlusSettings.tsx` — Deleted
 - `error.ts` — `MissingPlusLicenseError` removed
 - `settings/v2/SettingsMainV2.tsx` — "plus" tab renamed to "tools"
 - `settings/v2/components/CopilotPlusSettings.tsx` — Plus badge and gating removed; self-host section always visible
+- **Miyo removed entirely** — Deleted `src/miyo/`, `src/search/miyo/`, `MiyoIndexBackend`, `enableMiyo`/`miyoServerUrl` settings, and all Miyo branches in `RetrieverFactory`, `vectorStoreManager`, `findRelevantNotes`, `VaultQAChainRunner`, `CopilotPlusSettings`, `QASettings`, `RelevantNotes`, and `commands/index.ts`. Legacy settings sanitization strips `enableMiyo`/`miyoSearchAll`/`miyoServerUrl`/etc. from existing user configs.
 
 ---
 
@@ -87,14 +98,13 @@ Works via self-host (Firecrawl/Perplexity). Brevilabs route no longer has auth.
 |---|---|
 | AI Models & Embeddings | ✅ Fully free |
 | Autonomous Agents | ✅ Fully free |
-| File Parsing (PDF/DOCX) | ⚠️ Self-host only |
+| File Parsing (PDF/DOCX/XLSX/EPUB) | ✅ Fully free (local parsing, zero network) |
 | Web Search | ⚠️ Self-host only |
 | YouTube Transcription | ❌ Still gated (2 remaining guards) |
-| Hybrid Search / Rerank | ⚠️ Self-host works; Brevilabs unauthenticated |
+| Hybrid Search / Rerank | ⚠️ Local semantic works; Brevilabs rerank unauthenticated |
 
 ### Next Steps (Phase 2)
 1. Remove `isPlusOnly: true` from `youtubeTranscriptionTool` in `src/tools/builtinTools.ts`
 2. Remove `checkIsPlusUser` guard from YouTube download command in `src/commands/index.ts`
-3. Decide routing strategy for PDF parsing and web search without Brevilabs auth (self-host-only or new provider)
+3. Decide routing strategy for web search without Brevilabs auth (self-host-only or new provider)
 4. Remove or replace `BrevilabsClient` rerank with a local/open alternative
-5. Clean up `NON_MARKDOWN_FILES_RESTRICTED` and `URL_PROCESSING_RESTRICTED` constants if unused

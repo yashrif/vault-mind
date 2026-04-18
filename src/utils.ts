@@ -413,22 +413,15 @@ export function isPlusChain(chainType: ChainType): boolean {
 }
 
 /**
- * Checks if a file extension is allowed for context based on the chain type.
- * All chains support text-readable files (md, canvas, base).
- * Plus chains additionally support PDF, EPUB, PPT, DOCX, etc.
+ * Checks if a file is allowed for context. All file types are supported now —
+ * markdown/canvas/base are read directly; PDFs, Office docs, EPUBs, and spreadsheets
+ * are parsed locally by FileParserManager; unsupported formats surface a clear
+ * "not yet supported" message in chat context.
  * @param file The file to check
- * @param chainType The current chain type
- * @returns true if the file is allowed for this chain type, false otherwise
+ * @returns true if the file is a valid TFile, false otherwise
  */
-export function isAllowedFileForChainContext(file: TFile | null, chainType: ChainType): boolean {
-  if (!file) return false;
-
-  if (isTextReadableFile(file)) {
-    return true;
-  }
-
-  // Plus chains support all other file types (PDF, EPUB, PPT, DOCX, etc.)
-  return isPlusChain(chainType);
+export function isAllowedFileForChainContext(file: TFile | null, _chainType: ChainType): boolean {
+  return !!file;
 }
 
 export async function getAllNotesContent(vault: Vault): Promise<string> {

@@ -1,12 +1,9 @@
 import { logInfo, logWarn } from "@/logger";
 import { isSelfHostModeValid } from "@/plusUtils";
-import { shouldUseMiyo } from "@/miyo/miyoUtils";
 import { getSettings, CopilotSettings } from "@/settings/model";
 import { App } from "obsidian";
 import { SelfHostRetriever, VectorSearchBackend } from "./selfHostRetriever";
-import { MiyoSemanticRetriever } from "./miyo/MiyoSemanticRetriever";
 import { MergedSemanticRetriever } from "./v3/MergedSemanticRetriever";
-import { RETURN_ALL_LIMIT } from "./v3/SearchCore";
 import { TieredLexicalRetriever } from "./v3/TieredLexicalRetriever";
 
 /**
@@ -89,10 +86,9 @@ export interface DocumentRetriever {
  * - Any other components that need search
  *
  * Priority order:
- * 1. Miyo-backed semantic search (self-host mode + Miyo toggle)
- * 2. Self-host mode backend (if registered)
- * 3. Semantic search / MergedSemanticRetriever (if enabled)
- * 4. Lexical search / TieredLexicalRetriever (default)
+ * 1. Self-host mode backend (if registered)
+ * 2. Semantic search / MergedSemanticRetriever (if enabled)
+ * 3. Lexical search / TieredLexicalRetriever (default)
  */
 export class RetrieverFactory {
   private static selfHostedBackend: VectorSearchBackend | null = null;
@@ -101,7 +97,7 @@ export class RetrieverFactory {
    * Register a self-host mode vector search backend.
    * This should be called during plugin initialization if self-host mode is configured.
    *
-   * @param backend - The vector search backend implementation (e.g., Miyo)
+   * @param backend - The vector search backend implementation
    */
   static registerSelfHostedBackend(backend: VectorSearchBackend): void {
     RetrieverFactory.selfHostedBackend = backend;
@@ -141,17 +137,6 @@ export class RetrieverFactory {
 
     // Normalize options with defaults
     const normalizedOptions = normalizeOptions(options);
-
-    // Miyo-backed semantic search (self-host mode + Miyo enabled)
-    if (RetrieverFactory.shouldUseMiyo(currentSettings)) {
-      const retriever = RetrieverFactory.createMiyoRetriever(app, options);
-      logInfo("RetrieverFactory: Using MiyoSemanticRetriever (standalone)");
-      return {
-        retriever,
-        type: "semantic",
-        reason: "Miyo search is enabled",
-      };
-    }
 
     // Self-host mode handling - requires valid validation (within grace period)
     if (isSelfHostModeValid()) {
@@ -238,13 +223,7 @@ export class RetrieverFactory {
    * @param options - Retriever configuration options
    * @returns The semantic retriever
    */
-  static createSemanticRetriever(
-    app: App,
-    options: RetrieverOptions
-  ): MergedSemanticRetriever | MiyoSemanticRetriever {
-    if (RetrieverFactory.shouldUseMiyo(getSettings())) {
-      return RetrieverFactory.createMiyoRetriever(app, options);
-    }
+  static createSemanticRetriever(app: App, options: RetrieverOptions): MergedSemanticRetriever {
     return new MergedSemanticRetriever(app, normalizeOptions(options));
   }
 
@@ -271,8 +250,6 @@ export class RetrieverFactory {
       }
     }
 
-    // No backend registered and we can't create one without implementation
-    // This is a placeholder until a concrete backend (e.g., Miyo) is implemented
     logWarn(
       "RetrieverFactory: No self-hosted backend available. " +
         "Register a VectorSearchBackend implementation via RetrieverFactory.registerSelfHostedBackend()"
@@ -291,10 +268,6 @@ export class RetrieverFactory {
     settings?: Partial<CopilotSettings>
   ): "self_hosted" | "semantic" | "lexical" {
     const currentSettings = settings ? { ...getSettings(), ...settings } : getSettings();
-
-    if (RetrieverFactory.shouldUseMiyo(currentSettings)) {
-      return "semantic";
-    }
 
     // Self-host mode handling - requires valid validation (within grace period)
     if (isSelfHostModeValid()) {
@@ -315,40 +288,5 @@ export class RetrieverFactory {
     }
 
     return "lexical";
-  }
-
-  /**
-   * Determine whether Miyo-backed search should be active.
-   *
-   * @param settings - Copilot settings snapshot.
-   * @returns True when Miyo should be used for semantic retrieval.
-   */
-  private static shouldUseMiyo(settings: CopilotSettings): boolean {
-    return shouldUseMiyo(settings);
-  }
-
-  /**
-   * Check whether Miyo search is currently active based on live settings.
-   *
-   * @returns True when Miyo is the active search backend.
-   */
-  static isMiyoActive(): boolean {
-    return RetrieverFactory.shouldUseMiyo(getSettings());
-  }
-
-  /**
-   * Create a standalone Miyo retriever (no local lexical merge).
-   * Use this when Miyo should be the sole search backend.
-   *
-   * @param app - Obsidian app instance.
-   * @param options - Retriever configuration options.
-   * @returns Miyo semantic retriever instance.
-   */
-  static createMiyoRetriever(app: App, options: RetrieverOptions): MiyoSemanticRetriever {
-    const normalized = normalizeOptions(options);
-    const semanticMax = normalized.returnAll
-      ? RETURN_ALL_LIMIT
-      : Math.min(normalized.maxK * 2, RETURN_ALL_LIMIT);
-    return new MiyoSemanticRetriever(app, { ...normalized, maxK: semanticMax });
   }
 }

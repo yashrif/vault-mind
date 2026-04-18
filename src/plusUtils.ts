@@ -1,5 +1,5 @@
 // Phase 1: Licensing removed. All users have Plus access.
-// Self-host mode functions kept for Phase 2 (YouTube/PDF/web search via Miyo).
+// Self-host mode retained for YouTube (Supadata) and web search (Firecrawl/Perplexity) with user-supplied keys.
 
 import { logInfo } from "@/logger";
 import { getSettings, updateSetting } from "@/settings/model";
@@ -67,7 +67,7 @@ export async function validateSelfHostMode(): Promise<boolean> {
  */
 export async function refreshSelfHostModeValidation(): Promise<void> {
   const settings = getSettings();
-  if (!settings.enableSelfHostMode && !settings.enableMiyo) {
+  if (!settings.enableSelfHostMode) {
     return;
   }
   if (settings.selfHostValidationCount >= SELF_HOST_PERMANENT_VALIDATION_COUNT) {

@@ -124,13 +124,9 @@ export interface CopilotSettings {
   enableCustomPromptTemplating: boolean;
   /** Enable semantic search using Orama for meaning-based document retrieval */
   enableSemanticSearchV3: boolean;
-  /** Enable self-host mode (e.g., Miyo) - uses self-hosted services for search, LLMs, OCR, etc. */
+  /** Enable self-host mode — uses user-configured backends for search, YouTube transcripts, etc. */
   enableSelfHostMode: boolean;
-  /** Enable Miyo-backed indexing and semantic search when self-host mode is active */
-  enableMiyo: boolean;
-  /** When true, omit folder_name from Miyo search requests so all indexed content is searched */
-  miyoSearchAll: boolean;
-  /** Timestamp of last successful Believer validation for self-host mode (null if never validated) */
+  /** Timestamp of last successful validation for self-host mode (null if never validated) */
   selfHostModeValidatedAt: number | null;
   /** Count of successful periodic validations (3 = permanently valid) */
   selfHostValidationCount: number;
@@ -138,8 +134,6 @@ export interface CopilotSettings {
   selfHostUrl: string;
   /** API key for the self-host mode backend (if required) */
   selfHostApiKey: string;
-  /** Custom Miyo server URL, e.g. "http://192.168.1.10:8742" (empty = use local service discovery) */
-  miyoServerUrl: string;
   /** Which provider to use for self-host web search */
   selfHostSearchProvider: "firecrawl" | "perplexity";
   /** Firecrawl API key for self-host web search */
@@ -328,7 +322,6 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
     enableSelfHostedSearch: legacyEnableSelfHostedSearch,
     selfHostedSearchUrl: legacySelfHostedSearchUrl,
     selfHostedSearchApiKey: legacySelfHostedSearchApiKey,
-    enableMiyoSearch: legacyEnableMiyoSearch,
   } = rawSettings;
 
   if (!settingsToSanitize.userId) {
@@ -356,6 +349,9 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
   delete sanitizedSettingsRecord.miyoRemoteVaultPath;
   delete sanitizedSettingsRecord.miyoVaultName;
   delete sanitizedSettingsRecord.enableMiyoSearch;
+  delete sanitizedSettingsRecord.enableMiyo;
+  delete sanitizedSettingsRecord.miyoSearchAll;
+  delete sanitizedSettingsRecord.miyoServerUrl;
 
   // Migration: Rename self-hosted search settings to self-host mode (v3.2.0+)
   if (
@@ -369,11 +365,6 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
   }
   if (legacySelfHostedSearchApiKey !== undefined && !sanitizedSettings.selfHostApiKey) {
     sanitizedSettings.selfHostApiKey = legacySelfHostedSearchApiKey as string;
-  }
-
-  // Migration: Rename legacy enableMiyoSearch to enableMiyo.
-  if (legacyEnableMiyoSearch !== undefined && sanitizedSettings.enableMiyo === undefined) {
-    sanitizedSettings.enableMiyo = legacyEnableMiyoSearch as boolean;
   }
 
   // Stuff in settings are string even when the interface has number type!
@@ -423,21 +414,6 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
   // Ensure generateAIChatTitleOnSave has a default value
   if (typeof sanitizedSettings.generateAIChatTitleOnSave !== "boolean") {
     sanitizedSettings.generateAIChatTitleOnSave = DEFAULT_SETTINGS.generateAIChatTitleOnSave;
-  }
-
-  // Ensure enableMiyo has a default value
-  if (typeof sanitizedSettings.enableMiyo !== "boolean") {
-    sanitizedSettings.enableMiyo = DEFAULT_SETTINGS.enableMiyo;
-  }
-
-  // Ensure miyoSearchAll has a default value
-  if (typeof sanitizedSettings.miyoSearchAll !== "boolean") {
-    sanitizedSettings.miyoSearchAll = DEFAULT_SETTINGS.miyoSearchAll;
-  }
-
-  // Ensure miyoServerUrl has a default value
-  if (typeof sanitizedSettings.miyoServerUrl !== "string") {
-    sanitizedSettings.miyoServerUrl = DEFAULT_SETTINGS.miyoServerUrl;
   }
 
   // Ensure selfHostSearchProvider is a valid value

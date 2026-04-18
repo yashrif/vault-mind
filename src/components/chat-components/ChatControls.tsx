@@ -7,9 +7,7 @@ import { DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-
 import { SettingSwitch } from "@/components/ui/setting-switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { logError } from "@/logger";
-import { shouldUseMiyo } from "@/miyo/miyoUtils";
 import { updateSetting, useSettingsValue } from "@/settings/model";
-import { Docs4LLMParser } from "@/tools/FileParserManager";
 import { isRateLimitError } from "@/utils/rateLimitUtils";
 import { DropdownMenu, DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
 import {
@@ -45,11 +43,7 @@ export async function refreshVaultIndex() {
       const count = await VectorStoreManager.getInstance().indexVaultToVectorStore(false, {
         userInitiated: true,
       });
-      if (shouldUseMiyo(settings)) {
-        new Notice("Miyo folder index refresh started. Open the Miyo app to check details.");
-      } else {
-        new Notice(`Semantic search index refreshed with ${count} documents.`);
-      }
+      new Notice(`Semantic search index refreshed with ${count} documents.`);
     } else {
       // V3 search builds indexes on demand
       new Notice("Lexical search builds indexes on demand. No manual indexing required.");
@@ -71,11 +65,7 @@ export async function forceReindexVault() {
       const count = await VectorStoreManager.getInstance().indexVaultToVectorStore(true, {
         userInitiated: true,
       });
-      if (shouldUseMiyo(settings)) {
-        new Notice("Miyo folder index refresh started. Open the Miyo app to check details.");
-      } else {
-        new Notice(`Semantic search index rebuilt with ${count} documents.`);
-      }
+      new Notice(`Semantic search index rebuilt with ${count} documents.`);
     } else {
       // V3 search builds indexes on demand
       new Notice("Lexical search builds indexes on demand. No manual indexing required.");
@@ -143,9 +133,6 @@ export async function forceRebuildCurrentProjectContext() {
         );
 
         // Step 1: Completely clear all cached data for this project (in-memory and on-disk)
-        // Reset rate limit notice timer to allow showing notices during force rebuild
-        Docs4LLMParser.resetRateLimitNoticeTimer();
-
         await ProjectContextCache.getInstance().clearForProject(currentProject);
         new Notice(`Cache for project "${currentProject.name}" has been cleared.`);
 

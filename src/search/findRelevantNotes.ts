@@ -1,32 +1,14 @@
-import { logInfo, logWarn } from "@/logger";
-import { MiyoClient } from "@/miyo/MiyoClient";
-import {
-  getMiyoAbsolutePath,
-  getMiyoCustomUrl,
-  getMiyoFolderName,
-  getVaultRelativeMiyoPath,
-  shouldUseMiyo,
-} from "@/miyo/miyoUtils";
+import { logWarn } from "@/logger";
 import { getBacklinkedNotes, getLinkedNotes } from "@/noteUtils";
 import { DBOperations } from "@/search/dbOperations";
 import type { SemanticIndexDocument } from "@/search/indexBackend/SemanticIndexBackend";
 import VectorStoreManager from "@/search/vectorStoreManager";
-import { getSettings } from "@/settings/model";
 import { InternalTypedDocument, Orama, Result } from "@orama/orama";
 import { TFile } from "obsidian";
 
 const MAX_K = 20;
 const ORIGINAL_WEIGHT = 0.7;
 const LINKS_WEIGHT = 0.3;
-
-/**
- * Determine whether Miyo-backed relevant-note scoring should be used.
- *
- * @returns True when Miyo mode and self-host access validation are active.
- */
-function shouldUseMiyoForRelevantNotes(): boolean {
-  return shouldUseMiyo(getSettings());
-}
 
 /**
  * Gets the highest score hits for each note and removes the current file path
@@ -119,62 +101,12 @@ async function calculateSimilarityScoreFromOrama({
 }
 
 /**
- * Calculate similarity scores using Miyo's related-note endpoint.
- *
- * @param filePath - Source note path.
- * @returns Map of note paths to max similarity score.
- */
-async function calculateSimilarityScoreFromMiyo(filePath: string): Promise<Map<string, number>> {
-  try {
-    const settings = getSettings();
-    const miyoClient = new MiyoClient();
-    const baseUrl = await miyoClient.resolveBaseUrl(getMiyoCustomUrl(settings));
-    const folderName = getMiyoFolderName(app);
-    const response = await miyoClient.searchRelated(baseUrl, getMiyoAbsolutePath(app, filePath), {
-      folderName,
-      limit: MAX_K,
-    });
-    const similarityScoreMap = new Map<string, number>();
-    const results = response.results || [];
-
-    for (const result of results) {
-      const relativePath = getVaultRelativeMiyoPath(app, result.path);
-      if (relativePath === filePath) {
-        continue;
-      }
-      if (typeof result.score !== "number" || Number.isNaN(result.score)) {
-        continue;
-      }
-      const existing = similarityScoreMap.get(relativePath);
-      if (existing === undefined || result.score > existing) {
-        similarityScoreMap.set(relativePath, result.score);
-      }
-    }
-
-    if (getSettings().debug) {
-      logInfo(
-        `RelevantNotes(Miyo): received ${results.length} chunks, collected ${similarityScoreMap.size} note scores`
-      );
-    }
-
-    return capToTopK(similarityScoreMap);
-  } catch (error) {
-    logWarn("RelevantNotes(Miyo): failed to compute similarity scores", error);
-    return new Map();
-  }
-}
-
-/**
- * Calculate similarity scores by selecting the best available backend strategy.
+ * Calculate similarity scores using the local Orama vector store.
  *
  * @param filePath - Source note path.
  * @returns Map of note paths to max similarity score.
  */
 async function calculateSimilarityScore(filePath: string): Promise<Map<string, number>> {
-  if (shouldUseMiyoForRelevantNotes()) {
-    return calculateSimilarityScoreFromMiyo(filePath);
-  }
-
   const currentNoteDocs = await VectorStoreManager.getInstance().getDocumentsByPath(filePath);
   if (currentNoteDocs.length === 0) {
     return new Map();
@@ -184,25 +116,25 @@ async function calculateSimilarityScore(filePath: string): Promise<Map<string, n
     .filter((doc) => hasUsableEmbedding(doc))
     .map((doc) => doc.embedding);
 
-  if (currentNoteEmbeddings.length > 0) {
-    try {
-      const db = await VectorStoreManager.getInstance().getDb();
-      return calculateSimilarityScoreFromOrama({
-        db,
-        filePath,
-        currentNoteEmbeddings,
-      });
-    } catch (error) {
-      logWarn("RelevantNotes(Orama): failed to compute similarity scores", error);
-      return new Map();
-    }
+  if (currentNoteEmbeddings.length === 0) {
+    return new Map();
   }
 
   if (!hasSourceChunkContent(currentNoteDocs)) {
     return new Map();
   }
 
-  return calculateSimilarityScoreFromMiyo(filePath);
+  try {
+    const db = await VectorStoreManager.getInstance().getDb();
+    return calculateSimilarityScoreFromOrama({
+      db,
+      filePath,
+      currentNoteEmbeddings,
+    });
+  } catch (error) {
+    logWarn("RelevantNotes(Orama): failed to compute similarity scores", error);
+    return new Map();
+  }
 }
 
 /**

@@ -107,20 +107,13 @@ export class VaultQAChainRunner extends BaseChainRunner {
       const filterDocs = await filterRetriever.getRelevantDocuments(standaloneQuestion);
 
       // Step 5b: Create main retriever using factory (handles priority: Self-hosted > Semantic > Lexical)
-      // Miyo is only relevant to Plus/agent chains — bypass it for VaultQA.
-      // When Miyo is active, Orama isn't initialized either, so also skip semantic → use lexical.
-      const miyoActive = RetrieverFactory.isMiyoActive();
-      const retrieverResult = await RetrieverFactory.createRetriever(
-        app,
-        {
-          minSimilarityScore: 0.01,
-          maxK: settings.maxSourceChunks,
-          salientTerms: hasTagTerms ? [...tags] : [],
-          tagTerms: tags,
-          returnAll: hasTagTerms,
-        },
-        miyoActive ? { enableMiyo: false, enableSemanticSearchV3: false } : {}
-      );
+      const retrieverResult = await RetrieverFactory.createRetriever(app, {
+        minSimilarityScore: 0.01,
+        maxK: settings.maxSourceChunks,
+        salientTerms: hasTagTerms ? [...tags] : [],
+        tagTerms: tags,
+        returnAll: hasTagTerms,
+      });
       const retriever = retrieverResult.retriever;
       logInfo(`VaultQA: Using ${retrieverResult.type} retriever - ${retrieverResult.reason}`);
 

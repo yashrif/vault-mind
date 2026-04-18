@@ -24,14 +24,7 @@ import { NewVersionBanner } from "@/components/chat-components/NewVersionBanner"
 import { ProjectList } from "@/components/chat-components/ProjectList";
 import IndexingProgressCard from "@/components/IndexingProgressCard";
 import ProgressCard from "@/components/project/progress-card";
-import {
-  ABORT_REASON,
-  AI_SENDER,
-  EVENT_NAMES,
-  LOADING_MESSAGES,
-  RESTRICTION_MESSAGES,
-  USER_SENDER,
-} from "@/constants";
+import { ABORT_REASON, AI_SENDER, EVENT_NAMES, LOADING_MESSAGES, USER_SENDER } from "@/constants";
 import { AppContext, EventTargetContext } from "@/context";
 import { ChatInputProvider, useChatInput } from "@/context/ChatInputContext";
 import { useChatManager } from "@/hooks/useChatManager";
@@ -263,14 +256,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     webTabs?: WebTabContext[];
   } = {}) => {
     if (!inputMessage && selectedImages.length === 0) return;
-
-    // Check for URL restrictions in non-Plus chains and show notice, but continue processing
-    const hasUrlsInContext = urls && urls.length > 0;
-
-    if (hasUrlsInContext && !isPlusChain(currentChain)) {
-      // Show notice but continue processing the message without URL context
-      new Notice(RESTRICTION_MESSAGES.URL_PROCESSING_RESTRICTED);
-    }
 
     try {
       // Create message content array

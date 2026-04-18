@@ -52,7 +52,7 @@ export interface VectorSearchResult {
 
 /**
  * Abstract interface for the vector search backend.
- * Implement this interface to connect to Miyo or other vector databases.
+ * Implement this interface to connect to any vector database.
  */
 export interface VectorSearchBackend {
   /**
@@ -103,7 +103,7 @@ export interface VectorSearchBackend {
  * This retriever completely replaces Search v3, Orama, and MergedSemanticRetriever
  * when enabled, providing a unified interface to external vector databases.
  *
- * The backend (e.g., Miyo) is injected via the constructor, keeping the
+ * The backend is injected via the constructor, keeping the
  * retriever implementation database-agnostic.
  */
 export class SelfHostRetriever extends BaseRetriever {
