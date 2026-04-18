@@ -1,8 +1,10 @@
 import { ProjectConfig } from "@/aiParams";
 import { PDFCache } from "@/cache/pdfCache";
 import { ProjectContextCache } from "@/cache/projectContextCache";
+import { AUDIO_EXTENSIONS } from "@/constants";
 import { logError, logInfo, logWarn } from "@/logger";
 import { getSettings } from "@/settings/model";
+import { AudioTranscriptionService } from "@/services/audioTranscriptionService";
 import { saveConvertedDocOutput as saveConvertedDocOutputCore } from "@/utils/convertedDocOutput";
 import { TFile, Vault } from "obsidian";
 import TurndownService from "turndown";
@@ -69,13 +71,7 @@ const UNSUPPORTED_EXTENSIONS = [
   "svg",
   "tiff",
   "webp",
-  "mp3",
-  "mp4",
-  "mpeg",
-  "mpga",
-  "m4a",
-  "wav",
-  "webm",
+  // audio extensions removed — handled by AudioParser via STT
   "ppt",
   "pptx",
   "pptm",
@@ -188,7 +184,7 @@ function parsePlainText(binary: ArrayBuffer, extension: string): string {
  * Inline message returned for file types we cannot parse locally yet.
  */
 function makeUnsupportedMessage(file: TFile): string {
-  return `[Format .${file.extension} is not supported for parsing. Supported formats include PDF, DOCX, XLSX, TXT, MD, and Canvas.]`;
+  return `[Format .${file.extension} is not supported for parsing. Supported formats include PDF, DOCX, XLSX, TXT, MD, Canvas, and audio files (MP3, M4A, WAV, WebM).]`;
 }
 
 export class MarkdownParser implements FileParser {
@@ -326,6 +322,19 @@ export class UnsupportedFormatParser implements FileParser {
 }
 
 /**
+ * Transcribes audio files via the configured STT service (e.g. Groq whisper-large-v3).
+ * Results are cached in AudioTranscriptionCache so repeated attaches are free.
+ */
+export class AudioParser implements FileParser {
+  supportedExtensions = AUDIO_EXTENSIONS;
+
+  async parseFile(file: TFile, vault: Vault): Promise<string> {
+    logInfo("Transcribing audio file:", file.path);
+    return AudioTranscriptionService.getInstance().transcribe(file, vault);
+  }
+}
+
+/**
  * Project-mode parser: dispatches all supported formats to local parsers, caches via ProjectContextCache.
  */
 export class ProjectFileParser implements FileParser {
@@ -334,6 +343,7 @@ export class ProjectFileParser implements FileParser {
     ...DOCX_EXTENSIONS,
     ...SPREADSHEET_EXTENSIONS,
     ...PLAIN_TEXT_EXTENSIONS,
+    ...AUDIO_EXTENSIONS,
   ];
   private projectContextCache: ProjectContextCache;
   private currentProject: ProjectConfig | null;
@@ -366,19 +376,24 @@ export class ProjectFileParser implements FileParser {
         return cachedContent;
       }
 
-      const binary = await vault.readBinary(file);
       const ext = file.extension.toLowerCase();
       let content: string;
-      if (PDF_EXTENSIONS.includes(ext)) {
-        content = await parsePdfLocal(binary);
-      } else if (DOCX_EXTENSIONS.includes(ext)) {
-        content = await parseDocxLocal(binary, ext);
-      } else if (SPREADSHEET_EXTENSIONS.includes(ext)) {
-        content = await parseSpreadsheetLocal(binary, ext);
-      } else if (PLAIN_TEXT_EXTENSIONS.includes(ext)) {
-        content = parsePlainText(binary, ext);
+      if (AUDIO_EXTENSIONS.includes(ext)) {
+        // Audio transcription uses its own cache keyed on model; skip the project cache.
+        content = await AudioTranscriptionService.getInstance().transcribe(file, vault);
       } else {
-        content = makeUnsupportedMessage(file);
+        const binary = await vault.readBinary(file);
+        if (PDF_EXTENSIONS.includes(ext)) {
+          content = await parsePdfLocal(binary);
+        } else if (DOCX_EXTENSIONS.includes(ext)) {
+          content = await parseDocxLocal(binary, ext);
+        } else if (SPREADSHEET_EXTENSIONS.includes(ext)) {
+          content = await parseSpreadsheetLocal(binary, ext);
+        } else if (PLAIN_TEXT_EXTENSIONS.includes(ext)) {
+          content = parsePlainText(binary, ext);
+        } else {
+          content = makeUnsupportedMessage(file);
+        }
       }
 
       await this.projectContextCache.setFileContext(this.currentProject, file.path, content);
@@ -413,6 +428,7 @@ export class FileParserManager {
       this.registerParser(new DocxParser());
       this.registerParser(new SpreadsheetParser());
       this.registerParser(new PlainTextParser());
+      this.registerParser(new AudioParser());
     }
 
     this.registerParser(new UnsupportedFormatParser(UNSUPPORTED_EXTENSIONS));

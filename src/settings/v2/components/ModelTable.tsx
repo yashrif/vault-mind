@@ -152,6 +152,7 @@ interface ModelCardProps {
   onUpdateModel: (model: CustomModel) => void;
   id: string;
   containerRef: React.RefObject<HTMLDivElement>;
+  showEnableToggle?: boolean;
 }
 
 const ModelCard: React.FC<ModelCardProps> = ({
@@ -162,6 +163,7 @@ const ModelCard: React.FC<ModelCardProps> = ({
   onUpdateModel,
   id,
   containerRef,
+  showEnableToggle = false,
 }) => {
   const dropdownActions: MobileCardDropdownAction<CustomModel>[] = [];
 
@@ -192,7 +194,7 @@ const ModelCard: React.FC<ModelCardProps> = ({
 
   const expandedContent = (
     <div className="tw-flex tw-justify-around">
-      {!model.isEmbeddingModel && (
+      {showEnableToggle && (
         <div className="tw-flex tw-items-center tw-gap-2">
           <span className="tw-text-sm">Enabled</span>
           <Checkbox
@@ -369,6 +371,8 @@ interface ModelTableProps {
   onReorderModels?: (newModels: CustomModel[]) => void;
   onRefresh?: () => void;
   title: string;
+  /** Controls whether the Enable/Disable checkbox is shown per row. Defaults to false. */
+  showEnableToggle?: boolean;
 }
 
 export const ModelTable: React.FC<ModelTableProps> = ({
@@ -381,8 +385,9 @@ export const ModelTable: React.FC<ModelTableProps> = ({
   onReorderModels,
   onRefresh,
   title,
+  showEnableToggle = false,
 }) => {
-  const isEmbeddingModel = !!(models.length > 0 && models[0].isEmbeddingModel);
+  const isEmbeddingModel = !showEnableToggle;
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -494,6 +499,7 @@ export const ModelTable: React.FC<ModelTableProps> = ({
                 onCopy={onCopy}
                 onDelete={onDelete}
                 onUpdateModel={onUpdateModel}
+                showEnableToggle={showEnableToggle}
               />
             ))}
           </div>

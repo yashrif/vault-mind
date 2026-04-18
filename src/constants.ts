@@ -219,13 +219,27 @@ export enum ModelCapability {
   REASONING = "reasoning",
   VISION = "vision",
   WEB_SEARCH = "websearch",
+  AUDIO_TRANSCRIPTION = "audio-transcription",
 }
 
 export const MODEL_CAPABILITIES: Record<ModelCapability, string> = {
   reasoning: "This model supports general reasoning tasks.",
   vision: "This model supports image inputs.",
   websearch: "This model can access the internet.",
+  "audio-transcription": "This model can transcribe audio files.",
 };
+
+export const BUILTIN_AUDIO_STT_MODELS: CustomModel[] = [
+  {
+    name: "whisper-large-v3",
+    provider: ChatModelProviders.GROQ,
+    enabled: true,
+    isBuiltIn: true,
+    core: true,
+    modelType: "stt",
+    capabilities: [ModelCapability.AUDIO_TRANSCRIPTION],
+  },
+];
 
 export const BUILTIN_CHAT_MODELS: CustomModel[] = [
   // Enabled models first
@@ -865,6 +879,12 @@ export const TEXT_READABLE_EXTENSIONS = [
 ];
 
 /**
+ * Audio file extensions supported for STT transcription.
+ * Also imported by FileParserManager to register AudioParser.
+ */
+export const AUDIO_EXTENSIONS = ["mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm"];
+
+/**
  * Binary, heavy, or non-textual formats that require specialized parsers
  * and should NEVER be previewed directly in the UI.
  */
@@ -880,6 +900,8 @@ export const NON_PREVIEWABLE_EXTENSIONS = [
   "xlsm",
   "xlsb",
   "csv",
+  // Audio (transcribed via STT — not previewable as binary)
+  ...AUDIO_EXTENSIONS,
 ];
 
 export const ALLOWED_NOTE_CONTEXT_EXTENSIONS = [
@@ -1006,6 +1028,8 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   defaultSystemPromptTitle: "",
   autoCompactThreshold: 128000,
   convertedDocOutputFolder: DEFAULT_CONVERTED_DOC_OUTPUT_FOLDER,
+  activeAudioSTTModels: BUILTIN_AUDIO_STT_MODELS,
+  audioSTTModelKey: "whisper-large-v3" + "|" + ChatModelProviders.GROQ,
 };
 
 export const EVENT_NAMES = {

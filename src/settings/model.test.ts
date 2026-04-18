@@ -4,7 +4,9 @@ import {
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_SETTINGS,
   SEND_SHORTCUT,
+  BUILTIN_AUDIO_STT_MODELS,
 } from "@/constants";
+import { getModelKeyFromModel } from "@/settings/model";
 import { sanitizeQaExclusions, sanitizeSettings } from "@/settings/model";
 import { getEffectiveUserPrompt, getSystemPrompt } from "@/system-prompts/systemPromptBuilder";
 import * as systemPromptsState from "@/system-prompts/state";
@@ -361,5 +363,84 @@ describe("getEffectiveUserPrompt - legacy fallback", () => {
     const result = getEffectiveUserPrompt();
 
     expect(result).toBe("");
+  });
+});
+
+describe("sanitizeSettings - STT model migration", () => {
+  it("initializes activeAudioSTTModels from builtins when missing", () => {
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      activeAudioSTTModels: undefined as any,
+    };
+
+    const sanitized = sanitizeSettings(settings);
+
+    expect(sanitized.activeAudioSTTModels).toBeDefined();
+    expect(sanitized.activeAudioSTTModels.length).toBeGreaterThan(0);
+    expect(sanitized.activeAudioSTTModels[0].name).toBe(BUILTIN_AUDIO_STT_MODELS[0].name);
+  });
+
+  it("preserves audioSTTModelKey through sanitize (key resolution happens in setSettings)", () => {
+    const validKey = getModelKeyFromModel(BUILTIN_AUDIO_STT_MODELS[0]);
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      audioSTTModelKey: validKey,
+    };
+
+    const sanitized = sanitizeSettings(settings);
+
+    expect(sanitized.audioSTTModelKey).toBe(validKey);
+  });
+
+  it("populates modelType on legacy embedding models missing the field", () => {
+    const legacyEmbeddingModel = {
+      name: "text-embedding-ada-002",
+      provider: "openai",
+      enabled: true,
+      isEmbeddingModel: true,
+      // no modelType field
+    };
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      activeEmbeddingModels: [legacyEmbeddingModel] as any,
+    };
+
+    const sanitized = sanitizeSettings(settings);
+
+    const migratedModel = sanitized.activeEmbeddingModels.find(
+      (m) => m.name === "text-embedding-ada-002"
+    );
+    expect(migratedModel?.modelType).toBe("embedding");
+  });
+
+  it("populates modelType on legacy chat models missing the field", () => {
+    const legacyChatModel = {
+      name: "gpt-4o",
+      provider: "openai",
+      enabled: true,
+      // no modelType, no isEmbeddingModel
+    };
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      activeModels: [...DEFAULT_SETTINGS.activeModels, legacyChatModel] as any,
+    };
+
+    const sanitized = sanitizeSettings(settings);
+
+    const migratedModel = sanitized.activeModels.find((m) => m.name === "gpt-4o");
+    expect(migratedModel?.modelType).toBe("chat");
+  });
+
+  it("ensures all activeAudioSTTModels have modelType stt after sanitize", () => {
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      activeAudioSTTModels: [{ name: "whisper-large-v3", provider: "groq", enabled: true }] as any,
+    };
+
+    const sanitized = sanitizeSettings(settings);
+
+    for (const model of sanitized.activeAudioSTTModels) {
+      expect(model.modelType).toBe("stt");
+    }
   });
 });

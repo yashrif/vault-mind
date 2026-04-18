@@ -6,6 +6,7 @@ import { type ChainType } from "@/chainFactory";
 import { type SortStrategy, isSortStrategy } from "@/utils/recentUsageManager";
 import {
   AGENT_MAX_ITERATIONS_LIMIT,
+  BUILTIN_AUDIO_STT_MODELS,
   BUILTIN_CHAT_MODELS,
   BUILTIN_EMBEDDING_MODELS,
   COPILOT_FOLDER_ROOT,
@@ -104,6 +105,8 @@ export interface CopilotSettings {
   groqApiKey: string;
   activeModels: Array<CustomModel>;
   activeEmbeddingModels: Array<CustomModel>;
+  activeAudioSTTModels: Array<CustomModel>;
+  audioSTTModelKey: string;
   promptUsageTimestamps: Record<string, number>;
   promptSortStrategy: string;
   chatHistorySortStrategy: SortStrategy;
@@ -213,12 +216,25 @@ function resolveEmbeddingModelKey(settings: CopilotSettings): string {
   return DEFAULT_SETTINGS.embeddingModelKey;
 }
 
+function resolveAudioSTTModelKey(settings: CopilotSettings): string {
+  const activeSTTModels = settings.activeAudioSTTModels || [];
+  const activeSTTKeys = new Set(activeSTTModels.map((m) => getModelKeyFromModel(m)));
+
+  if (settings.audioSTTModelKey && activeSTTKeys.has(settings.audioSTTModelKey)) {
+    return settings.audioSTTModelKey;
+  }
+
+  const firstEnabled = activeSTTModels.find((m) => m.enabled);
+  return firstEnabled ? getModelKeyFromModel(firstEnabled) : DEFAULT_SETTINGS.audioSTTModelKey;
+}
+
 /**
  * Sets the settings in the atom.
  */
 export function setSettings(settings: Partial<CopilotSettings>) {
   const newSettings = mergeAllActiveModelsWithCoreModels({ ...getSettings(), ...settings });
   newSettings.embeddingModelKey = resolveEmbeddingModelKey(newSettings);
+  newSettings.audioSTTModelKey = resolveAudioSTTModelKey(newSettings);
   settingsStore.set(settingsAtom, newSettings);
 }
 
@@ -282,6 +298,7 @@ export function resetSettings(): void {
     ...DEFAULT_SETTINGS,
     activeModels: BUILTIN_CHAT_MODELS.map((model) => ({ ...model, enabled: true })),
     activeEmbeddingModels: BUILTIN_EMBEDDING_MODELS.map((model) => ({ ...model, enabled: true })),
+    activeAudioSTTModels: BUILTIN_AUDIO_STT_MODELS.map((model) => ({ ...model, enabled: true })),
   };
   setSettings(defaultSettingsWithBuiltIns);
 }
@@ -343,6 +360,39 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
       };
     });
   }
+
+  // Initialize STT models for installs that predate this feature.
+  if (!settingsToSanitize.activeAudioSTTModels) {
+    settingsToSanitize.activeAudioSTTModels = BUILTIN_AUDIO_STT_MODELS.map((model) => ({
+      ...model,
+      enabled: true,
+    }));
+  }
+
+  // Migration: populate modelType from the containing array when missing.
+  const migrateModelType = (
+    models: CustomModel[],
+    type: "chat" | "embedding" | "stt"
+  ): CustomModel[] =>
+    models.map((m) => {
+      if (m.modelType) return m;
+      return {
+        ...m,
+        modelType: type,
+        // keep isEmbeddingModel in sync for any code still reading the old flag
+        isEmbeddingModel: type === "embedding" ? true : m.isEmbeddingModel,
+      };
+    });
+
+  settingsToSanitize.activeModels = migrateModelType(settingsToSanitize.activeModels || [], "chat");
+  settingsToSanitize.activeEmbeddingModels = migrateModelType(
+    settingsToSanitize.activeEmbeddingModels,
+    "embedding"
+  );
+  settingsToSanitize.activeAudioSTTModels = migrateModelType(
+    settingsToSanitize.activeAudioSTTModels,
+    "stt"
+  );
 
   const sanitizedSettings: CopilotSettings = { ...settingsToSanitize };
   const sanitizedSettingsRecord = sanitizedSettings as unknown as Record<string, unknown>;
@@ -583,10 +633,19 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
 }
 
 function mergeAllActiveModelsWithCoreModels(settings: CopilotSettings): CopilotSettings {
-  settings.activeModels = mergeActiveModels(settings.activeModels, BUILTIN_CHAT_MODELS);
-  settings.activeEmbeddingModels = filterUnsupportedEmbeddingModels(
-    mergeActiveModels(settings.activeEmbeddingModels, BUILTIN_EMBEDDING_MODELS)
-  );
+  const categories = [
+    { field: "activeModels" as const, builtIns: BUILTIN_CHAT_MODELS },
+    { field: "activeEmbeddingModels" as const, builtIns: BUILTIN_EMBEDDING_MODELS },
+    { field: "activeAudioSTTModels" as const, builtIns: BUILTIN_AUDIO_STT_MODELS },
+  ];
+
+  for (const { field, builtIns } of categories) {
+    settings[field] = mergeActiveModels(settings[field] || [], builtIns) as CustomModel[];
+  }
+
+  // Embedding-specific: remove providers that are no longer supported.
+  settings.activeEmbeddingModels = filterUnsupportedEmbeddingModels(settings.activeEmbeddingModels);
+
   return settings;
 }
 

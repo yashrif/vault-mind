@@ -1,4 +1,4 @@
-import { CustomModel } from "@/aiParams";
+import { CustomModel, getModelType } from "@/aiParams";
 import { ChatModelProviders, EmbeddingModelProviders, ProviderInfo } from "@/constants";
 import { getDecryptedKey } from "@/encryptionService";
 
@@ -737,7 +737,7 @@ export async function buildCurlCommandForModel(
     return { ok: false, error: "Provider is required to build a curl command.", warnings };
   }
 
-  const isEmbeddingModel = Boolean(model.isEmbeddingModel);
+  const isEmbeddingModel = getModelType(model) === "embedding";
 
   // Azure OpenAI
   if (provider === ChatModelProviders.AZURE_OPENAI) {

@@ -115,6 +115,17 @@ Click the **+ Add context** button above the chat input to attach a PDF file. Th
 
 Drag an image directly into the chat input box, or click the **image button** in the bottom-right corner of the chat input. The image is sent to the AI if your selected model supports **Vision** capability.
 
+### Adding Audio as Context
+
+Drag an audio file (MP3, MP4, MPEG, MPGA, M4A, WAV, or WebM) into the chat input box, or use **@ mention** to attach a file from your vault. Copilot transcribes the audio via the configured Audio STT model and injects the transcript as text context for the AI.
+
+- Transcription happens automatically on attach and results are cached — re-attaching the same file is instant.
+- Files larger than 25 MB cannot be transcribed by Groq. Split or compress the file if you hit this limit.
+- The transcript counts toward the context window of your chat model, not a separate quota.
+- Audio transcription works in both Chat mode and Projects mode.
+
+To set up audio transcription, configure an Audio STT model in **Settings → Copilot → Models → Audio STT Models**. See [Models and Parameters](models-and-parameters.md#audio-stt-models) for details.
+
 ---
 
 ## Context Indicators
