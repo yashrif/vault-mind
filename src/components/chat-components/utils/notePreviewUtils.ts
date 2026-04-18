@@ -1,4 +1,5 @@
 import { TFile, App } from "obsidian";
+import { NON_PREVIEWABLE_EXTENSIONS } from "@/constants";
 
 // Get app instance
 declare const app: App;
@@ -16,8 +17,8 @@ export async function loadNoteContentForPreview(
   maxLength: number = 500
 ): Promise<string> {
   try {
-    // Handle PDF and canvas files - treat as empty content (no preview)
-    if (file.extension === "pdf" || file.extension === "canvas") {
+    // Treat heavy/binary files + canvas as empty content (no preview)
+    if (NON_PREVIEWABLE_EXTENSIONS.includes(file.extension)) {
       return "";
     }
 
