@@ -43,7 +43,23 @@ const SPREADSHEET_EXTENSIONS = [
   "prn",
 ];
 const EPUB_EXTENSIONS = ["epub"];
-const PLAIN_TEXT_EXTENSIONS = ["txt", "xml", "json", "log", "htm", "html"];
+const PLAIN_TEXT_EXTENSIONS = [
+  "txt",
+  "xml",
+  "json",
+  "log",
+  "htm",
+  "html",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "py",
+  "css",
+  "yaml",
+  "yml",
+  "java",
+];
 
 const UNSUPPORTED_EXTENSIONS = [
   "jpg",

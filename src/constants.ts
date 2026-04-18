@@ -844,41 +844,25 @@ export const COMMAND_ICONS: Partial<Record<CommandId, string>> = {
  * These files can be read directly via `vault.read()` and don't require special parsers.
  * Add new text-based extensions here to enable them everywhere (active note, context, chain).
  */
-export const TEXT_READABLE_EXTENSIONS = [
-  "md",
-  "canvas",
-  "base",
-  // Word Docs
-  "docx",
-  "doc",
-  // Spreadsheets
-  "xlsx",
-  "xls",
-  "csv",
-  "tsv",
-  // Plain Text
-  "txt",
-  "xml",
-  "json",
-  "log",
-  "html",
-  "ts",
-  "tsx",
-  "js",
-  "jsx",
-  "py",
-  "css",
-  "yaml",
-  "yml",
-  "java",
-];
+export const TEXT_READABLE_EXTENSIONS = ["md", "canvas", "base"];
 
 /**
  * Valid file extensions for note context.
  * Includes text-readable files plus Plus-only formats like PDF.
  * This does NOT include images - images are handled separately in the UI.
  */
-export const ALLOWED_NOTE_CONTEXT_EXTENSIONS = [...TEXT_READABLE_EXTENSIONS, "pdf"];
+export const ALLOWED_NOTE_CONTEXT_EXTENSIONS = [
+  ...TEXT_READABLE_EXTENSIONS,
+  "pdf",
+  // Word Docs
+  "doc", "docx", "docm", "dot", "dotm", "rtf",
+  // Spreadsheets
+  "xls", "xlsx", "xlsm", "xlsb", "xltx", "xltm", "csv", "tsv", "ods",
+  // EPUB
+  "epub",
+  // Plain Text
+  "txt", "xml", "json", "log", "htm", "html", "ts", "tsx", "js", "jsx", "py", "css", "yaml", "yml", "java"
+];
 
 export const RESTRICTION_MESSAGES = {
   UNSUPPORTED_FILE_TYPE: (extension: string) =>
