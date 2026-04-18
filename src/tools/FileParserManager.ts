@@ -96,15 +96,19 @@ const UNSUPPORTED_EXTENSIONS = [
  */
 async function parsePdfLocal(binary: ArrayBuffer): Promise<string> {
   const pdfjs: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  if (pdfjs.GlobalWorkerOptions) {
-    pdfjs.GlobalWorkerOptions.workerSrc = "";
+
+  if (!pdfjs.GlobalWorkerOptions.workerPort) {
+    // @ts-ignore - The module exists but has no type definitions
+    await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
   }
+
   const doc = await pdfjs.getDocument({
-    data: new Uint8Array(binary),
+    data: new Uint8Array(binary).slice(0), // Ensure a fresh copy of bytes
     useWorkerFetch: false,
+    useSystemFonts: true,
     isEvalSupported: false,
-    disableFontFace: true,
   }).promise;
+
   const parts: string[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
