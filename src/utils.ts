@@ -2,7 +2,6 @@ import { ChainType, Document } from "@/chainFactory";
 import {
   ALLOWED_NOTE_CONTEXT_EXTENSIONS,
   ChatModelProviders,
-  EmbeddingModelProviders,
   NOMIC_EMBED_TEXT,
   Provider,
   ProviderInfo,
@@ -967,7 +966,7 @@ export function getProviderInfo(provider: string): ProviderMetadata {
 
 export function getProviderLabel(provider: string, model?: CustomModel): string {
   const baseLabel = ProviderInfo[provider as Provider]?.label || provider;
-  return baseLabel + (model?.believerExclusive && baseLabel === "Copilot Plus" ? "(Believer)" : "");
+  return baseLabel;
 }
 
 export function getProviderHost(provider: string): string {
@@ -1223,8 +1222,6 @@ export function getNeedSetKeyProvider(): Provider[] {
     ChatModelProviders.LM_STUDIO,
     ChatModelProviders.AZURE_OPENAI,
     ChatModelProviders.GITHUB_COPILOT,
-    EmbeddingModelProviders.COPILOT_PLUS,
-    EmbeddingModelProviders.COPILOT_PLUS_JINA,
   ];
 
   return (Object.keys(ProviderInfo) as Provider[]).filter((key) => !excludeProviders.includes(key));

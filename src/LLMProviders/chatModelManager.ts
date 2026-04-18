@@ -682,8 +682,7 @@ export default class ChatModelManager {
   }
 
   /**
-   * Helper to validate a model config has valid credentials and meets entitlement requirements.
-   * Does NOT check believerExclusive - that's validated at usage time, not selection time.
+   * Helper to validate a model config has valid credentials.
    */
   private isModelConfigValid(model: CustomModel, settings: CopilotSettings): boolean {
     const modelKey = getModelKeyFromModel(model);
@@ -701,9 +700,6 @@ export default class ChatModelManager {
    * Resolves the active chat model for temperature override operations.
    * Uses a single source of truth: getModelKey() -> findCustomModel()
    * Falls back to first valid model in settings.activeModels if current selection is invalid.
-   *
-   * Note: believerExclusive models are trusted if explicitly selected by the user,
-   * but skipped in fallback to avoid selecting them for non-Believer users.
    */
   private resolveModelForTemperatureOverride(): CustomModel {
     const settings = getSettings();
@@ -714,8 +710,7 @@ export default class ChatModelManager {
       if (currentModelKey) {
         const model = findCustomModel(currentModelKey, settings.activeModels);
 
-        // Validate it (trust believerExclusive if user selected it)
-        if (this.isModelConfigValid(model, settings)) {
+          if (this.isModelConfigValid(model, settings)) {
           return model;
         }
       }
@@ -724,9 +719,8 @@ export default class ChatModelManager {
     }
 
     // Fallback: Find first valid model in settings.activeModels
-    // Skip believerExclusive models in fallback to avoid selecting them for non-Believer users
     for (const model of settings.activeModels) {
-      if (model.enabled && !model.believerExclusive && this.isModelConfigValid(model, settings)) {
+      if (model.enabled && this.isModelConfigValid(model, settings)) {
         return model;
       }
     }

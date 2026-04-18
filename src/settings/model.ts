@@ -47,7 +47,6 @@ export interface LegacyCommandSettings {
 
 export interface CopilotSettings {
   userId: string;
-  plusLicenseKey: string;
   openAIApiKey: string;
   openAIOrgId: string;
   huggingfaceApiKey: string;
@@ -118,8 +117,6 @@ export interface CopilotSettings {
   showRelevantNotes: boolean;
   numPartitions: number;
   defaultConversationNoteName: string;
-  // undefined means never checked
-  isPlusUser: boolean | undefined;
   inlineEditCommands: LegacyCommandSettings[] | undefined;
   projectList: Array<ProjectConfig>;
   passMarkdownImages: boolean;

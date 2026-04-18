@@ -14,7 +14,7 @@ import { CopilotPlusSettings } from "./components/CopilotPlusSettings";
 import { ModelSettings } from "./components/ModelSettings";
 import { QASettings } from "./components/QASettings";
 
-const TAB_IDS = ["basic", "model", "QA", "command", "plus", "advanced"] as const;
+const TAB_IDS = ["basic", "model", "QA", "command", "tools", "advanced"] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 // tab icons
@@ -23,7 +23,7 @@ const icons: Record<TabId, JSX.Element> = {
   model: <Cpu className="tw-size-5" />,
   QA: <Database className="tw-size-5" />,
   command: <Command className="tw-size-5" />,
-  plus: <Sparkles className="tw-size-5" />,
+  tools: <Sparkles className="tw-size-5" />,
   advanced: <Wrench className="tw-size-5" />,
 };
 
@@ -33,7 +33,7 @@ const components: Record<TabId, React.FC> = {
   model: () => <ModelSettings />,
   QA: () => <QASettings />,
   command: () => <CommandSettings />,
-  plus: () => <CopilotPlusSettings />,
+  tools: () => <CopilotPlusSettings />,
   advanced: () => <AdvancedSettings />,
 };
 

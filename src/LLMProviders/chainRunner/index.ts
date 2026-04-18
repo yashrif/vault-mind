@@ -4,7 +4,6 @@ export { BaseChainRunner } from "./BaseChainRunner";
 export { LLMChainRunner } from "./LLMChainRunner";
 export { VaultQAChainRunner } from "./VaultQAChainRunner";
 export { ToolChainRunner } from "./ToolChainRunner";
-export { ToolChainRunner as CopilotPlusChainRunner } from "./ToolChainRunner";
 export { ProjectChainRunner } from "./ProjectChainRunner";
 export { AutonomousAgentChainRunner } from "./AutonomousAgentChainRunner";
 

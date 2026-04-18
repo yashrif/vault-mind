@@ -23,8 +23,6 @@ export const ModelSettings: React.FC = () => {
         "isBuiltIn",
         "core",
         "projectEnabled",
-        "missingProp1",
-        "missingProp2",
         "capabilities",
         "displayName",
         "dimensions",

@@ -1,9 +1,5 @@
 const BREVILABS_API_BASE_URL = "https://api.brevilabs.com/v1";
-// Phase 2 refactor placeholder
-import { getDecryptedKey } from "@/encryptionService";
-import {  } from "@/error";
 import { logInfo } from "@/logger";
-import { turnOffPlus, turnOnPlus } from "@/plusUtils";
 import { getSettings } from "@/settings/model";
 import { safeFetchNoThrow } from "@/utils";
 import { arrayBufferToBase64 } from "@/utils/base64";
@@ -85,14 +81,6 @@ export class BrevilabsClient {
     return BrevilabsClient.instance;
   }
 
-  private checkLicenseKey() {
-    if (!getSettings().plusLicenseKey) {
-      throw new Error(
-        "Copilot Plus license key not found. Please enter your license key in the settings."
-      );
-    }
-  }
-
   setPluginVersion(pluginVersion: string) {
     this.pluginVersion = pluginVersion;
   }
@@ -100,14 +88,8 @@ export class BrevilabsClient {
   private async makeRequest<T>(
     endpoint: string,
     body: any,
-    method = "POST",
-    excludeAuthHeader = false,
-    skipLicenseCheck = false
+    method = "POST"
   ): Promise<{ data: T | null; error?: Error }> {
-    if (!skipLicenseCheck) {
-      this.checkLicenseKey();
-    }
-
     body.user_id = getSettings().userId;
 
     const url = new URL(`${BREVILABS_API_BASE_URL}${endpoint}`);
@@ -121,9 +103,6 @@ export class BrevilabsClient {
       "Content-Type": "application/json",
       "X-Client-Version": this.pluginVersion,
     };
-    if (!excludeAuthHeader) {
-      headers.Authorization = `Bearer ${await getDecryptedKey(getSettings().plusLicenseKey)}`;
-    }
     const response = await safeFetchNoThrow(url.toString(), {
       method,
       headers,
@@ -147,13 +126,8 @@ export class BrevilabsClient {
 
   private async makeFormDataRequest<T>(
     endpoint: string,
-    formData: FormData,
-    skipLicenseCheck = false
+    formData: FormData
   ): Promise<{ data: T | null; error?: Error }> {
-    if (!skipLicenseCheck) {
-      this.checkLicenseKey();
-    }
-
     // Add user_id to FormData
     formData.append("user_id", getSettings().userId);
 
@@ -164,7 +138,6 @@ export class BrevilabsClient {
         method: "POST",
         headers: {
           // No Content-Type header - browser will set it automatically with boundary
-          Authorization: `Bearer ${await getDecryptedKey(getSettings().plusLicenseKey)}`,
           "X-Client-Version": this.pluginVersion,
         },
         body: formData,
@@ -199,7 +172,6 @@ export class BrevilabsClient {
   ): Promise<{ isValid: boolean | undefined; plan?: string }> {
     // Build the request body with proper structure
     const requestBody: Record<string, any> = {
-      license_key: await getDecryptedKey(getSettings().plusLicenseKey),
     };
 
     // Safely spread context if provided, ensuring no conflicts with required fields
@@ -223,21 +195,12 @@ export class BrevilabsClient {
 
     const { data, error } = await this.makeRequest<LicenseResponse>(
       "/license",
-      requestBody,
-      "POST",
-      true,
-      true
+      requestBody
     );
 
     if (error) {
-      if (error.message === "Invalid license key") {
-        turnOffPlus();
-        return { isValid: false };
-      }
-      // Do nothing if the error is not about the invalid license key
       return { isValid: undefined };
     }
-    turnOnPlus();
     return { isValid: true, plan: data?.plan };
   }
 

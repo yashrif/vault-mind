@@ -1,4 +1,3 @@
-import { getDecryptedKey } from "@/encryptionService";
 import { logError, logInfo, logWarn } from "@/logger";
 import { MiyoServiceDiscovery } from "@/miyo/MiyoServiceDiscovery";
 import { getSettings } from "@/settings/model";
@@ -359,18 +358,8 @@ export class MiyoClient {
    *
    * @returns Headers object for requestUrl.
    */
-  private async buildHeaders(): Promise<Record<string, string>> {
-    const settings = getSettings();
-    const headers: Record<string, string> = {};
-
-    const licenseKey = settings.plusLicenseKey
-      ? await getDecryptedKey(settings.plusLicenseKey)
-      : "";
-    if (licenseKey) {
-      headers.Authorization = `Bearer ${licenseKey}`;
-    }
-
-    return headers;
+  private buildHeaders(): Record<string, string> {
+    return {};
   }
 
   /**

@@ -1,11 +1,9 @@
 import { ConfirmModal } from "@/components/modals/ConfirmModal";
-import { Badge } from "@/components/ui/badge";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import { SettingItem } from "@/components/ui/setting-item";
 import { DEFAULT_SETTINGS } from "@/constants";
 import { MiyoClient } from "@/miyo/MiyoClient";
 import { getMiyoCustomUrl, getMiyoFolderName } from "@/miyo/miyoUtils";
-import { useIsSelfHostEligible, validateSelfHostMode } from "@/plusUtils";
 import { updateSetting, useSettingsValue } from "@/settings/model";
 import { Notice } from "obsidian";
 import React, { useState } from "react";
@@ -14,7 +12,6 @@ import { ToolSettingsSection } from "./ToolSettingsSection";
 export const CopilotPlusSettings: React.FC = () => {
   const settings = useSettingsValue();
   const [isValidatingSelfHost, setIsValidatingSelfHost] = useState(false);
-  const isSelfHostEligible = useIsSelfHostEligible();
 
   /**
    * Toggle self-host mode and handle validation requirements.
@@ -23,13 +20,6 @@ export const CopilotPlusSettings: React.FC = () => {
    */
   const handleSelfHostModeToggle = async (enabled: boolean) => {
     if (enabled) {
-      setIsValidatingSelfHost(true);
-      const isValid = await validateSelfHostMode();
-      setIsValidatingSelfHost(false);
-      if (!isValid) {
-        // Validation failed - Notice already shown by validateSelfHostMode
-        return;
-      }
       updateSetting("enableSelfHostMode", true);
     } else {
       updateSetting("enableSelfHostMode", false);
@@ -94,11 +84,6 @@ export const CopilotPlusSettings: React.FC = () => {
   return (
     <div className="tw-flex tw-flex-col tw-gap-4">
       <section className="tw-flex tw-flex-col tw-gap-4">
-        <div className="tw-flex tw-items-center tw-py-4">
-          <Badge variant="secondary" className="tw-text-accent">
-            Plus Required
-          </Badge>
-        </div>
         <div className="tw-flex tw-flex-col tw-gap-4">
           <div className="tw-pt-4 tw-text-xl tw-font-semibold">Autonomous Agent</div>
 
@@ -177,8 +162,7 @@ export const CopilotPlusSettings: React.FC = () => {
             }}
           />
 
-          {isSelfHostEligible && (
-            <>
+          <>
               <div className="tw-flex tw-items-center tw-gap-1.5 tw-pt-4 tw-text-xl tw-font-semibold">
                 Self-Host Mode
                 <HelpTooltip content="Lifetime license required" />
@@ -340,7 +324,6 @@ export const CopilotPlusSettings: React.FC = () => {
                 </>
               )}
             </>
-          )}
         </div>
       </section>
     </div>
