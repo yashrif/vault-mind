@@ -202,6 +202,7 @@ export enum ChatModels {
   OPENROUTER_GROK_4_1_FAST = "x-ai/grok-4.1-fast",
   SILICONFLOW_DEEPSEEK_V3 = "deepseek-ai/DeepSeek-V3",
   SILICONFLOW_DEEPSEEK_R1 = "deepseek-ai/DeepSeek-R1",
+  OPENROUTER_FREE = "openrouter/free",
 }
 
 // Model Providers
@@ -432,6 +433,15 @@ export const BUILTIN_CHAT_MODELS: CustomModel[] = [
   //   baseUrl: "https://api.siliconflow.com/v1",
   //   capabilities: [ModelCapability.REASONING],
   // },
+  {
+    name: ChatModels.OPENROUTER_FREE,
+    provider: ChatModelProviders.OPENROUTERAI,
+    enabled: true,
+    isBuiltIn: true,
+    core: false,
+    projectEnabled: true,
+    capabilities: [ModelCapability.VISION, ModelCapability.REASONING],
+  },
 ];
 
 export enum EmbeddingModelProviders {
