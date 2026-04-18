@@ -40,6 +40,7 @@ import {
   GripVertical,
   Lightbulb,
   LucideProps,
+  Mic,
   MoreVertical,
   Pencil,
   PencilLine,
@@ -79,12 +80,18 @@ const CAPABILITY_ICONS: Record<
     color: "tw-text-model-capabilities-blue",
     tooltip: MODEL_CAPABILITIES.websearch,
   },
+  [ModelCapability.AUDIO_TRANSCRIPTION]: {
+    icon: Mic,
+    color: "tw-text-model-capabilities-green",
+    tooltip: MODEL_CAPABILITIES["audio-transcription"],
+  },
 } as const;
 
 const CAPABILITY_ORDER = [
   ModelCapability.REASONING,
   ModelCapability.VISION,
   ModelCapability.WEB_SEARCH,
+  ModelCapability.AUDIO_TRANSCRIPTION,
 ] as const;
 
 interface ModelTableHeaderProps {
