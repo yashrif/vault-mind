@@ -44,7 +44,7 @@ export function useNoteSearch(
   currentActiveFile: TFile | null = null
 ): NoteSearchOption[] {
   // Get all available notes (including PDFs in Plus mode)
-  const allNotes = useAllNotes(isCopilotPlus);
+  const allNotes = useAllNotes();
 
   // Transform files into NoteSearchOption objects
   const allNoteOptions = useMemo(() => {

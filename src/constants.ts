@@ -844,7 +844,34 @@ export const COMMAND_ICONS: Partial<Record<CommandId, string>> = {
  * These files can be read directly via `vault.read()` and don't require special parsers.
  * Add new text-based extensions here to enable them everywhere (active note, context, chain).
  */
-export const TEXT_READABLE_EXTENSIONS = ["md", "canvas", "base"];
+export const TEXT_READABLE_EXTENSIONS = [
+  "md",
+  "canvas",
+  "base",
+  // Word Docs
+  "docx",
+  "doc",
+  // Spreadsheets
+  "xlsx",
+  "xls",
+  "csv",
+  "tsv",
+  // Plain Text
+  "txt",
+  "xml",
+  "json",
+  "log",
+  "html",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "py",
+  "css",
+  "yaml",
+  "yml",
+  "java",
+];
 
 /**
  * Valid file extensions for note context.
