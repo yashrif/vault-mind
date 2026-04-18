@@ -72,10 +72,6 @@ jest.mock("obsidian", () => ({
 import { AudioTranscriptionService } from "@/services/audioTranscriptionService";
 import { FileParserManager, AudioParser } from "./FileParserManager";
 
-// Retrieve the mock transcribe function after import
-const getMockTranscribe = () =>
-  (AudioTranscriptionService.getInstance as jest.Mock)().transcribe as jest.Mock;
-
 // Helper to create a mock TFile-like object
 function makeTFile(path: string, extension: string, sizeBytes = 1000) {
   return {
