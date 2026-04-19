@@ -66,7 +66,7 @@ export const TelegramSettings: React.FC = () => {
         <h3 className="tw-text-lg tw-font-semibold">Telegram</h3>
 
         <SettingItem
-          type="toggle"
+          type="switch"
           title="Enable Telegram"
           description="Start receiving messages from your Telegram bot on plugin load."
           checked={settings.telegramEnabled}

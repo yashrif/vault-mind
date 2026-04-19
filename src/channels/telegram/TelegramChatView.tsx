@@ -17,17 +17,17 @@ interface MessageBubbleProps {
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
-  const isObsidian = message.source === "obsidian";
+  const isUser = message.sender_type === "user";
   return (
     <div
-      className={`tw-flex tw-flex-col tw-gap-0.5 ${isObsidian ? "tw-items-end" : "tw-items-start"}`}
+      className={`tw-flex tw-flex-col tw-gap-0.5 ${isUser ? "tw-items-end" : "tw-items-start"}`}
     >
       <span className="tw-text-xs tw-text-muted">
         {message.sender_name} · {formatTime(message.stored_at)}
       </span>
       <div
         className={`tw-max-w-[80%] tw-rounded-lg tw-px-3 tw-py-2 tw-text-sm ${
-          isObsidian
+          isUser
             ? "tw-bg-interactive-accent tw-text-on-accent"
             : "tw-bg-secondary tw-text-normal"
         }`}

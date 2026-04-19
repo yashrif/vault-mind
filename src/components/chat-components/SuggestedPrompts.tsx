@@ -67,6 +67,7 @@ const PROMPT_KEYS: Record<ChainType, Array<keyof typeof SUGGESTED_PROMPTS>> = {
   [ChainType.VAULT_QA_CHAIN]: ["qaVault", "qaVault", "quoteNote"],
   [ChainType.TOOL_CHAIN]: ["copilotPlus", "copilotPlus", "copilotPlus"],
   [ChainType.PROJECT_CHAIN]: ["copilotPlus", "copilotPlus", "copilotPlus"],
+  [ChainType.TELEGRAM_CHAIN]: ["activeNote", "quoteNote", "fun"],
 };
 
 function getRandomPrompt(chainType: ChainType = ChainType.LLM_CHAIN) {
