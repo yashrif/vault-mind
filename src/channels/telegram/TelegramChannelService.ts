@@ -8,6 +8,7 @@ import {
 } from "./TelegramClient";
 import { TelegramStore } from "./TelegramStore";
 import type { TelegramStoredMessage } from "./TelegramTypes";
+import { TelegramAgent } from "./TelegramAgent";
 
 const MAX_BACKOFF_MS = 60_000;
 const INITIAL_BACKOFF_MS = 1_000;
@@ -26,14 +27,20 @@ const INITIAL_BACKOFF_MS = 1_000;
  */
 export class TelegramChannelService {
   private token: string;
-  private client: TelegramClient;
+  private _client: TelegramClient;
   readonly store: TelegramStore;
   private running = false;
   private abortController: AbortController | null = null;
+  private agent: TelegramAgent | null = null;
+
+  /** The underlying Telegram API client. */
+  get client(): TelegramClient {
+    return this._client;
+  }
 
   constructor(token: string) {
     this.token = token;
-    this.client = new TelegramClient(token);
+    this._client = new TelegramClient(token);
     this.store = new TelegramStore();
   }
 
@@ -70,14 +77,25 @@ export class TelegramChannelService {
   /** Restart with a new token (called on settings change). */
   async restart(newToken: string): Promise<void> {
     this.stop();
+    this.agent = null;
     this.token = newToken;
-    this.client = new TelegramClient(newToken);
+    this._client = new TelegramClient(newToken);
     await this.start();
   }
 
-  /** Phase 2 extension point: no-op in Phase 1. */
-  onMessageStored(_chatId: number, _message: TelegramStoredMessage): void {
-    // Phase 2: route to TelegramOutboundGateway if source === "obsidian"
+  /**
+   * Attach the AI reply agent. Call after construction.
+   * @param agent - The TelegramAgent instance to handle inbound message replies.
+   */
+  setAgent(agent: TelegramAgent): void {
+    this.agent = agent;
+  }
+
+  /** Routes inbound Telegram messages to the AI reply agent. */
+  onMessageStored(_chatId: number, message: TelegramStoredMessage): void {
+    if (message.source === "telegram") {
+      this.agent?.enqueueReply(message);
+    }
   }
 
   // ─── Internal ────────────────────────────────────────────────────────────

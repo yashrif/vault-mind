@@ -100,6 +100,43 @@ export class TelegramClient {
       logInfo(`[Telegram ${this.redactedId}] Webhook deleted.`);
     }
   }
+
+  /**
+   * Sends a text message to a Telegram chat.
+   * Automatically chunks text that exceeds the 4096-character Bot API limit.
+   * @param chatId - Telegram chat ID to send to.
+   * @param text - The message text to send.
+   */
+  async sendMessage(chatId: number, text: string): Promise<void> {
+    const CHUNK_SIZE = 4096;
+    const chunks = [];
+    for (let i = 0; i < text.length; i += CHUNK_SIZE) {
+      chunks.push(text.slice(i, i + CHUNK_SIZE));
+    }
+    for (const chunk of chunks) {
+      const url = `${this.baseUrl}/sendMessage`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text: chunk }),
+      });
+      if (resp.status === 401) {
+        throw new TelegramUnauthorizedError(this.redactedId);
+      }
+      if (resp.status === 429) {
+        const retryAfter = Number(resp.headers.get("Retry-After") ?? 5);
+        throw new TelegramRateLimitError(retryAfter);
+      }
+      const data = await resp.json();
+      if (!data.ok) {
+        throw new TelegramApiError(
+          data.error_code ?? 0,
+          data.description ?? "sendMessage failed",
+          this.redactedId
+        );
+      }
+    }
+  }
 }
 
 // ─── Error types ─────────────────────────────────────────────────────────────

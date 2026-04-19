@@ -139,6 +139,27 @@ export class TelegramStore {
     return stored;
   }
 
+  /**
+   * Append a bot reply to the thread.
+   * Always appends to thread.json (no dedup needed).
+   */
+  async appendBotMessage(text: string): Promise<TelegramStoredMessage> {
+    const stored: TelegramStoredMessage = {
+      chat_id: this.meta.primary_chat_id ?? 0,
+      sender_name: "Bot",
+      sender_type: "bot",
+      source: "telegram",
+      text,
+      date: Math.floor(Date.now() / 1000),
+      stored_at: Date.now(),
+    };
+
+    this.thread.push(stored);
+    await this.writeThread(this.thread);
+    this.notify();
+    return stored;
+  }
+
   // ─── View ──────────────────────────────────────────────────────────────────
 
   /**
