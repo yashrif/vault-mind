@@ -1,4 +1,4 @@
-import { logInfo, logWarn } from "@/logger";
+import { logError, logInfo, logWarn } from "@/logger";
 import type { TelegramMeta, TelegramStoredMessage, TelegramUpdate } from "./TelegramTypes";
 
 const STATE_DIR = ".copilot/telegram-state";
@@ -38,6 +38,27 @@ export class TelegramStore {
    */
   setAllowedChatIds(chatIds: number[]): void {
     this.allowedChatIds = new Set(chatIds);
+
+    // If the currently bound primary chat is no longer allowed, unbind it.
+    if (
+      this.meta.primary_chat_id !== null &&
+      !this.allowedChatIds.has(this.meta.primary_chat_id)
+    ) {
+      logWarn(
+        "[TelegramStore] Unbinding primary_chat_id because it is no longer in the allowed list:",
+        this.meta.primary_chat_id
+      );
+      this.meta = { ...this.meta, primary_chat_id: null };
+
+      // Write async via the lock to avoid race conditions.
+      this.withWriteLock(async () => {
+        await this.writeMeta(this.meta);
+      }).catch((err) => {
+        logError("[TelegramStore] Failed to write meta after unbinding primary chat", err);
+      });
+      // Notify UI immediately to disable input
+      this.notify();
+    }
   }
 
   /**
@@ -125,22 +146,19 @@ export class TelegramStore {
       if (!msg) return null;
 
       const chatId = msg.chat.id;
-      const isAllowlistConfigured = this.allowedChatIds.size > 0;
-      const isAllowed = this.allowedChatIds.has(chatId);
 
-      if (isAllowlistConfigured && !isAllowed) {
+      if (this.allowedChatIds.size === 0) {
+        logWarn("[TelegramStore] Ignoring inbound message because Allowed Chat IDs is empty.");
+        return null;
+      }
+
+      if (!this.allowedChatIds.has(chatId)) {
         logWarn("[TelegramStore] Ignoring inbound from non-allowlisted chat:", chatId);
         return null;
       }
 
-      // Explicit binding: do not auto-bind unless the inbound chat is allowlisted.
+      // Explicit binding: bind primary_chat_id to the first allowlisted chat that messages us.
       if (this.meta.primary_chat_id === null) {
-        if (!isAllowlistConfigured) {
-          logWarn(
-            "[TelegramStore] Ignoring inbound message because Allowed Chat IDs is empty and primary chat is not bound."
-          );
-          return null;
-        }
         logInfo("[TelegramStore] Binding primary_chat_id to allowlisted chat:", chatId);
         this.meta = { ...this.meta, primary_chat_id: chatId };
         await this.writeMeta(this.meta);

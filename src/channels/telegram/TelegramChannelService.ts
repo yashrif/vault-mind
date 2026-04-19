@@ -47,6 +47,7 @@ export class TelegramChannelService {
   private token: string;
   private _client: TelegramClient;
   readonly store: TelegramStore;
+  private allowedChatIds: number[];
   private running = false;
   private abortController: AbortController | null = null;
   private agent: TelegramAgent | null = null;
@@ -61,7 +62,8 @@ export class TelegramChannelService {
     this.token = token;
     this._client = new TelegramClient(token);
     this.store = new TelegramStore();
-    this.store.setAllowedChatIds(options.allowedChatIds ?? []);
+    this.allowedChatIds = [...(options.allowedChatIds ?? [])];
+    this.store.setAllowedChatIds(this.allowedChatIds);
   }
 
   /** Start polling. No-op on mobile. */
@@ -72,6 +74,7 @@ export class TelegramChannelService {
 
     try {
       await this.store.initialize();
+      this.store.setAllowedChatIds(this.allowedChatIds);
       await this.runStartupSequence();
       this.schedulePollCycle(0);
     } catch (err) {
@@ -108,7 +111,8 @@ export class TelegramChannelService {
    * Update allowlisted chat IDs used for explicit primary-chat binding.
    */
   setAllowedChatIds(chatIds: number[]): void {
-    this.store.setAllowedChatIds(chatIds);
+    this.allowedChatIds = [...chatIds];
+    this.store.setAllowedChatIds(this.allowedChatIds);
   }
 
   /**

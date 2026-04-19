@@ -96,6 +96,17 @@ describe("TelegramChannelService", () => {
     (Platform as any).isDesktopApp = true;
   });
 
+  it("re-applies allowlist after store initialize", async () => {
+    expect(mockSetAllowedChatIds).toHaveBeenCalledTimes(1);
+    expect(mockSetAllowedChatIds).toHaveBeenLastCalledWith([]);
+
+    await service.start();
+
+    expect(mockStoreInitialize).toHaveBeenCalledTimes(1);
+    expect(mockSetAllowedChatIds).toHaveBeenCalledTimes(2);
+    expect(mockSetAllowedChatIds).toHaveBeenLastCalledWith([]);
+  });
+
   it("runs startup sequence: getMe → deleteWebhook", async () => {
     await service.start();
     expect(mockGetMe).toHaveBeenCalledTimes(1);
