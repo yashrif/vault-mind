@@ -1,8 +1,8 @@
 # Telegram Channel Integration — Progress Report
 
 **Branch:** `telegram-channel`
-**Date:** 2026-04-19
-**Status:** Phase 1 complete — build passing, all 36 tests green
+**Date:** 2026-04-19 → 2026-04-19
+**Status:** Phase 2a complete — AI auto-reply via agentic chain, build passing, all 42 tests green
 
 ---
 
@@ -68,6 +68,34 @@ both Telegram and the Obsidian input bar.
 - `ChatControls.tsx` hides save, history, and settings buttons when in Telegram mode; "New"
   button calls `store.resetView()`
 
+### Phase 2a — AI Auto-Reply via Agentic Chain
+
+- `TelegramClient.sendMessage(chatId, text)` — posts reply to Bot API
+  - Chunks text at 4096-char boundary (Bot API limit)
+  - Throws `TelegramUnauthorizedError`, `TelegramRateLimitError`, `TelegramApiError` on failures
+- `TelegramStore.appendBotMessage(text)` — stores bot reply with `sender_type: "bot"`, `source: "telegram"`
+  - Persists to `thread.json` so replies render in `TelegramChatView`
+- `TelegramStore.setOnLocalMessage(handler)` — callback fired when user types in Obsidian UI
+  - Routes obsidian-source messages to AI agent
+- `TelegramAgent` — orchestrator for AI replies
+  - Constructor takes `(client, store, chainManager)`
+  - `enqueueReply(msg)` — queues message for processing, ignores bot-source only
+  - Replies to both telegram-source (from Bot API) and obsidian-source (Obsidian UI) messages
+  - Rehydrates `MemoryManager` from visible thread before each `runChain` call for multi-turn context
+  - Serial promise queue — one reply at a time, in order
+  - On chain success: sends result via `client.sendMessage`, stores via `store.appendBotMessage`
+  - On chain error: sends fallback error message to Telegram, does NOT store reply
+- `TelegramChannelService.setAgent(agent)` — attaches agent + registers local-message handler
+  - `onMessageStored` routes inbound Telegram messages to agent
+  - `agent.enqueueReply` called for both polling arrivals and obsidian-typed messages
+- `ChainManager.getChainRunner()` — added `ChainType.TELEGRAM_CHAIN` case
+  - Routes to `AutonomousAgentChainRunner` or `ToolChainRunner` based on `enableAutonomousAgent` setting
+  - Allows `runChain` to work when Telegram view is active
+- Main.ts wiring — constructs `TelegramAgent` after service start
+  - Wired in both plugin load path and settings-change restart path
+  - Passes current `ChainManager` from `projectManager.getCurrentChainManager()`
+  - On `restart()`, clears agent and creates fresh instance with new client/token
+
 ---
 
 ## Files Added
@@ -79,10 +107,12 @@ both Telegram and the Obsidian input bar.
 | `src/channels/telegram/TelegramStore.ts` | Persistent append-only store |
 | `src/channels/telegram/TelegramChannelService.ts` | Poll lifecycle manager |
 | `src/channels/telegram/TelegramChatView.tsx` | React thread view + input bar |
+| `src/channels/telegram/TelegramAgent.ts` | AI reply orchestrator (Phase 2a) |
 | `src/settings/v2/components/TelegramSettings.tsx` | Settings tab (toggle + token + verify) |
 | `src/channels/telegram/__tests__/TelegramClient.test.ts` | 12 unit tests |
 | `src/channels/telegram/__tests__/TelegramStore.test.ts` | 18 unit tests |
 | `src/channels/telegram/__tests__/TelegramChannelService.test.ts` | 7 unit tests |
+| `src/channels/telegram/__tests__/TelegramAgent.test.ts` | 6 unit tests (Phase 2a) |
 
 ## Files Modified
 
@@ -91,25 +121,37 @@ both Telegram and the Obsidian input bar.
 | `src/chainFactory.ts` | Added `TELEGRAM_CHAIN = "telegram"` |
 | `src/settings/model.ts` | Added `telegramEnabled`, `telegramBotApiKey` fields |
 | `src/constants.ts` | Added defaults for both fields |
-| `src/main.ts` | Lifecycle wiring for `TelegramChannelService` |
+| `src/main.ts` | Lifecycle wiring for `TelegramChannelService` + Phase 2a agent wiring |
 | `src/settings/v2/SettingsMainV2.tsx` | Registered Telegram settings tab |
 | `src/settings/v2/components/BasicSettings.tsx` | Added Telegram to chain dropdown |
 | `src/components/chat-components/SuggestedPrompts.tsx` | Added `TELEGRAM_CHAIN` entry to `PROMPT_KEYS` |
 | `src/components/chat-components/ChatControls.tsx` | Hide/adapt controls for Telegram mode |
 | `src/components/Chat.tsx` | Branch render for `TELEGRAM_CHAIN` |
+| `src/channels/telegram/TelegramClient.ts` | Added `sendMessage(chatId, text)` method (Phase 2a) |
+| `src/channels/telegram/TelegramStore.ts` | Added `appendBotMessage(text)`, `setOnLocalMessage(handler)` (Phase 2a) |
+| `src/channels/telegram/TelegramChannelService.ts` | Added `agent` field, `setAgent()`, `onMessageStored` dispatch (Phase 2a) |
+| `src/LLMProviders/chainManager.ts` | Added `ChainType.TELEGRAM_CHAIN` case in `getChainRunner()` (Phase 2a) |
 
 ---
 
 ## Test Results
 
 ```
-Test Suites: 3 passed
-Tests:       36 passed (12 client + 18 store + 7 service)
+Test Suites: 4 passed
+Tests:       42 passed (12 client + 18 store + 7 service + 6 agent [Phase 2a])
 ```
 
-Key scenarios covered: idempotent append, bot-identity guard reset, primary-chat auto-bind,
+**Phase 1 scenarios:** idempotent append, bot-identity guard reset, primary-chat auto-bind,
 non-primary routing to `other-chats/`, `resetView()` cursor advance, pre/post-reset visibility,
 401 stops loop + Notice, store-then-commit offset ordering, mobile no-op.
+
+**Phase 2a scenarios (TelegramAgent):**
+- Ignores bot-source messages (prevents reply loops)
+- Processes both telegram-source (from Bot API) and obsidian-source (UI) messages
+- Serial queue enforcement — second message waits for first to complete
+- Chain success: calls `client.sendMessage` then `store.appendBotMessage`
+- Chain error: calls fallback `client.sendMessage` without storing reply
+- Memory history exclusion — current message filtered from context
 
 ---
 
@@ -126,15 +168,26 @@ non-primary routing to `other-chats/`, `resetView()` cursor advance, pre/post-re
 - `telegramBotApiKey` auto-encrypts via the `apikey`-substring rule in `encryptionService.ts`
 - All logging uses `logInfo`/`logWarn`/`logError`; no `console.log`
 
+## Known Limitations (Phase 2a)
+
+- **Memory pollution**: `MemoryManager` is a plugin-wide singleton. Telegram replies rehydrate it from the thread before each chain call; the UI chat rehydrates it before its calls. If both run concurrently during a brief window, one overwrites the other's history. Mitigated by:
+  - Single-user plugin (no concurrent interactions expected)
+  - UI chat regenerates memory on next send/regenerate
+  - **Future fix**: Phase 3 will create isolated MemoryManager per channel
+
+- **No message streaming to Telegram**: Bot replies only sent once (final text), not chunked as streamed. Reduces API cost and prevents partial responses looking unfinished.
+
 ---
 
 ## Backlog (not built)
 
-| Phase | Feature |
-|-------|---------|
-| 2 | Outbound send: Obsidian-typed messages echoed back to Telegram |
-| 2 | Primary-chat-rebind UI in settings |
-| 2 | `telegramAllowedChatIds` allowlist |
-| 3 | AI auto-response (`TelegramChainRunner`) using archived reset segments as context |
-| 4 | Multi-chat UI (surfacing `other-chats/` entries) |
-| 5 | Webhook mode |
+| Phase | Feature | Notes |
+|-------|---------|-------|
+| 2b | Outbound echo: obsidian-typed messages relayed back to Telegram | Separate from AI replies; for message sync |
+| 2b | Markdown `parse_mode` for bot replies | Phase 2a ships plain text only |
+| 2b | Streaming partial replies to Telegram | Edit message as AI responds — deferred for cost/complexity |
+| 3 | Dedicated Telegram memory isolation | Phase 2a shares singleton MemoryManager; rehydrates per-call |
+| 3 | Primary-chat-rebind UI in settings | Allow user to switch primary chat without re-binding |
+| 3 | `telegramAllowedChatIds` allowlist | Restrict replies to specific chats |
+| 4 | Multi-chat UI (surfacing `other-chats/` entries) | Display conversations from non-primary chats |
+| 5 | Webhook mode | Replace polling with push notifications |
