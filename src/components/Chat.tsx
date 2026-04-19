@@ -17,6 +17,7 @@ import { useProjectContextStatus } from "@/hooks/useProjectContextStatus";
 import { logInfo, logError } from "@/logger";
 import type { WebTabContext } from "@/types/message";
 
+import { TelegramChatView } from "@/channels/telegram/TelegramChatView";
 import { ChatControls, reloadCurrentProject } from "@/components/chat-components/ChatControls";
 import ChatInput from "@/components/chat-components/ChatInput";
 import ChatMessages from "@/components/chat-components/ChatMessages";
@@ -666,6 +667,13 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   );
 
   const handleNewChat = useCallback(async () => {
+    // Telegram "New" resets the view by advancing the reset_at cursor.
+    if (selectedChain === ChainType.TELEGRAM_CHAIN) {
+      const service = (plugin as any).telegramChannelService;
+      await service?.store?.resetView();
+      return;
+    }
+
     clearRecordedPromptPayload();
     await logFileManager.clear();
     handleStopGenerating(ABORT_REASON.NEW_CHAT);
@@ -821,106 +829,131 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   // Note: pendingMessages loading has been removed as ChatManager now handles
   // message persistence and loading automatically based on project context
 
-  const renderChatComponents = () => (
-    <>
-      <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
-        <NewVersionBanner currentVersion={plugin.manifest.version} />
-        <ChatMessages
-          chatHistory={chatHistory}
-          currentAiMessage={currentAiMessage}
-          streamingMessageId={streamingMessageIdRef.current}
-          loading={loading}
-          loadingMessage={loadingMessage}
-          app={app}
-          onRegenerate={handleRegenerate}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onReplaceChat={setInputMessage}
-          showHelperComponents={selectedChain !== ChainType.PROJECT_CHAIN}
-        />
-        {shouldShowProgressCard() ? (
-          <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl">
-            <ProgressCard
-              plugin={plugin}
-              setHiddenCard={() => {
-                setProgressCardVisible(false);
-              }}
-              onEditContext={() => {
-                const currentProject = getCurrentProject();
-                if (currentProject) {
-                  // Open the context management modal for editing the project
-                  new ContextManageModal(
-                    app,
-                    (updatedProject) => {
-                      handleEditProject(currentProject, updatedProject);
-                    },
-                    currentProject
-                  ).open();
-                }
-              }}
-            />
-          </div>
-        ) : shouldShowIndexingCard() ? (
-          <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl">
-            <IndexingProgressCard
-              onClose={handleIndexingCardClose}
-              onPause={handleIndexingPause}
-              onResume={handleIndexingResume}
-              onStop={handleIndexingStop}
-            />
-          </div>
-        ) : (
-          <>
-            <ChatControls
-              onNewChat={handleNewChat}
-              onSaveAsNote={() => handleSaveAsNote()}
-              onLoadHistory={handleLoadChatHistory}
-              onModeChange={(newMode) => {
-                setPreviousMode(selectedChain);
-                // Hide chat UI when switching to project mode
-                if (newMode === ChainType.PROJECT_CHAIN) {
-                  setShowChatUI(false);
-                }
-              }}
-              chatHistory={chatHistoryItems}
-              onUpdateChatTitle={handleUpdateChatTitle}
-              onDeleteChat={handleDeleteChat}
-              onLoadChat={handleLoadChat}
-              onOpenSourceFile={handleOpenSourceFile}
-              latestTokenCount={latestTokenCount}
-            />
-            <ChatInput
-              inputMessage={inputMessage}
-              setInputMessage={setInputMessage}
-              handleSendMessage={handleSendMessage}
-              isGenerating={loading}
-              onStopGenerating={() => handleStopGenerating(ABORT_REASON.USER_STOPPED)}
-              app={app}
-              contextNotes={contextNotes}
-              setContextNotes={setContextNotes}
-              includeActiveNote={includeActiveNote}
-              setIncludeActiveNote={setIncludeActiveNote}
-              includeActiveWebTab={includeActiveWebTab}
-              setIncludeActiveWebTab={setIncludeActiveWebTab}
-              activeWebTab={currentActiveWebTab}
-              selectedImages={selectedImages}
-              onAddImage={(files: File[]) => setSelectedImages((prev) => [...prev, ...files])}
-              setSelectedImages={setSelectedImages}
-              disableModelSwitch={selectedChain === ChainType.PROJECT_CHAIN}
-              selectedTextContexts={selectedTextContexts}
-              onRemoveSelectedText={handleRemoveSelectedText}
-              showProgressCard={() => {
-                setProgressCardVisible(true);
-              }}
-              showIndexingCard={() => {
-                setIndexingCardVisible(true);
-              }}
-            />
-          </>
-        )}
-      </div>
-    </>
-  );
+  const renderChatComponents = () => {
+    if (selectedChain === ChainType.TELEGRAM_CHAIN) {
+      return (
+        <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
+          <ChatControls
+            onNewChat={handleNewChat}
+            onSaveAsNote={() => handleSaveAsNote()}
+            onLoadHistory={handleLoadChatHistory}
+            onModeChange={(newMode) => {
+              setPreviousMode(selectedChain);
+              if (newMode === ChainType.PROJECT_CHAIN) setShowChatUI(false);
+            }}
+            chatHistory={chatHistoryItems}
+            onUpdateChatTitle={handleUpdateChatTitle}
+            onDeleteChat={handleDeleteChat}
+            onLoadChat={handleLoadChat}
+            onOpenSourceFile={handleOpenSourceFile}
+            latestTokenCount={null}
+          />
+          <TelegramChatView store={(plugin as any).telegramChannelService?.store} />
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
+          <NewVersionBanner currentVersion={plugin.manifest.version} />
+          <ChatMessages
+            chatHistory={chatHistory}
+            currentAiMessage={currentAiMessage}
+            streamingMessageId={streamingMessageIdRef.current}
+            loading={loading}
+            loadingMessage={loadingMessage}
+            app={app}
+            onRegenerate={handleRegenerate}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onReplaceChat={setInputMessage}
+            showHelperComponents={selectedChain !== ChainType.PROJECT_CHAIN}
+          />
+          {shouldShowProgressCard() ? (
+            <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl">
+              <ProgressCard
+                plugin={plugin}
+                setHiddenCard={() => {
+                  setProgressCardVisible(false);
+                }}
+                onEditContext={() => {
+                  const currentProject = getCurrentProject();
+                  if (currentProject) {
+                    // Open the context management modal for editing the project
+                    new ContextManageModal(
+                      app,
+                      (updatedProject) => {
+                        handleEditProject(currentProject, updatedProject);
+                      },
+                      currentProject
+                    ).open();
+                  }
+                }}
+              />
+            </div>
+          ) : shouldShowIndexingCard() ? (
+            <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl">
+              <IndexingProgressCard
+                onClose={handleIndexingCardClose}
+                onPause={handleIndexingPause}
+                onResume={handleIndexingResume}
+                onStop={handleIndexingStop}
+              />
+            </div>
+          ) : (
+            <>
+              <ChatControls
+                onNewChat={handleNewChat}
+                onSaveAsNote={() => handleSaveAsNote()}
+                onLoadHistory={handleLoadChatHistory}
+                onModeChange={(newMode) => {
+                  setPreviousMode(selectedChain);
+                  // Hide chat UI when switching to project mode
+                  if (newMode === ChainType.PROJECT_CHAIN) {
+                    setShowChatUI(false);
+                  }
+                }}
+                chatHistory={chatHistoryItems}
+                onUpdateChatTitle={handleUpdateChatTitle}
+                onDeleteChat={handleDeleteChat}
+                onLoadChat={handleLoadChat}
+                onOpenSourceFile={handleOpenSourceFile}
+                latestTokenCount={latestTokenCount}
+              />
+              <ChatInput
+                inputMessage={inputMessage}
+                setInputMessage={setInputMessage}
+                handleSendMessage={handleSendMessage}
+                isGenerating={loading}
+                onStopGenerating={() => handleStopGenerating(ABORT_REASON.USER_STOPPED)}
+                app={app}
+                contextNotes={contextNotes}
+                setContextNotes={setContextNotes}
+                includeActiveNote={includeActiveNote}
+                setIncludeActiveNote={setIncludeActiveNote}
+                includeActiveWebTab={includeActiveWebTab}
+                setIncludeActiveWebTab={setIncludeActiveWebTab}
+                activeWebTab={currentActiveWebTab}
+                selectedImages={selectedImages}
+                onAddImage={(files: File[]) => setSelectedImages((prev) => [...prev, ...files])}
+                setSelectedImages={setSelectedImages}
+                disableModelSwitch={selectedChain === ChainType.PROJECT_CHAIN}
+                selectedTextContexts={selectedTextContexts}
+                onRemoveSelectedText={handleRemoveSelectedText}
+                showProgressCard={() => {
+                  setProgressCardVisible(true);
+                }}
+                showIndexingCard={() => {
+                  setIndexingCardVisible(true);
+                }}
+              />
+            </>
+          )}
+        </div>
+      </>
+    );
+  };
 
   return (
     <div

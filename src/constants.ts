@@ -1030,6 +1030,8 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   convertedDocOutputFolder: DEFAULT_CONVERTED_DOC_OUTPUT_FOLDER,
   activeAudioSTTModels: BUILTIN_AUDIO_STT_MODELS,
   audioSTTModelKey: "whisper-large-v3" + "|" + ChatModelProviders.GROQ,
+  telegramEnabled: false,
+  telegramBotApiKey: "",
 };
 
 export const EVENT_NAMES = {

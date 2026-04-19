@@ -1,0 +1,249 @@
+jest.mock("@/logger", () => ({
+  logInfo: jest.fn(),
+  logWarn: jest.fn(),
+  logError: jest.fn(),
+}));
+
+import { TelegramStore } from "../TelegramStore";
+import type { TelegramUpdate } from "../TelegramTypes";
+
+// ─── Mock app.vault.adapter ────────────────────────────────────────────────
+
+const mockAdapter = {
+  exists: jest.fn(),
+  mkdir: jest.fn(),
+  read: jest.fn(),
+  write: jest.fn(),
+};
+
+// @ts-ignore — global app is available in Obsidian runtime; we set it for tests
+global.app = { vault: { adapter: mockAdapter } };
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+function makeUpdate(updateId: number, chatId: number, text = "hello"): TelegramUpdate {
+  return {
+    update_id: updateId,
+    message: {
+      message_id: updateId * 10,
+      from: { id: chatId + 1000, first_name: "Alice" },
+      chat: { id: chatId, type: "private" },
+      date: Math.floor(Date.now() / 1000),
+      text,
+    },
+  };
+}
+
+function setupEmptyVault() {
+  mockAdapter.exists.mockResolvedValue(false);
+  mockAdapter.mkdir.mockResolvedValue(undefined);
+  mockAdapter.read.mockResolvedValue("[]");
+  mockAdapter.write.mockResolvedValue(undefined);
+}
+
+// ─── Tests ─────────────────────────────────────────────────────────────────
+
+describe("TelegramStore", () => {
+  let store: TelegramStore;
+  let mockTime: number;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockTime = 1_000_000;
+    jest.spyOn(Date, "now").mockImplementation(() => mockTime++);
+    store = new TelegramStore();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  describe("initialize", () => {
+    it("starts with default meta when no files exist", async () => {
+      setupEmptyVault();
+      await store.initialize();
+      const meta = store.getMeta();
+      expect(meta.offset).toBe(0);
+      expect(meta.primary_chat_id).toBeNull();
+      expect(meta.reset_at).toBe(0);
+    });
+
+    it("loads persisted meta from disk", async () => {
+      mockAdapter.exists.mockResolvedValue(true);
+      mockAdapter.read.mockImplementation(async (path: string) => {
+        if (path.includes("meta.json")) {
+          return JSON.stringify({ bot_id: 99, offset: 42, primary_chat_id: 555, reset_at: 1000 });
+        }
+        return "[]";
+      });
+      await store.initialize();
+      const meta = store.getMeta();
+      expect(meta.offset).toBe(42);
+      expect(meta.primary_chat_id).toBe(555);
+    });
+  });
+
+  describe("appendInbound", () => {
+    beforeEach(async () => {
+      setupEmptyVault();
+      await store.initialize();
+    });
+
+    it("auto-binds primary_chat_id on first message", async () => {
+      await store.appendInbound(makeUpdate(1, 111));
+      expect(store.getMeta().primary_chat_id).toBe(111);
+    });
+
+    it("appends to thread for primary chat", async () => {
+      await store.appendInbound(makeUpdate(1, 111));
+      await store.appendInbound(makeUpdate(2, 111));
+      expect(store.getVisibleMessages()).toHaveLength(2);
+    });
+
+    it("is idempotent for duplicate update_id", async () => {
+      await store.appendInbound(makeUpdate(1, 111));
+      await store.appendInbound(makeUpdate(1, 111)); // duplicate
+      expect(store.getVisibleMessages()).toHaveLength(1);
+    });
+
+    it("routes non-primary chats to other-chats (not visible)", async () => {
+      await store.appendInbound(makeUpdate(1, 111)); // binds primary
+      await store.appendInbound(makeUpdate(2, 999)); // different chat
+      expect(store.getVisibleMessages()).toHaveLength(1);
+      // other-chat file should have been written
+      const writeCalls = mockAdapter.write.mock.calls;
+      const otherChatWrite = writeCalls.some(([path]: [string]) =>
+        path.includes("other-chats/999")
+      );
+      expect(otherChatWrite).toBe(true);
+    });
+
+    it("sets source field to 'telegram' on inbound messages", async () => {
+      await store.appendInbound(makeUpdate(1, 111));
+      const msgs = store.getVisibleMessages();
+      expect(msgs[0].source).toBe("telegram");
+    });
+
+    it("notifies subscribers on new primary-chat message", async () => {
+      const listener = jest.fn();
+      store.subscribe(listener);
+      await store.appendInbound(makeUpdate(1, 111));
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("appendLocal", () => {
+    beforeEach(async () => {
+      setupEmptyVault();
+      await store.initialize();
+    });
+
+    it("always appends with source 'obsidian'", async () => {
+      await store.appendLocal("hello from obsidian");
+      const msgs = store.getVisibleMessages();
+      expect(msgs[0].source).toBe("obsidian");
+      expect(msgs[0].sender_name).toBe("You");
+    });
+
+    it("appends even without primary chat bound", async () => {
+      await store.appendLocal("test");
+      expect(store.getVisibleMessages()).toHaveLength(1);
+    });
+
+    it("notifies subscribers", async () => {
+      const listener = jest.fn();
+      store.subscribe(listener);
+      await store.appendLocal("test");
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("resetView", () => {
+    beforeEach(async () => {
+      setupEmptyVault();
+      await store.initialize();
+    });
+
+    it("hides pre-reset messages from getVisibleMessages", async () => {
+      await store.appendInbound(makeUpdate(1, 111));
+      await store.resetView();
+      expect(store.getVisibleMessages()).toHaveLength(0);
+    });
+
+    it("keeps pre-reset messages in thread (disk not modified via remove)", async () => {
+      await store.appendInbound(makeUpdate(1, 111));
+      const beforeReset = mockAdapter.write.mock.calls.length;
+      await store.resetView();
+      // reset_at written to meta; thread file should NOT have shrunk
+      const writtenPaths = mockAdapter.write.mock.calls.map(([p]: [string]) => p);
+      const threadWrites = writtenPaths.filter((p: string) => p.includes("thread.json"));
+      // thread.json is only written by appendInbound, not by resetView
+      expect(threadWrites.length).toBeLessThanOrEqual(beforeReset);
+    });
+
+    it("post-reset messages remain visible", async () => {
+      await store.appendInbound(makeUpdate(1, 111));
+      await store.resetView();
+      await store.appendInbound(makeUpdate(2, 111));
+      expect(store.getVisibleMessages()).toHaveLength(1);
+    });
+
+    it("notifies subscribers", async () => {
+      const listener = jest.fn();
+      store.subscribe(listener);
+      await store.resetView();
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("resetForNewBot", () => {
+    it("resets offset and primary_chat_id but keeps message files", async () => {
+      setupEmptyVault();
+      await store.initialize();
+      await store.appendInbound(makeUpdate(1, 111));
+      await store.resetForNewBot(42);
+      const meta = store.getMeta();
+      expect(meta.bot_id).toBe(42);
+      expect(meta.offset).toBe(0);
+      expect(meta.primary_chat_id).toBeNull();
+      expect(meta.reset_at).toBe(0);
+    });
+  });
+
+  describe("subscribe / unsubscribe", () => {
+    beforeEach(async () => {
+      setupEmptyVault();
+      await store.initialize();
+    });
+
+    it("unsubscribe stops notifications", async () => {
+      const listener = jest.fn();
+      const unsub = store.subscribe(listener);
+      unsub();
+      await store.appendLocal("test");
+      expect(listener).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("non-text message handling", () => {
+    beforeEach(async () => {
+      setupEmptyVault();
+      await store.initialize();
+    });
+
+    it("stores [photo] stub for photo messages", async () => {
+      const update: TelegramUpdate = {
+        update_id: 5,
+        message: {
+          message_id: 50,
+          from: { id: 9999, first_name: "Bob" },
+          chat: { id: 111, type: "private" },
+          date: Math.floor(Date.now() / 1000),
+          photo: [{}],
+        },
+      };
+      await store.appendInbound(update);
+      expect(store.getVisibleMessages()[0].text).toBe("[photo]");
+    });
+  });
+});

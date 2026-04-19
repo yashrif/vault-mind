@@ -58,6 +58,7 @@ export enum ChainType {
   VAULT_QA_CHAIN = "vault_qa",
   TOOL_CHAIN = "copilot_plus",
   PROJECT_CHAIN = "project",
+  TELEGRAM_CHAIN = "telegram",
 }
 
 class ChainFactory {

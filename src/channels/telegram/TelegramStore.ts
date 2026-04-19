@@ -1,0 +1,257 @@
+import { logInfo, logWarn } from "@/logger";
+import type { TelegramMeta, TelegramStoredMessage, TelegramUpdate } from "./TelegramTypes";
+
+const STATE_DIR = ".copilot/telegram-state";
+const META_PATH = `${STATE_DIR}/meta.json`;
+const THREAD_PATH = `${STATE_DIR}/thread.json`;
+
+const DEFAULT_META: TelegramMeta = {
+  bot_id: 0,
+  offset: 0,
+  primary_chat_id: null,
+  reset_at: 0,
+};
+
+type StoreListener = () => void;
+
+/**
+ * Persistent store for the Telegram channel.
+ * Owns meta.json (bot_id, offset, primary_chat_id, reset_at),
+ * thread.json (primary chat messages), and other-chats/<chatId>.json.
+ *
+ * All writes follow store-then-commit ordering:
+ *   1. Append to message file(s).
+ *   2. Write updated meta.json with advanced offset.
+ *   Crash before step 2 → Telegram re-delivers → idempotent append absorbs.
+ */
+export class TelegramStore {
+  private meta: TelegramMeta = { ...DEFAULT_META };
+  private thread: TelegramStoredMessage[] = [];
+  private listeners: Set<StoreListener> = new Set();
+  private initialized = false;
+
+  /** Load persisted state from disk. Must be called before any other method. */
+  async initialize(): Promise<void> {
+    await this.ensureDirs();
+    this.meta = await this.readMeta();
+    this.thread = await this.readThread();
+    this.initialized = true;
+    logInfo(
+      "[TelegramStore] Initialized. primary_chat_id:",
+      this.meta.primary_chat_id,
+      "offset:",
+      this.meta.offset
+    );
+  }
+
+  // ─── Meta ─────────────────────────────────────────────────────────────────
+
+  getMeta(): Readonly<TelegramMeta> {
+    return this.meta;
+  }
+
+  /**
+   * Advance the polling offset.
+   * Called AFTER all batch messages have been written (store-then-commit).
+   */
+  async setOffset(botId: number, offset: number): Promise<void> {
+    this.meta = { ...this.meta, bot_id: botId, offset };
+    await this.writeMeta(this.meta);
+  }
+
+  /**
+   * Reset meta when the bot token is swapped.
+   * Keeps message files intact; only clears polling state.
+   */
+  async resetForNewBot(botId: number): Promise<void> {
+    logInfo("[TelegramStore] Bot identity changed — resetting meta. New bot_id:", botId);
+    this.meta = { ...DEFAULT_META, bot_id: botId };
+    await this.writeMeta(this.meta);
+  }
+
+  // ─── Inbound message routing ──────────────────────────────────────────────
+
+  /**
+   * Idempotent-append a Telegram update.
+   * Routes to thread.json if chat_id === primary_chat_id (or binds on first message).
+   * Routes to other-chats/<chatId>.json otherwise.
+   * Returns the stored message if it was new, or null if it was a duplicate.
+   */
+  async appendInbound(update: TelegramUpdate): Promise<TelegramStoredMessage | null> {
+    const msg = update.message;
+    if (!msg) return null;
+
+    const chatId = msg.chat.id;
+
+    // Auto-bind primary chat on first-ever inbound message
+    if (this.meta.primary_chat_id === null) {
+      logInfo("[TelegramStore] Binding primary_chat_id to:", chatId);
+      this.meta = { ...this.meta, primary_chat_id: chatId };
+      await this.writeMeta(this.meta);
+    }
+
+    const stored: TelegramStoredMessage = {
+      update_id: update.update_id,
+      message_id: msg.message_id,
+      chat_id: chatId,
+      sender_name: msg.from?.first_name ?? "Unknown",
+      sender_type: "user",
+      source: "telegram",
+      text: this.extractText(msg),
+      date: msg.date,
+      stored_at: Date.now(),
+    };
+
+    if (chatId === this.meta.primary_chat_id) {
+      // Idempotent: skip if update_id already present
+      const isDuplicate = this.thread.some((m) => m.update_id === update.update_id);
+      if (isDuplicate) return null;
+
+      this.thread.push(stored);
+      await this.writeThread(this.thread);
+      this.notify();
+      return stored;
+    } else {
+      // Non-primary chat — store silently
+      await this.appendToOtherChat(chatId, update.update_id, stored);
+      return null; // Not notified — not rendered
+    }
+  }
+
+  /**
+   * Append a message typed in the Obsidian input.
+   * Always appends to thread.json (no dedup needed).
+   */
+  async appendLocal(text: string): Promise<TelegramStoredMessage> {
+    const stored: TelegramStoredMessage = {
+      chat_id: this.meta.primary_chat_id ?? 0,
+      sender_name: "You",
+      sender_type: "user",
+      source: "obsidian",
+      text,
+      date: Math.floor(Date.now() / 1000),
+      stored_at: Date.now(),
+    };
+
+    this.thread.push(stored);
+    await this.writeThread(this.thread);
+    this.notify();
+    return stored;
+  }
+
+  // ─── View ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Messages shown in the current view (post-reset only).
+   * Pre-reset messages remain on disk for Phase 3 AI context.
+   */
+  getVisibleMessages(): TelegramStoredMessage[] {
+    return this.thread.filter((m) => m.stored_at >= this.meta.reset_at);
+  }
+
+  /** Advance reset_at to now+1 — clears the view without deleting history.
+   * Adding 1ms ensures messages appended at the exact same moment are hidden. */
+  async resetView(): Promise<void> {
+    this.meta = { ...this.meta, reset_at: Date.now() + 1 };
+    await this.writeMeta(this.meta);
+    this.notify();
+    logInfo("[TelegramStore] View reset. reset_at:", this.meta.reset_at);
+  }
+
+  // ─── Subscription ──────────────────────────────────────────────────────────
+
+  /** Subscribe to store changes. Returns an unsubscribe function. */
+  subscribe(listener: StoreListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private notify(): void {
+    this.listeners.forEach((l) => l());
+  }
+
+  // ─── Disk I/O ──────────────────────────────────────────────────────────────
+
+  private async ensureDirs(): Promise<void> {
+    if (!(await app.vault.adapter.exists(STATE_DIR))) {
+      await app.vault.adapter.mkdir(STATE_DIR);
+    }
+    const otherChatsDir = `${STATE_DIR}/other-chats`;
+    if (!(await app.vault.adapter.exists(otherChatsDir))) {
+      await app.vault.adapter.mkdir(otherChatsDir);
+    }
+  }
+
+  private async readMeta(): Promise<TelegramMeta> {
+    try {
+      if (await app.vault.adapter.exists(META_PATH)) {
+        const raw = await app.vault.adapter.read(META_PATH);
+        return { ...DEFAULT_META, ...JSON.parse(raw) };
+      }
+    } catch (err) {
+      logWarn("[TelegramStore] Could not read meta.json — starting fresh:", err);
+    }
+    return { ...DEFAULT_META };
+  }
+
+  private async writeMeta(meta: TelegramMeta): Promise<void> {
+    await app.vault.adapter.write(META_PATH, JSON.stringify(meta));
+  }
+
+  private async readThread(): Promise<TelegramStoredMessage[]> {
+    try {
+      if (await app.vault.adapter.exists(THREAD_PATH)) {
+        const raw = await app.vault.adapter.read(THREAD_PATH);
+        return JSON.parse(raw) as TelegramStoredMessage[];
+      }
+    } catch (err) {
+      logWarn("[TelegramStore] Could not read thread.json — starting fresh:", err);
+    }
+    return [];
+  }
+
+  private async writeThread(messages: TelegramStoredMessage[]): Promise<void> {
+    await app.vault.adapter.write(THREAD_PATH, JSON.stringify(messages));
+  }
+
+  private async appendToOtherChat(
+    chatId: number,
+    updateId: number,
+    stored: TelegramStoredMessage
+  ): Promise<void> {
+    const path = `${STATE_DIR}/other-chats/${chatId}.json`;
+    let existing: TelegramStoredMessage[] = [];
+    try {
+      if (await app.vault.adapter.exists(path)) {
+        existing = JSON.parse(await app.vault.adapter.read(path));
+      }
+    } catch {
+      // Start fresh on parse error
+    }
+
+    const isDuplicate = existing.some((m) => m.update_id === updateId);
+    if (!isDuplicate) {
+      existing.push(stored);
+      await app.vault.adapter.write(path, JSON.stringify(existing));
+    }
+  }
+
+  private extractText(msg: {
+    text?: string;
+    photo?: unknown[];
+    sticker?: unknown;
+    document?: unknown;
+    audio?: unknown;
+    video?: unknown;
+    voice?: unknown;
+  }): string {
+    if (msg.text) return msg.text;
+    if (msg.photo) return "[photo]";
+    if (msg.sticker) return "[sticker]";
+    if (msg.document) return "[document]";
+    if (msg.audio) return "[audio]";
+    if (msg.video) return "[video]";
+    if (msg.voice) return "[voice]";
+    return "[unsupported message type]";
+  }
+}

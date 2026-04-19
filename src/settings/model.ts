@@ -193,6 +193,10 @@ export interface CopilotSettings {
   autoCompactThreshold: number;
   /** Folder where converted document markdown files are saved */
   convertedDocOutputFolder: string;
+  /** Enable Telegram channel integration (desktop only) */
+  telegramEnabled: boolean;
+  /** Telegram bot API token (auto-encrypted when enableEncryption is on) */
+  telegramBotApiKey: string;
 }
 
 export const settingsStore = createStore();

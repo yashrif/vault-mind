@@ -21,6 +21,7 @@ import {
   MessageCirclePlus,
   MoreHorizontal,
   RefreshCw,
+  Send,
   Sparkles,
 } from "lucide-react";
 import { Notice } from "obsidian";
@@ -228,6 +229,12 @@ export function ChatControls({
                 </div>
               )}
               {selectedChain === ChainType.PROJECT_CHAIN && "projects (alpha)"}
+              {selectedChain === ChainType.TELEGRAM_CHAIN && (
+                <div className="tw-flex tw-items-center tw-gap-1">
+                  <Send className="tw-size-4" />
+                  telegram
+                </div>
+              )}
               <ChevronDown className="tw-mt-0.5 tw-size-5" />
             </Button>
           </DropdownMenuTrigger>
@@ -266,6 +273,15 @@ export function ChatControls({
               <LibraryBig className="tw-size-4" />
               projects (alpha)
             </DropdownMenuItem>
+            <DropdownMenuItem
+              className="tw-flex tw-items-center tw-gap-1"
+              onSelect={() => {
+                handleModeChange(ChainType.TELEGRAM_CHAIN);
+              }}
+            >
+              <Send className="tw-size-4" />
+              telegram
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -275,14 +291,24 @@ export function ChatControls({
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost2" size="icon" title="New Chat" onClick={onNewChat}>
+            <Button
+              variant="ghost2"
+              size="icon"
+              title={
+                selectedChain === ChainType.TELEGRAM_CHAIN ? "Reset Telegram Thread" : "New Chat"
+              }
+              onClick={onNewChat}
+            >
               <MessageCirclePlus className="tw-size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>New Chat</TooltipContent>
+          <TooltipContent>
+            {selectedChain === ChainType.TELEGRAM_CHAIN ? "Reset Telegram Thread" : "New Chat"}
+          </TooltipContent>
         </Tooltip>
-        {selectedChain !== ChainType.PROJECT_CHAIN && <ChatSettingsPopover />}
-        {!settings.autosaveChat && (
+        {selectedChain !== ChainType.PROJECT_CHAIN &&
+          selectedChain !== ChainType.TELEGRAM_CHAIN && <ChatSettingsPopover />}
+        {!settings.autosaveChat && selectedChain !== ChainType.TELEGRAM_CHAIN && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost2" size="icon" title="Save Chat as Note" onClick={onSaveAsNote}>
@@ -292,22 +318,24 @@ export function ChatControls({
             <TooltipContent>Save Chat as Note</TooltipContent>
           </Tooltip>
         )}
-        <Tooltip>
-          <ChatHistoryPopover
-            chatHistory={chatHistory}
-            onUpdateTitle={onUpdateChatTitle}
-            onDeleteChat={onDeleteChat}
-            onLoadChat={onLoadChat}
-            onOpenSourceFile={onOpenSourceFile}
-          >
-            <TooltipTrigger asChild>
-              <Button variant="ghost2" size="icon" title="Chat History" onClick={onLoadHistory}>
-                <History className="tw-size-4" />
-              </Button>
-            </TooltipTrigger>
-          </ChatHistoryPopover>
-          <TooltipContent>Chat History</TooltipContent>
-        </Tooltip>
+        {selectedChain !== ChainType.TELEGRAM_CHAIN && (
+          <Tooltip>
+            <ChatHistoryPopover
+              chatHistory={chatHistory}
+              onUpdateTitle={onUpdateChatTitle}
+              onDeleteChat={onDeleteChat}
+              onLoadChat={onLoadChat}
+              onOpenSourceFile={onOpenSourceFile}
+            >
+              <TooltipTrigger asChild>
+                <Button variant="ghost2" size="icon" title="Chat History" onClick={onLoadHistory}>
+                  <History className="tw-size-4" />
+                </Button>
+              </TooltipTrigger>
+            </ChatHistoryPopover>
+            <TooltipContent>Chat History</TooltipContent>
+          </Tooltip>
+        )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
