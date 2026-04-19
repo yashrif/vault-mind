@@ -29,6 +29,15 @@ export class TelegramStore {
   private thread: TelegramStoredMessage[] = [];
   private listeners: Set<StoreListener> = new Set();
   private initialized = false;
+  private onLocalMessageHandler: ((msg: TelegramStoredMessage) => void) | null = null;
+
+  /**
+   * Register a callback invoked whenever a message is appended via appendLocal.
+   * Used by TelegramChannelService to route UI-typed messages to the AI agent.
+   */
+  setOnLocalMessage(handler: (msg: TelegramStoredMessage) => void): void {
+    this.onLocalMessageHandler = handler;
+  }
 
   /** Load persisted state from disk. Must be called before any other method. */
   async initialize(): Promise<void> {
@@ -136,6 +145,7 @@ export class TelegramStore {
     this.thread.push(stored);
     await this.writeThread(this.thread);
     this.notify();
+    this.onLocalMessageHandler?.(stored);
     return stored;
   }
 

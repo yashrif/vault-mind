@@ -301,6 +301,11 @@ export default class ChainManager {
         return new ToolChainRunner(this);
       case ChainType.PROJECT_CHAIN:
         return new ProjectChainRunner(this);
+      case ChainType.TELEGRAM_CHAIN:
+        if (settings.enableAutonomousAgent) {
+          return new AutonomousAgentChainRunner(this);
+        }
+        return new ToolChainRunner(this);
       default:
         throw new Error(`Unsupported chain type: ${chainType}`);
     }

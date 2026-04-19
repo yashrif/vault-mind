@@ -41,10 +41,10 @@ export class TelegramAgent {
   /**
    * Enqueue an AI reply for the given inbound message.
    * Silently ignores bot-source messages and obsidian-source messages
-   * (only telegram-source user messages get an AI reply).
+   * (all user messages get an AI reply, regardless of source).
    */
   async enqueueReply(msg: TelegramStoredMessage): Promise<void> {
-    if (msg.sender_type === "bot" || msg.source === "obsidian") {
+    if (msg.sender_type === "bot") {
       return;
     }
     this.queue = this.queue

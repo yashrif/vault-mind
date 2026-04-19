@@ -89,13 +89,12 @@ export class TelegramChannelService {
    */
   setAgent(agent: TelegramAgent): void {
     this.agent = agent;
+    this.store.setOnLocalMessage((msg) => agent.enqueueReply(msg));
   }
 
   /** Routes inbound Telegram messages to the AI reply agent. */
   onMessageStored(_chatId: number, message: TelegramStoredMessage): void {
-    if (message.source === "telegram") {
-      this.agent?.enqueueReply(message);
-    }
+    this.agent?.enqueueReply(message);
   }
 
   // ─── Internal ────────────────────────────────────────────────────────────
