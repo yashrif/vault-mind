@@ -1,36 +1,33 @@
 import { AI_SENDER, USER_SENDER } from "@/constants";
 import ChainManager from "@/LLMProviders/chainManager";
+import MemoryManager from "@/LLMProviders/memoryManager";
 import { logError, logInfo } from "@/logger";
 import { updateChatMemory } from "@/chatUtils";
 import { formatDateTime } from "@/utils";
 import { ChatMessage } from "@/types/message";
 import type { PromptContextEnvelope } from "@/context/PromptContextTypes";
+import { ChainType } from "@/chainFactory";
 import { TelegramClient } from "./TelegramClient";
 import { TelegramStore } from "./TelegramStore";
 import type { TelegramStoredMessage } from "./TelegramTypes";
-
-// Max characters per Telegram message chunk (Bot API limit)
-const TELEGRAM_CHUNK_SIZE = 4096;
 
 /**
  * Orchestrates AI auto-replies for the Telegram channel.
  *
  * When an inbound telegram-source message arrives, TelegramAgent:
- *   1. Rehydrates MemoryManager from the visible Telegram thread (for multi-turn context).
- *   2. Runs the message through ChainManager.runChain (uses the same agentic chain as the UI chat).
+ *   1. Rehydrates its own isolated MemoryManager from the visible Telegram thread.
+ *   2. Runs the message through ChainManager.runChain, pinned to TELEGRAM_CHAIN.
  *   3. Posts the final response back to Telegram via TelegramClient.sendMessage.
  *   4. Stores the bot reply in TelegramStore for display in TelegramChatView.
  *
  * Replies are serialized by a promise queue — one at a time, in order.
- *
- * Memory note: MemoryManager is a plugin-wide singleton. TelegramAgent rehydrates it
- * with the Telegram thread before each call; the UI chat rehydrates it before its own
- * calls. Brief cross-contamination is bounded to the duration of a single Telegram
- * response and is an acceptable tradeoff for Phase 2a.
  */
 export class TelegramAgent {
   /** Serial promise queue — prevents concurrent chain invocations. */
   private queue: Promise<void> = Promise.resolve();
+
+  /** Isolated memory — not the shared UI singleton, preventing context bleed. */
+  private readonly telegramMemory: MemoryManager = MemoryManager.createIsolated();
 
   constructor(
     private readonly client: TelegramClient,
@@ -62,6 +59,9 @@ export class TelegramAgent {
   private async runReply(msg: TelegramStoredMessage): Promise<void> {
     logInfo(`[TelegramAgent] Generating reply for chat ${msg.chat_id}: "${msg.text.slice(0, 80)}"`);
 
+    const originalMemory = this.chainManager.memoryManager;
+    this.chainManager.memoryManager = this.telegramMemory;
+
     try {
       // Build history from visible thread, excluding the current inbound message
       const history = this.store
@@ -69,8 +69,8 @@ export class TelegramAgent {
         .filter((m) => m.update_id !== msg.update_id)
         .map((m) => this.toChainMessage(m));
 
-      // Rehydrate shared MemoryManager with Telegram thread context
-      await updateChatMemory(history, this.chainManager.memoryManager);
+      // Rehydrate the isolated Telegram MemoryManager with thread context
+      await updateChatMemory(history, this.telegramMemory);
 
       // Build the user ChatMessage for the chain
       const userChatMessage: ChatMessage = {
@@ -81,7 +81,7 @@ export class TelegramAgent {
         contextEnvelope: this.buildMinimalEnvelope(msg.text),
       };
 
-      // Run chain — collect the final AI message via the addMessage callback
+      // Run chain pinned to TELEGRAM_CHAIN so UI chain-type changes don't affect it
       const abortController = new AbortController();
       let finalText = "";
 
@@ -94,7 +94,7 @@ export class TelegramAgent {
         (finalMessage: ChatMessage) => {
           finalText = finalMessage.message ?? "";
         },
-        { debug: false }
+        { debug: false, chainType: ChainType.TELEGRAM_CHAIN }
       );
 
       if (!finalText) {
@@ -102,8 +102,8 @@ export class TelegramAgent {
         return;
       }
 
-      // Post reply back to Telegram (chunked to respect Bot API limit)
-      await this.sendChunked(msg.chat_id, finalText);
+      // TelegramClient.sendMessage handles chunking at the Bot API 4096-char limit
+      await this.client.sendMessage(msg.chat_id, finalText);
 
       // Store the bot reply so TelegramChatView re-renders
       await this.store.appendBotMessage(finalText, msg.chat_id);
@@ -116,23 +116,8 @@ export class TelegramAgent {
       } catch (sendErr) {
         logError("[TelegramAgent] Also failed to send error message:", sendErr);
       }
-    }
-  }
-
-  /**
-   * Send a potentially long text to Telegram, splitting into chunks of at most
-   * TELEGRAM_CHUNK_SIZE characters to respect the Bot API message-length limit.
-   */
-  private async sendChunked(chatId: number, text: string): Promise<void> {
-    if (text.length <= TELEGRAM_CHUNK_SIZE) {
-      await this.client.sendMessage(chatId, text);
-      return;
-    }
-    let offset = 0;
-    while (offset < text.length) {
-      const chunk = text.slice(offset, offset + TELEGRAM_CHUNK_SIZE);
-      await this.client.sendMessage(chatId, chunk);
-      offset += TELEGRAM_CHUNK_SIZE;
+    } finally {
+      this.chainManager.memoryManager = originalMemory;
     }
   }
 

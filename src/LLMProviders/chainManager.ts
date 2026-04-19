@@ -284,8 +284,8 @@ export default class ChainManager {
     }
   }
 
-  private getChainRunner(): ChainRunner {
-    const chainType = getChainType();
+  private getChainRunner(chainTypeOverride?: ChainType): ChainRunner {
+    const chainType = chainTypeOverride ?? getChainType();
     const settings = getSettings();
 
     switch (chainType) {
@@ -333,6 +333,8 @@ export default class ChainManager {
       debug?: boolean;
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
+      /** Pin a specific chain type, bypassing the mutable UI chain-type atom. */
+      chainType?: ChainType;
     } = {}
   ) {
     const { ignoreSystemMessage = false } = options;
@@ -370,7 +372,7 @@ export default class ChainManager {
       });*/
     }
 
-    const chainRunner = this.getChainRunner();
+    const chainRunner = this.getChainRunner(options.chainType);
     return await chainRunner.run(
       userMessage,
       abortController,

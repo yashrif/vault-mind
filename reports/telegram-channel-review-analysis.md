@@ -1,6 +1,6 @@
 # Telegram Integration Review - Follow-up Analysis
 
-Date: 2026-04-19
+Date: 2026-04-20
 Branch: telegram-channel
 Scope: Apply requested fixes from review feedback, capture user answers, and track fixed vs planned items.
 
@@ -84,7 +84,20 @@ What changed:
 Files:
 - src/channels/telegram/TelegramStore.ts
 
-### 4) Shared MemoryManager contamination risk
+### 4) Startup allowlist ordering (cold-start stale binding risk)
+Status: Fixed
+
+What changed:
+- TelegramChannelService now stores allowlisted chat IDs internally and re-applies them after store initialization.
+- This ensures persisted primary_chat_id values are revalidated against the current allowlist on cold start.
+- If the persisted primary chat is no longer allowlisted, TelegramStore unbinds it and writes updated meta safely via the write lock.
+
+Files:
+- src/channels/telegram/TelegramChannelService.ts
+- src/channels/telegram/TelegramStore.ts
+- src/channels/telegram/__tests__/TelegramChannelService.test.ts
+
+### 5) Shared MemoryManager contamination risk
 Status: Planned (thorough plan)
 
 Plan:
@@ -94,7 +107,7 @@ Plan:
 4. Add migration path that preserves current behavior until namespace is configured.
 5. Add feature flag to roll out safely and enable rollback.
 
-### 5) Chain mode scoping for Telegram agent runs
+### 6) Chain mode scoping for Telegram agent runs
 Status: Planned
 
 Clarification:
@@ -133,6 +146,7 @@ Plan:
 ## Additional Notes
 
 - Added new setting: telegramAllowedChatIds.
+- Restored logger consistency in TelegramStore (uses logError, not console.error).
 - Updated docs for user-facing behavior changes:
   - docs/chat-interface.md
   - docs/getting-started.md
@@ -146,5 +160,9 @@ Telegram-specific suite command:
 
 Actual result:
 - 4 test suites passed
-- 44 tests passed
+- 45 tests passed
 - 0 failures
+
+Additional verification:
+- npx eslint src/channels/telegram/TelegramStore.ts src/channels/telegram/TelegramChannelService.ts src/channels/telegram/__tests__/TelegramChannelService.test.ts
+- npm run build

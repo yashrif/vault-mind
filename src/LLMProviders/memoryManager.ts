@@ -24,6 +24,11 @@ export default class MemoryManager {
     return MemoryManager.instance;
   }
 
+  /** Create an isolated MemoryManager that is NOT the shared singleton. */
+  static createIsolated(): MemoryManager {
+    return new MemoryManager();
+  }
+
   private initMemory(chatHistory?: BaseChatMessageHistory): void {
     const chatContextTurns = getSettings().contextTurns;
     this.memory = new BufferWindowMemory({
