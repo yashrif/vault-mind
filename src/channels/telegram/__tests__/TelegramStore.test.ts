@@ -87,11 +87,23 @@ describe("TelegramStore", () => {
     beforeEach(async () => {
       setupEmptyVault();
       await store.initialize();
+      store.setAllowedChatIds([111, 999]);
     });
 
-    it("auto-binds primary_chat_id on first message", async () => {
+    it("binds primary_chat_id on first allowlisted message", async () => {
       await store.appendInbound(makeUpdate(1, 111));
       expect(store.getMeta().primary_chat_id).toBe(111);
+    });
+
+    it("ignores inbound messages until allowlist is configured", async () => {
+      const unconfiguredStore = new TelegramStore();
+      setupEmptyVault();
+      await unconfiguredStore.initialize();
+
+      const stored = await unconfiguredStore.appendInbound(makeUpdate(1, 111));
+      expect(stored).toBeNull();
+      expect(unconfiguredStore.getMeta().primary_chat_id).toBeNull();
+      expect(unconfiguredStore.getVisibleMessages()).toHaveLength(0);
     });
 
     it("appends to thread for primary chat", async () => {
@@ -118,6 +130,13 @@ describe("TelegramStore", () => {
       expect(otherChatWrite).toBe(true);
     });
 
+    it("ignores messages from non-allowlisted chats", async () => {
+      const stored = await store.appendInbound(makeUpdate(1, 222));
+      expect(stored).toBeNull();
+      expect(store.getVisibleMessages()).toHaveLength(0);
+      expect(store.getMeta().primary_chat_id).toBeNull();
+    });
+
     it("sets source field to 'telegram' on inbound messages", async () => {
       await store.appendInbound(makeUpdate(1, 111));
       const msgs = store.getVisibleMessages();
@@ -136,18 +155,25 @@ describe("TelegramStore", () => {
     beforeEach(async () => {
       setupEmptyVault();
       await store.initialize();
+      store.setAllowedChatIds([111]);
+      await store.appendInbound(makeUpdate(1, 111));
     });
 
     it("always appends with source 'obsidian'", async () => {
       await store.appendLocal("hello from obsidian");
       const msgs = store.getVisibleMessages();
-      expect(msgs[0].source).toBe("obsidian");
-      expect(msgs[0].sender_name).toBe("You");
+      const localMessage = msgs[msgs.length - 1];
+      expect(localMessage.source).toBe("obsidian");
+      expect(localMessage.sender_name).toBe("You");
     });
 
-    it("appends even without primary chat bound", async () => {
-      await store.appendLocal("test");
-      expect(store.getVisibleMessages()).toHaveLength(1);
+    it("throws when primary chat is not bound", async () => {
+      const unboundStore = new TelegramStore();
+      setupEmptyVault();
+      await unboundStore.initialize();
+      await expect(unboundStore.appendLocal("test")).rejects.toThrow(
+        "Telegram primary chat is not bound yet."
+      );
     });
 
     it("notifies subscribers", async () => {
@@ -162,6 +188,7 @@ describe("TelegramStore", () => {
     beforeEach(async () => {
       setupEmptyVault();
       await store.initialize();
+      store.setAllowedChatIds([111]);
     });
 
     it("hides pre-reset messages from getVisibleMessages", async () => {
@@ -214,6 +241,8 @@ describe("TelegramStore", () => {
     beforeEach(async () => {
       setupEmptyVault();
       await store.initialize();
+      store.setAllowedChatIds([111]);
+      await store.appendInbound(makeUpdate(1, 111));
     });
 
     it("unsubscribe stops notifications", async () => {
@@ -229,6 +258,7 @@ describe("TelegramStore", () => {
     beforeEach(async () => {
       setupEmptyVault();
       await store.initialize();
+      store.setAllowedChatIds([111]);
     });
 
     it("stores [photo] stub for photo messages", async () => {

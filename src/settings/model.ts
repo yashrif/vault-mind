@@ -197,6 +197,8 @@ export interface CopilotSettings {
   telegramEnabled: boolean;
   /** Telegram bot API token (auto-encrypted when enableEncryption is on) */
   telegramBotApiKey: string;
+  /** Comma-separated Telegram chat IDs allowed to bind and receive replies */
+  telegramAllowedChatIds: string;
 }
 
 export const settingsStore = createStore();

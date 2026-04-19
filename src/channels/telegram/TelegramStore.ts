@@ -30,6 +30,35 @@ export class TelegramStore {
   private listeners: Set<StoreListener> = new Set();
   private initialized = false;
   private onLocalMessageHandler: ((msg: TelegramStoredMessage) => void) | null = null;
+  private allowedChatIds: Set<number> = new Set();
+  private writeQueue: Promise<void> = Promise.resolve();
+
+  /**
+   * Set chat IDs allowed to bind and receive replies.
+   */
+  setAllowedChatIds(chatIds: number[]): void {
+    this.allowedChatIds = new Set(chatIds);
+  }
+
+  /**
+   * Serialize all mutating operations to prevent interleaved file writes.
+   */
+  private async withWriteLock<T>(operation: () => Promise<T>): Promise<T> {
+    let result: T;
+
+    const run = async () => {
+      result = await operation();
+    };
+
+    const chained = this.writeQueue.then(run, run);
+    this.writeQueue = chained.then(
+      () => undefined,
+      () => undefined
+    );
+
+    await chained;
+    return result!;
+  }
 
   /**
    * Register a callback invoked whenever a message is appended via appendLocal.
@@ -64,8 +93,10 @@ export class TelegramStore {
    * Called AFTER all batch messages have been written (store-then-commit).
    */
   async setOffset(botId: number, offset: number): Promise<void> {
-    this.meta = { ...this.meta, bot_id: botId, offset };
-    await this.writeMeta(this.meta);
+    await this.withWriteLock(async () => {
+      this.meta = { ...this.meta, bot_id: botId, offset };
+      await this.writeMeta(this.meta);
+    });
   }
 
   /**
@@ -73,9 +104,11 @@ export class TelegramStore {
    * Keeps message files intact; only clears polling state.
    */
   async resetForNewBot(botId: number): Promise<void> {
-    logInfo("[TelegramStore] Bot identity changed — resetting meta. New bot_id:", botId);
-    this.meta = { ...DEFAULT_META, bot_id: botId };
-    await this.writeMeta(this.meta);
+    await this.withWriteLock(async () => {
+      logInfo("[TelegramStore] Bot identity changed — resetting meta. New bot_id:", botId);
+      this.meta = { ...DEFAULT_META, bot_id: botId };
+      await this.writeMeta(this.meta);
+    });
   }
 
   // ─── Inbound message routing ──────────────────────────────────────────────
@@ -87,44 +120,59 @@ export class TelegramStore {
    * Returns the stored message if it was new, or null if it was a duplicate.
    */
   async appendInbound(update: TelegramUpdate): Promise<TelegramStoredMessage | null> {
-    const msg = update.message;
-    if (!msg) return null;
+    return this.withWriteLock(async () => {
+      const msg = update.message;
+      if (!msg) return null;
 
-    const chatId = msg.chat.id;
+      const chatId = msg.chat.id;
+      const isAllowlistConfigured = this.allowedChatIds.size > 0;
+      const isAllowed = this.allowedChatIds.has(chatId);
 
-    // Auto-bind primary chat on first-ever inbound message
-    if (this.meta.primary_chat_id === null) {
-      logInfo("[TelegramStore] Binding primary_chat_id to:", chatId);
-      this.meta = { ...this.meta, primary_chat_id: chatId };
-      await this.writeMeta(this.meta);
-    }
+      if (isAllowlistConfigured && !isAllowed) {
+        logWarn("[TelegramStore] Ignoring inbound from non-allowlisted chat:", chatId);
+        return null;
+      }
 
-    const stored: TelegramStoredMessage = {
-      update_id: update.update_id,
-      message_id: msg.message_id,
-      chat_id: chatId,
-      sender_name: msg.from?.first_name ?? "Unknown",
-      sender_type: "user",
-      source: "telegram",
-      text: this.extractText(msg),
-      date: msg.date,
-      stored_at: Date.now(),
-    };
+      // Explicit binding: do not auto-bind unless the inbound chat is allowlisted.
+      if (this.meta.primary_chat_id === null) {
+        if (!isAllowlistConfigured) {
+          logWarn(
+            "[TelegramStore] Ignoring inbound message because Allowed Chat IDs is empty and primary chat is not bound."
+          );
+          return null;
+        }
+        logInfo("[TelegramStore] Binding primary_chat_id to allowlisted chat:", chatId);
+        this.meta = { ...this.meta, primary_chat_id: chatId };
+        await this.writeMeta(this.meta);
+      }
 
-    if (chatId === this.meta.primary_chat_id) {
-      // Idempotent: skip if update_id already present
-      const isDuplicate = this.thread.some((m) => m.update_id === update.update_id);
-      if (isDuplicate) return null;
+      const stored: TelegramStoredMessage = {
+        update_id: update.update_id,
+        message_id: msg.message_id,
+        chat_id: chatId,
+        sender_name: msg.from?.first_name ?? "Unknown",
+        sender_type: "user",
+        source: "telegram",
+        text: this.extractText(msg),
+        date: msg.date,
+        stored_at: Date.now(),
+      };
 
-      this.thread.push(stored);
-      await this.writeThread(this.thread);
-      this.notify();
-      return stored;
-    } else {
+      if (chatId === this.meta.primary_chat_id) {
+        // Idempotent: skip if update_id already present
+        const isDuplicate = this.thread.some((m) => m.update_id === update.update_id);
+        if (isDuplicate) return null;
+
+        this.thread.push(stored);
+        await this.writeThread(this.thread);
+        this.notify();
+        return stored;
+      }
+
       // Non-primary chat — store silently
       await this.appendToOtherChat(chatId, update.update_id, stored);
       return null; // Not notified — not rendered
-    }
+    });
   }
 
   /**
@@ -132,42 +180,55 @@ export class TelegramStore {
    * Always appends to thread.json (no dedup needed).
    */
   async appendLocal(text: string): Promise<TelegramStoredMessage> {
-    const stored: TelegramStoredMessage = {
-      chat_id: this.meta.primary_chat_id ?? 0,
-      sender_name: "You",
-      sender_type: "user",
-      source: "obsidian",
-      text,
-      date: Math.floor(Date.now() / 1000),
-      stored_at: Date.now(),
-    };
+    return this.withWriteLock(async () => {
+      if (this.meta.primary_chat_id === null) {
+        throw new Error("Telegram primary chat is not bound yet.");
+      }
 
-    this.thread.push(stored);
-    await this.writeThread(this.thread);
-    this.notify();
-    this.onLocalMessageHandler?.(stored);
-    return stored;
+      const stored: TelegramStoredMessage = {
+        chat_id: this.meta.primary_chat_id,
+        sender_name: "You",
+        sender_type: "user",
+        source: "obsidian",
+        text,
+        date: Math.floor(Date.now() / 1000),
+        stored_at: Date.now(),
+      };
+
+      this.thread.push(stored);
+      await this.writeThread(this.thread);
+      this.notify();
+      this.onLocalMessageHandler?.(stored);
+      return stored;
+    });
   }
 
   /**
    * Append a bot reply to the thread.
    * Always appends to thread.json (no dedup needed).
    */
-  async appendBotMessage(text: string): Promise<TelegramStoredMessage> {
-    const stored: TelegramStoredMessage = {
-      chat_id: this.meta.primary_chat_id ?? 0,
-      sender_name: "Bot",
-      sender_type: "bot",
-      source: "telegram",
-      text,
-      date: Math.floor(Date.now() / 1000),
-      stored_at: Date.now(),
-    };
+  async appendBotMessage(text: string, chatId?: number): Promise<TelegramStoredMessage> {
+    return this.withWriteLock(async () => {
+      const resolvedChatId = chatId ?? this.meta.primary_chat_id;
+      if (resolvedChatId === null || resolvedChatId === undefined) {
+        throw new Error("Telegram primary chat is not bound yet.");
+      }
 
-    this.thread.push(stored);
-    await this.writeThread(this.thread);
-    this.notify();
-    return stored;
+      const stored: TelegramStoredMessage = {
+        chat_id: resolvedChatId,
+        sender_name: "Bot",
+        sender_type: "bot",
+        source: "telegram",
+        text,
+        date: Math.floor(Date.now() / 1000),
+        stored_at: Date.now(),
+      };
+
+      this.thread.push(stored);
+      await this.writeThread(this.thread);
+      this.notify();
+      return stored;
+    });
   }
 
   // ─── View ──────────────────────────────────────────────────────────────────
@@ -183,10 +244,12 @@ export class TelegramStore {
   /** Advance reset_at to now+1 — clears the view without deleting history.
    * Adding 1ms ensures messages appended at the exact same moment are hidden. */
   async resetView(): Promise<void> {
-    this.meta = { ...this.meta, reset_at: Date.now() + 1 };
-    await this.writeMeta(this.meta);
-    this.notify();
-    logInfo("[TelegramStore] View reset. reset_at:", this.meta.reset_at);
+    await this.withWriteLock(async () => {
+      this.meta = { ...this.meta, reset_at: Date.now() + 1 };
+      await this.writeMeta(this.meta);
+      this.notify();
+      logInfo("[TelegramStore] View reset. reset_at:", this.meta.reset_at);
+    });
   }
 
   // ─── Subscription ──────────────────────────────────────────────────────────

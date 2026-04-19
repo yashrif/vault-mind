@@ -40,8 +40,8 @@ export class TelegramAgent {
 
   /**
    * Enqueue an AI reply for the given inbound message.
-   * Silently ignores bot-source messages and obsidian-source messages
-   * (all user messages get an AI reply, regardless of source).
+    * Silently ignores bot-source messages.
+    * All non-bot senders get an AI reply, regardless of source.
    */
   async enqueueReply(msg: TelegramStoredMessage): Promise<void> {
     if (msg.sender_type === "bot") {
@@ -106,7 +106,7 @@ export class TelegramAgent {
       await this.sendChunked(msg.chat_id, finalText);
 
       // Store the bot reply so TelegramChatView re-renders
-      await this.store.appendBotMessage(finalText);
+      await this.store.appendBotMessage(finalText, msg.chat_id);
 
       logInfo(`[TelegramAgent] Reply sent to chat ${msg.chat_id} (${finalText.length} chars).`);
     } catch (err) {

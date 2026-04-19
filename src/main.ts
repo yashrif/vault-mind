@@ -1,4 +1,7 @@
-import { TelegramChannelService } from "@/channels/telegram/TelegramChannelService";
+import {
+  parseTelegramAllowedChatIds,
+  TelegramChannelService,
+} from "@/channels/telegram/TelegramChannelService";
 import { TelegramAgent } from "@/channels/telegram/TelegramAgent";
 import { BrevilabsClient } from "@/LLMProviders/brevilabsClient";
 import ProjectManager from "@/LLMProviders/projectManager";
@@ -109,12 +112,17 @@ export default class CopilotPlugin extends Plugin {
       if (Platform.isDesktopApp) {
         const tokenChanged = prev.telegramBotApiKey !== next.telegramBotApiKey;
         const enabledChanged = prev.telegramEnabled !== next.telegramEnabled;
-        if (tokenChanged || enabledChanged) {
+        const allowlistChanged = prev.telegramAllowedChatIds !== next.telegramAllowedChatIds;
+        if (tokenChanged || enabledChanged || allowlistChanged) {
           if (next.telegramEnabled && next.telegramBotApiKey) {
             const { getDecryptedKey } = await import("@/encryptionService");
             const rawToken = await getDecryptedKey(next.telegramBotApiKey);
+            const allowedChatIds = parseTelegramAllowedChatIds(next.telegramAllowedChatIds);
             if (this.telegramChannelService) {
-              await this.telegramChannelService.restart(rawToken);
+              this.telegramChannelService.setAllowedChatIds(allowedChatIds);
+              if (tokenChanged || enabledChanged) {
+                await this.telegramChannelService.restart(rawToken);
+              }
               // Re-wire agent after restart so it uses the new TelegramClient
               const restartedAgent = new TelegramAgent(
                 this.telegramChannelService.client,
@@ -123,7 +131,9 @@ export default class CopilotPlugin extends Plugin {
               );
               this.telegramChannelService.setAgent(restartedAgent);
             } else {
-              this.telegramChannelService = new TelegramChannelService(rawToken);
+              this.telegramChannelService = new TelegramChannelService(rawToken, {
+                allowedChatIds,
+              });
               await this.telegramChannelService.start();
               const telegramAgent = new TelegramAgent(
                 this.telegramChannelService.client,
@@ -177,7 +187,9 @@ export default class CopilotPlugin extends Plugin {
       if (settings.telegramEnabled && settings.telegramBotApiKey) {
         const { getDecryptedKey } = await import("@/encryptionService");
         const rawToken = await getDecryptedKey(settings.telegramBotApiKey);
-        this.telegramChannelService = new TelegramChannelService(rawToken);
+        this.telegramChannelService = new TelegramChannelService(rawToken, {
+          allowedChatIds: parseTelegramAllowedChatIds(settings.telegramAllowedChatIds),
+        });
         await this.telegramChannelService.start();
         const telegramAgent = new TelegramAgent(
           this.telegramChannelService.client,

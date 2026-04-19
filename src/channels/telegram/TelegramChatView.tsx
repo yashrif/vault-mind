@@ -65,9 +65,10 @@ export const TelegramChatView: React.FC<TelegramChatViewProps> = ({ store, onRes
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || !store) return;
+    if (primaryChatId === null) return;
     setInput("");
     await store.appendLocal(text);
-  }, [input, store]);
+  }, [input, primaryChatId, store]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -120,7 +121,7 @@ export const TelegramChatView: React.FC<TelegramChatViewProps> = ({ store, onRes
           <textarea
             className="tw-flex-1 tw-resize-none tw-rounded-md tw-border tw-border-border tw-bg-modifier-form-field tw-p-2 tw-text-sm tw-text-normal tw-outline-none focus:tw-border-interactive-accent"
             rows={1}
-            placeholder="Message..."
+            placeholder={primaryChatId === null ? "Bind a chat first (Settings → Telegram)." : "Message..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -128,7 +129,7 @@ export const TelegramChatView: React.FC<TelegramChatViewProps> = ({ store, onRes
           <button
             className="tw-rounded-md tw-bg-interactive-accent tw-px-3 tw-py-2 tw-text-sm tw-text-on-accent tw-transition-opacity disabled:tw-opacity-50"
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() || primaryChatId === null}
           >
             Send
           </button>

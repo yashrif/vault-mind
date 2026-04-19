@@ -58,6 +58,7 @@ Use the **Default Mode** dropdown to set which mode opens by default:
 - **Vault QA** — Ask questions answered from your notes
 - **Copilot Plus** — Advanced mode with autonomous agent and tools (requires Copilot Plus license)
 - **Projects** — Focused workspaces (alpha feature)
+- **Telegram** — Telegram-integrated thread (desktop only; requires bot token and allowlisted chat IDs)
 
 Most users should start with **Chat** mode.
 

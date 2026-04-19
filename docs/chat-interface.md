@@ -6,7 +6,7 @@ The Copilot chat panel is the main way you interact with AI in Obsidian. This gu
 
 ## Chat Modes
 
-Copilot offers four modes. You can switch between them using the mode selector at the top of the chat panel.
+Copilot offers five modes. You can switch between them using the mode selector at the top of the chat panel.
 
 ### Chat
 General-purpose conversation. Good for writing, brainstorming, summarizing, or any task where you want to talk to an AI. Your currently open note and selected text are automatically included as context.
@@ -23,6 +23,16 @@ The most powerful mode. Requires a [Copilot Plus](copilot-plus-and-self-host.md)
 
 ### Projects (alpha)
 Focused workspaces with their own context, model, system prompt, and isolated chat history. Useful for keeping separate AI conversations per project. See [Projects](projects.md) for details.
+
+### Telegram
+A bridge between Telegram and Copilot. Telegram mode shows one always-on thread that merges Telegram inbound messages and messages you type in Obsidian.
+
+- Requires desktop app
+- Requires a Telegram bot token
+- Requires at least one allowlisted chat ID in **Settings → Copilot → Telegram → Allowed Chat IDs**
+- The first inbound message from an allowlisted chat becomes the primary chat
+
+In Telegram mode, regular chat history/session controls are hidden because the thread is managed by Telegram channel state.
 
 ---
 

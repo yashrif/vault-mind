@@ -49,6 +49,7 @@ const mockGetMeta = jest.fn();
 const mockSetOffset = jest.fn();
 const mockResetForNewBot = jest.fn();
 const mockAppendInbound = jest.fn();
+const mockSetAllowedChatIds = jest.fn();
 
 jest.mock("../TelegramStore", () => ({
   TelegramStore: jest.fn().mockImplementation(() => ({
@@ -57,6 +58,7 @@ jest.mock("../TelegramStore", () => ({
     setOffset: mockSetOffset,
     resetForNewBot: mockResetForNewBot,
     appendInbound: mockAppendInbound,
+    setAllowedChatIds: mockSetAllowedChatIds,
   })),
 }));
 

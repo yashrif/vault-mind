@@ -1032,6 +1032,7 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   audioSTTModelKey: "whisper-large-v3" + "|" + ChatModelProviders.GROQ,
   telegramEnabled: false,
   telegramBotApiKey: "",
+  telegramAllowedChatIds: "",
 };
 
 export const EVENT_NAMES = {

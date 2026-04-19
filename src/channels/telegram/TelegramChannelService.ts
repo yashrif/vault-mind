@@ -13,6 +13,24 @@ import { TelegramAgent } from "./TelegramAgent";
 const MAX_BACKOFF_MS = 60_000;
 const INITIAL_BACKOFF_MS = 1_000;
 
+interface TelegramChannelServiceOptions {
+  allowedChatIds?: number[];
+}
+
+/**
+ * Parse a comma-separated chat-ID string into unique numeric IDs.
+ */
+export function parseTelegramAllowedChatIds(raw: string): number[] {
+  if (!raw.trim()) {
+    return [];
+  }
+  const parsed = raw
+    .split(",")
+    .map((part) => Number(part.trim()))
+    .filter((id) => Number.isInteger(id));
+  return Array.from(new Set(parsed));
+}
+
 /**
  * Manages the lifecycle of the Telegram long-poll channel.
  * Desktop-only (guarded by Platform.isDesktopApp).
@@ -32,16 +50,18 @@ export class TelegramChannelService {
   private running = false;
   private abortController: AbortController | null = null;
   private agent: TelegramAgent | null = null;
+  private consecutiveFailures = 0;
 
   /** The underlying Telegram API client. */
   get client(): TelegramClient {
     return this._client;
   }
 
-  constructor(token: string) {
+  constructor(token: string, options: TelegramChannelServiceOptions = {}) {
     this.token = token;
     this._client = new TelegramClient(token);
     this.store = new TelegramStore();
+    this.store.setAllowedChatIds(options.allowedChatIds ?? []);
   }
 
   /** Start polling. No-op on mobile. */
@@ -78,9 +98,17 @@ export class TelegramChannelService {
   async restart(newToken: string): Promise<void> {
     this.stop();
     this.agent = null;
+    this.consecutiveFailures = 0;
     this.token = newToken;
     this._client = new TelegramClient(newToken);
     await this.start();
+  }
+
+  /**
+   * Update allowlisted chat IDs used for explicit primary-chat binding.
+   */
+  setAllowedChatIds(chatIds: number[]): void {
+    this.store.setAllowedChatIds(chatIds);
   }
 
   /**
@@ -120,6 +148,20 @@ export class TelegramChannelService {
     setTimeout(() => this.runPollCycle(), delayMs);
   }
 
+  /**
+   * Compute bounded exponential backoff and honor Telegram retry_after hints.
+   */
+  private computeBackoffMs(retryAfterSeconds?: number): number {
+    const exponential = Math.min(
+      INITIAL_BACKOFF_MS * 2 ** Math.max(this.consecutiveFailures - 1, 0),
+      MAX_BACKOFF_MS
+    );
+    if (retryAfterSeconds === undefined) {
+      return exponential;
+    }
+    return Math.min(Math.max(exponential, retryAfterSeconds * 1000), MAX_BACKOFF_MS);
+  }
+
   private async runPollCycle(): Promise<void> {
     if (!this.running) return;
 
@@ -143,6 +185,8 @@ export class TelegramChannelService {
         await this.store.setOffset(this.store.getMeta().bot_id, newOffset);
       }
 
+      this.consecutiveFailures = 0;
+
       this.schedulePollCycle(0); // Immediate next cycle on success
     } catch (err) {
       if (!this.running) return;
@@ -154,9 +198,10 @@ export class TelegramChannelService {
         return;
       }
 
-      let backoffMs = INITIAL_BACKOFF_MS;
+      this.consecutiveFailures += 1;
+      let backoffMs = this.computeBackoffMs();
       if (err instanceof TelegramRateLimitError) {
-        backoffMs = Math.min(err.retryAfter * 1000, MAX_BACKOFF_MS);
+        backoffMs = this.computeBackoffMs(err.retryAfter);
         logWarn(`[TelegramChannelService] Rate limited. Backing off ${backoffMs}ms.`);
       } else if (err instanceof TelegramNetworkError) {
         logWarn("[TelegramChannelService] Network error. Backing off:", backoffMs, "ms");

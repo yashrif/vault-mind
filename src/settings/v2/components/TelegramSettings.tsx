@@ -108,6 +108,19 @@ export const TelegramSettings: React.FC = () => {
             )}
           </div>
         </SettingItem>
+
+        <SettingItem
+          type="custom"
+          title="Allowed Chat IDs"
+          description="Comma-separated chat IDs allowed to bind and receive replies. Required for explicit binding."
+        >
+          <input
+            className="tw-w-full tw-rounded tw-border tw-border-solid tw-bg-modifier-form-field tw-px-2 tw-py-1"
+            placeholder="123456789, -100987654321"
+            value={settings.telegramAllowedChatIds}
+            onChange={(e) => updateSetting("telegramAllowedChatIds", e.target.value)}
+          />
+        </SettingItem>
       </section>
     </div>
   );

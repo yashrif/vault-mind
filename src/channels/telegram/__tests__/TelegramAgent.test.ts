@@ -107,9 +107,9 @@ describe("TelegramAgent", () => {
     expect(runChain).not.toHaveBeenCalled();
   });
 
-  // ── 2. Ignores obsidian-source messages ───────────────────────────────────
+  // ── 2. Processes obsidian-source messages ─────────────────────────────────
 
-  it("does NOT call runChain for obsidian-source messages", async () => {
+  it("calls runChain for obsidian-source messages", async () => {
     const runChain = jest.fn();
     const agent = new TelegramAgent(client, store, makeChainManager(runChain) as any);
 
@@ -117,7 +117,7 @@ describe("TelegramAgent", () => {
     await agent.enqueueReply(obsidianMsg);
     await flushQueue();
 
-    expect(runChain).not.toHaveBeenCalled();
+    expect(runChain).toHaveBeenCalledTimes(1);
   });
 
   // ── 3. Happy path ─────────────────────────────────────────────────────────
@@ -155,7 +155,7 @@ describe("TelegramAgent", () => {
 
     expect(runChain).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(42, "I am the AI reply");
-    expect(mockAppendBotMessage).toHaveBeenCalledWith("I am the AI reply");
+    expect(mockAppendBotMessage).toHaveBeenCalledWith("I am the AI reply", 42);
     expect(callOrder).toEqual(["runChain", "sendMessage", "appendBotMessage"]);
   });
 
