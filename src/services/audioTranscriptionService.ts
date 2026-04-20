@@ -136,4 +136,44 @@ export class AudioTranscriptionService {
       return `[Error: Could not transcribe audio: ${err instanceof Error ? err.message : String(err)}]`;
     }
   }
+
+  /**
+   * Transcribes an audio File object (from the system file picker) without requiring a vault TFile.
+   */
+  async transcribeFromFile(file: File): Promise<string> {
+    const settings = getSettings();
+    const { audioSTTModelKey, activeAudioSTTModels, groqApiKey } = settings;
+
+    const activeModel = activeAudioSTTModels?.find(
+      (m) => getModelKeyFromModel(m) === audioSTTModelKey
+    );
+    if (!activeModel) {
+      return `[Error: Could not transcribe audio: no active STT model configured. Please add an Audio STT model in Settings.]`;
+    }
+
+    const provider = activeModel.provider as ChatModelProviders;
+    const adapter = PROVIDER_ADAPTERS[provider];
+    if (!adapter) {
+      return `[Error: Could not transcribe audio: provider "${provider}" does not support transcription yet.]`;
+    }
+
+    if (file.size > adapter.maxFileSizeBytes) {
+      const limitMB = Math.round(adapter.maxFileSizeBytes / 1024 / 1024);
+      return `[Error: Audio file exceeds ${limitMB} MB limit supported by ${provider}. Compress or split the file.]`;
+    }
+
+    const apiKey =
+      activeModel.apiKey?.trim() || (provider === ChatModelProviders.GROQ ? groqApiKey : "");
+    if (!apiKey) {
+      return `[Error: Could not transcribe audio: API key for "${provider}" is not set.]`;
+    }
+
+    try {
+      const binary = await file.arrayBuffer();
+      return await adapter.transcribe(binary, file.name, activeModel.name, apiKey);
+    } catch (err) {
+      logError("Audio transcription failed:", err);
+      return `[Error: Could not transcribe audio: ${err instanceof Error ? err.message : String(err)}]`;
+    }
+  }
 }

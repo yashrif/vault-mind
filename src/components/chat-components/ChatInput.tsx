@@ -7,7 +7,8 @@ import {
   useProjectLoading,
 } from "@/aiParams";
 import { ChainType } from "@/chainFactory";
-import { AddImageModal } from "@/components/modals/AddImageModal";
+import { AddFileModal } from "@/components/modals/AddFileModal";
+import { isImageFile } from "@/utils/fileContentExtractor";
 import { Button } from "@/components/ui/button";
 import { ModelSelector } from "@/components/ui/ModelSelector";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -23,7 +24,7 @@ import {
 import { useSettingsValue } from "@/settings/model";
 import { SelectedTextContext, WebTabContext } from "@/types/message";
 import { isAllowedFileForNoteContext } from "@/utils";
-import { CornerDownLeft, Image, Loader2, StopCircle, X } from "lucide-react";
+import { CornerDownLeft, FileText, Image, Loader2, StopCircle, X } from "lucide-react";
 import { App, Notice, TFile } from "obsidian";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { $getSelection, $isRangeSelection } from "lexical";
@@ -57,9 +58,9 @@ interface ChatInputProps {
   includeActiveWebTab: boolean;
   setIncludeActiveWebTab: (include: boolean) => void;
   activeWebTab: WebTabContext | null;
-  selectedImages: File[];
-  onAddImage: (files: File[]) => void;
-  setSelectedImages: React.Dispatch<React.SetStateAction<File[]>>;
+  selectedFiles: File[];
+  onAddFile: (files: File[]) => void;
+  setSelectedFiles: React.Dispatch<React.SetStateAction<File[]>>;
   disableModelSwitch?: boolean;
   selectedTextContexts?: SelectedTextContext[];
   onRemoveSelectedText?: (id: string) => void;
@@ -100,9 +101,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
   includeActiveWebTab,
   setIncludeActiveWebTab,
   activeWebTab,
-  selectedImages,
-  onAddImage,
-  setSelectedImages,
+  selectedFiles,
+  onAddFile,
+  setSelectedFiles,
   disableModelSwitch,
   selectedTextContexts,
   onRemoveSelectedText,
@@ -746,19 +747,28 @@ const ChatInput: React.FC<ChatInputProps> = ({
         />
       )}
 
-      {selectedImages.length > 0 && (
+      {selectedFiles.length > 0 && (
         <div className="selected-images">
-          {selectedImages.map((file, index) => (
+          {selectedFiles.map((file: File, index: number) => (
             <div key={index} className="image-preview-container">
-              <img
-                src={URL.createObjectURL(file)}
-                alt={file.name}
-                className="selected-image-preview"
-              />
+              {isImageFile(file) ? (
+                <img
+                  src={URL.createObjectURL(file)}
+                  alt={file.name}
+                  className="selected-image-preview"
+                />
+              ) : (
+                <div className="tw-flex tw-items-center tw-gap-1 tw-rounded tw-bg-secondary tw-px-2 tw-py-1 tw-text-xs tw-text-muted">
+                  <FileText className="tw-size-3 tw-shrink-0" />
+                  <span className="tw-max-w-24 tw-truncate">{file.name}</span>
+                </div>
+              )}
               <button
                 className="remove-image-button"
-                onClick={() => setSelectedImages((prev) => prev.filter((_, i) => i !== index))}
-                title="Remove image"
+                onClick={() =>
+                  setSelectedFiles((prev: File[]) => prev.filter((_: File, i: number) => i !== index))
+                }
+                title="Remove file"
               >
                 <X className="tw-size-4" />
               </button>
@@ -794,7 +804,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           onActiveWebTabAdded={handleActiveWebTabAdded}
           onActiveWebTabRemoved={handleActiveWebTabRemoved}
           onEditorReady={onEditorReady}
-          onImagePaste={onAddImage}
+          onImagePaste={onAddFile}
           onTagSelected={handleTagSelected}
           placeholder={"Your AI assistant for Obsidian • @ to add context • / for custom prompts"}
           disabled={isProjectLoading}
@@ -869,13 +879,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
                       size="fit"
                       className="tw-text-muted hover:tw-text-accent"
                       onClick={() => {
-                        new AddImageModal(app, onAddImage).open();
+                        new AddFileModal(app, onAddFile).open();
                       }}
                     >
                       <Image className="tw-size-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent className="tw-px-1 tw-py-0.5">Add image(s)</TooltipContent>
+                  <TooltipContent className="tw-px-1 tw-py-0.5">Attach file(s)</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               {editMode && onEditCancel && (

@@ -45,6 +45,7 @@ import { FileParserManager } from "@/tools/FileParserManager";
 import { ChatMessage } from "@/types/message";
 import { err2String, isPlusChain } from "@/utils";
 import { arrayBufferToBase64 } from "@/utils/base64";
+import { extractFileContent, isImageFile } from "@/utils/fileContentExtractor";
 import { Notice, TFile } from "obsidian";
 import { ContextManageModal } from "@/components/modals/project/context-manage-modal";
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -119,7 +120,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   const [contextNotes, setContextNotes] = useState<TFile[]>([]);
   const [includeActiveNote, setIncludeActiveNote] = useState(false);
   const [includeActiveWebTab, setIncludeActiveWebTab] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showChatUI, setShowChatUI] = useState(false);
   const [chatHistoryItems, setChatHistoryItems] = useState<ChatHistoryItem[]>([]);
   // null: keep default behavior; true: show; false: hide
@@ -251,8 +252,8 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     app,
     contextNotes,
     setContextNotes,
-    selectedImages,
-    onAddImage: (files) => setSelectedImages((prev) => [...prev, ...files]),
+    selectedFiles,
+    onAddFile: (files) => setSelectedFiles((prev) => [...prev, ...files]),
     containerRef: chatContainerRef,
   });
 
@@ -348,13 +349,11 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
         });
       }
 
-      if (selectedImages.length > 0) {
+      if (selectedFiles.length > 0) {
         l3Segments.push({
           id: "telegram-context-images",
           stable: true,
-          content: `<attached_images>\n${selectedImages
-            .map((image) => image.name)
-            .join("\n")}\n</attached_images>`,
+          content: `<attached_images>\n${selectedFiles.map((f) => f.name).join("\n")}\n</attached_images>`,
         });
       }
 
@@ -373,7 +372,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
         },
       });
     },
-    [selectedImages, selectedTextContexts]
+    [selectedFiles, selectedTextContexts]
   );
 
   /**
@@ -388,7 +387,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
       }
 
       setTelegramInput("");
-      setSelectedImages([]);
+      setSelectedFiles([]);
       try {
         const contextEnvelope = buildTelegramContextEnvelope(text, metadata);
         await telegramStore.appendLocal(text, {
@@ -419,7 +418,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     contextFolders?: string[];
     webTabs?: WebTabContext[];
   } = {}) => {
-    if (!inputMessage && selectedImages.length === 0) return;
+    if (!inputMessage && selectedFiles.length === 0) return;
 
     try {
       // Create message content array
@@ -433,16 +432,22 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
         });
       }
 
-      // Add images if present
-      for (const image of selectedImages) {
-        const imageData = await image.arrayBuffer();
-        const base64Image = arrayBufferToBase64(imageData);
-        content.push({
-          type: "image_url",
-          image_url: {
-            url: `data:${image.type};base64,${base64Image}`,
-          },
-        });
+      // Route files: images → multimodal image_url, others → extracted text blocks
+      for (const file of selectedFiles) {
+        if (isImageFile(file)) {
+          const imageData = await file.arrayBuffer();
+          const base64Image = arrayBufferToBase64(imageData);
+          content.push({
+            type: "image_url",
+            image_url: { url: `data:${file.type};base64,${base64Image}` },
+          });
+        } else {
+          const text = await extractFileContent(file);
+          content.push({
+            type: "text",
+            text: `<attached_file name="${file.name}">\n${text}\n</attached_file>`,
+          });
+        }
       }
 
       // Prepare context notes and deduplicate by path
@@ -469,9 +474,9 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
         webTabs: webTabs || [],
       };
 
-      // Clear input and images
+      // Clear input and attached files
       setInputMessage("");
-      setSelectedImages([]);
+      setSelectedFiles([]);
       streamingMessageIdRef.current = `msg-${uuidv4()}`;
       safeSet.setLoading(true);
       safeSet.setLoadingMessage(LOADING_MESSAGES.DEFAULT);
@@ -1116,11 +1121,9 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                 includeActiveWebTab={includeActiveWebTab}
                 setIncludeActiveWebTab={setIncludeActiveWebTab}
                 activeWebTab={currentActiveWebTab}
-                selectedImages={selectedImages}
-                onAddImage={(files: File[]) =>
-                  setSelectedImages((prev) => [...prev, ...files])
-                }
-                setSelectedImages={setSelectedImages}
+                selectedFiles={selectedFiles}
+                onAddFile={(files: File[]) => setSelectedFiles((prev) => [...prev, ...files])}
+                setSelectedFiles={setSelectedFiles}
                 selectedTextContexts={selectedTextContexts}
                 onRemoveSelectedText={handleRemoveSelectedText}
                 showProgressCard={() => {
@@ -1227,9 +1230,9 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                 includeActiveWebTab={includeActiveWebTab}
                 setIncludeActiveWebTab={setIncludeActiveWebTab}
                 activeWebTab={currentActiveWebTab}
-                selectedImages={selectedImages}
-                onAddImage={(files: File[]) => setSelectedImages((prev) => [...prev, ...files])}
-                setSelectedImages={setSelectedImages}
+                selectedFiles={selectedFiles}
+                onAddFile={(files: File[]) => setSelectedFiles((prev) => [...prev, ...files])}
+                setSelectedFiles={setSelectedFiles}
                 disableModelSwitch={selectedChain === ChainType.PROJECT_CHAIN}
                 selectedTextContexts={selectedTextContexts}
                 onRemoveSelectedText={handleRemoveSelectedText}

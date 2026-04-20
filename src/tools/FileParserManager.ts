@@ -105,7 +105,7 @@ const UNSUPPORTED_EXTENSIONS = [
 /**
  * Extract text from a PDF binary using pdfjs-dist (loaded lazily).
  */
-async function parsePdfLocal(binary: ArrayBuffer): Promise<string> {
+export async function parsePdfLocal(binary: ArrayBuffer): Promise<string> {
   const pdfjs: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
   if (!pdfjs.GlobalWorkerOptions.workerPort) {
@@ -139,7 +139,7 @@ async function parsePdfLocal(binary: ArrayBuffer): Promise<string> {
 /**
  * Convert DOCX/RTF to markdown using mammoth (loaded lazily). RTF uses a minimal control-word strip.
  */
-async function parseDocxLocal(binary: ArrayBuffer, extension: string): Promise<string> {
+export async function parseDocxLocal(binary: ArrayBuffer, extension: string): Promise<string> {
   if (extension === "rtf") {
     const text = new TextDecoder("utf-8").decode(binary);
     return text
@@ -156,7 +156,10 @@ async function parseDocxLocal(binary: ArrayBuffer, extension: string): Promise<s
 /**
  * Parse spreadsheet bytes into a per-sheet tab-delimited block using xlsx (loaded lazily).
  */
-async function parseSpreadsheetLocal(binary: ArrayBuffer, _extension: string): Promise<string> {
+export async function parseSpreadsheetLocal(
+  binary: ArrayBuffer,
+  _extension: string
+): Promise<string> {
   const XLSX: any = await import("xlsx");
   const workbook = XLSX.read(new Uint8Array(binary), { type: "array" });
   const parts: string[] = [];
@@ -171,7 +174,7 @@ async function parseSpreadsheetLocal(binary: ArrayBuffer, _extension: string): P
 /**
  * Decode plain-text formats. Synchronous. HTML is passed through turndown.
  */
-function parsePlainText(binary: ArrayBuffer, extension: string): string {
+export function parsePlainText(binary: ArrayBuffer, extension: string): string {
   const text = new TextDecoder("utf-8").decode(binary);
   if (extension === "htm" || extension === "html") {
     const turndown = new TurndownService({ headingStyle: "atx" });
