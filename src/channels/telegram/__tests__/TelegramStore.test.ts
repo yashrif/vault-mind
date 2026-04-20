@@ -184,6 +184,31 @@ describe("TelegramStore", () => {
     });
   });
 
+  describe("appendBotMessage", () => {
+    beforeEach(async () => {
+      setupEmptyVault();
+      await store.initialize();
+      store.setAllowedChatIds([111]);
+      await store.appendInbound(makeUpdate(1, 111));
+    });
+
+    it("defaults source to 'telegram'", async () => {
+      await store.appendBotMessage("hello from bot", 111);
+      const msgs = store.getVisibleMessages();
+      const botMessage = msgs[msgs.length - 1];
+      expect(botMessage.source).toBe("telegram");
+      expect(botMessage.sender_type).toBe("bot");
+    });
+
+    it("supports explicit local-only bot source 'obsidian'", async () => {
+      await store.appendBotMessage("local-only bot reply", 111, "obsidian");
+      const msgs = store.getVisibleMessages();
+      const botMessage = msgs[msgs.length - 1];
+      expect(botMessage.source).toBe("obsidian");
+      expect(botMessage.sender_type).toBe("bot");
+    });
+  });
+
   describe("resetView", () => {
     beforeEach(async () => {
       setupEmptyVault();

@@ -14,11 +14,12 @@ import type { TelegramStoredMessage } from "./TelegramTypes";
 /**
  * Orchestrates AI auto-replies for the Telegram channel.
  *
- * When an inbound telegram-source message arrives, TelegramAgent:
+ * For every non-bot message (telegram or obsidian source), TelegramAgent:
  *   1. Rehydrates its own isolated MemoryManager from the visible Telegram thread.
  *   2. Runs the message through ChainManager.runChain, pinned to TELEGRAM_CHAIN.
- *   3. Posts the final response back to Telegram via TelegramClient.sendMessage.
- *   4. Stores the bot reply in TelegramStore for display in TelegramChatView.
+ *   3. Routes delivery by message source:
+ *      - telegram source: send to Telegram API and persist in TelegramStore.
+ *      - obsidian source: persist locally only (no Telegram API send).
  *
  * Replies are serialized by a promise queue — one at a time, in order.
  */
@@ -37,8 +38,8 @@ export class TelegramAgent {
 
   /**
    * Enqueue an AI reply for the given inbound message.
-    * Silently ignores bot-source messages.
-    * All non-bot senders get an AI reply, regardless of source.
+   * Silently ignores bot-source messages.
+   * All non-bot senders get an AI reply, regardless of source.
    */
   async enqueueReply(msg: TelegramStoredMessage): Promise<void> {
     if (msg.sender_type === "bot") {
@@ -58,6 +59,7 @@ export class TelegramAgent {
    */
   private async runReply(msg: TelegramStoredMessage): Promise<void> {
     logInfo(`[TelegramAgent] Generating reply for chat ${msg.chat_id}: "${msg.text.slice(0, 80)}"`);
+    const shouldSendToTelegram = msg.source === "telegram";
 
     // Build history from visible thread, excluding the current inbound message.
     // Use local_id when available (new messages); fall back to update_id for pre-migration rows.
@@ -104,22 +106,38 @@ export class TelegramAgent {
         return;
       }
 
-      // TelegramClient.sendMessage handles chunking at the Bot API 4096-char limit
-      await this.client.sendMessage(msg.chat_id, finalText);
+      if (shouldSendToTelegram) {
+        // TelegramClient.sendMessage handles chunking at the Bot API 4096-char limit
+        await this.client.sendMessage(msg.chat_id, finalText);
+      }
 
-      // Store the bot reply so TelegramChatView re-renders
-      await this.store.appendBotMessage(finalText, msg.chat_id);
+      // Store the bot reply so TelegramChatView re-renders.
+      // For obsidian-source turns, this is local-only and never sent to Telegram.
+      await this.store.appendBotMessage(
+        finalText,
+        msg.chat_id,
+        shouldSendToTelegram ? "telegram" : "obsidian"
+      );
 
       logInfo(`[TelegramAgent] Reply sent to chat ${msg.chat_id} (${finalText.length} chars).`);
     } catch (err) {
       logError("[TelegramAgent] Failed to generate/send reply:", err);
       const fallbackText = "Sorry, I couldn't respond right now.";
-      try {
-        await this.client.sendMessage(msg.chat_id, fallbackText);
-        // Persist only when the fallback send succeeded — never store an unsent message
-        await this.store.appendBotMessage(fallbackText, msg.chat_id);
-      } catch (sendErr) {
-        logError("[TelegramAgent] Also failed to send error message:", sendErr);
+      if (shouldSendToTelegram) {
+        try {
+          await this.client.sendMessage(msg.chat_id, fallbackText);
+          // Persist only when the fallback send succeeded — never store an unsent Telegram message.
+          await this.store.appendBotMessage(fallbackText, msg.chat_id, "telegram");
+        } catch (sendErr) {
+          logError("[TelegramAgent] Also failed to send error message:", sendErr);
+        }
+      } else {
+        try {
+          // Local-only fallback for messages authored in Obsidian.
+          await this.store.appendBotMessage(fallbackText, msg.chat_id, "obsidian");
+        } catch (storeErr) {
+          logError("[TelegramAgent] Also failed to persist local fallback message:", storeErr);
+        }
       }
     }
   }

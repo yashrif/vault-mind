@@ -31,6 +31,8 @@ A bridge between Telegram and Copilot. Telegram mode shows one always-on thread 
 - Requires a Telegram bot token
 - Requires at least one allowlisted chat ID in **Settings → Copilot → Telegram → Allowed Chat IDs**
 - The first inbound message from an allowlisted chat becomes the primary chat
+- Messages you type in Obsidian stay local-only in the plugin thread and are not posted to Telegram
+- Messages that arrive from Telegram still receive AI replies sent back to Telegram
 
 In Telegram mode, regular chat history/session controls are hidden because the thread is managed by Telegram channel state.
 

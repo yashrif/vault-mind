@@ -10,6 +10,11 @@ export interface TelegramStoredMessage {
   /** Display name: Telegram first name for telegram-source, "You" for obsidian-source. */
   sender_name: string;
   sender_type: "user" | "bot";
+  /**
+   * Message origin marker:
+   * - "telegram": delivered via Telegram transport
+   * - "obsidian": created locally in the plugin (including local-only bot replies)
+   */
   source: "telegram" | "obsidian";
   /** Plain text, or "[photo]" / "[sticker]" etc. for unsupported message types. */
   text: string;

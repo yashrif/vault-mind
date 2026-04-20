@@ -48,10 +48,7 @@ export class TelegramStore {
     this.allowedChatIds = new Set(chatIds);
 
     // If the currently bound primary chat is no longer allowed, unbind it.
-    if (
-      this.meta.primary_chat_id !== null &&
-      !this.allowedChatIds.has(this.meta.primary_chat_id)
-    ) {
+    if (this.meta.primary_chat_id !== null && !this.allowedChatIds.has(this.meta.primary_chat_id)) {
       logWarn(
         "[TelegramStore] Unbinding primary_chat_id because it is no longer in the allowed list:",
         this.meta.primary_chat_id
@@ -240,8 +237,15 @@ export class TelegramStore {
   /**
    * Append a bot reply to the thread.
    * Always appends to thread.json (no dedup needed).
+   *
+   * @param source - "telegram" for messages delivered via Telegram API,
+   *                 "obsidian" for local-only replies generated in the plugin.
    */
-  async appendBotMessage(text: string, chatId?: number): Promise<TelegramStoredMessage> {
+  async appendBotMessage(
+    text: string,
+    chatId?: number,
+    source: TelegramStoredMessage["source"] = "telegram"
+  ): Promise<TelegramStoredMessage> {
     return this.withWriteLock(async () => {
       const resolvedChatId = chatId ?? this.meta.primary_chat_id;
       if (resolvedChatId === null || resolvedChatId === undefined) {
@@ -253,7 +257,7 @@ export class TelegramStore {
         chat_id: resolvedChatId,
         sender_name: "Bot",
         sender_type: "bot",
-        source: "telegram",
+        source,
         text,
         date: Math.floor(Date.now() / 1000),
         stored_at: Date.now(),

@@ -109,8 +109,19 @@ describe("TelegramAgent", () => {
 
   // ── 2. Processes obsidian-source messages ─────────────────────────────────
 
-  it("calls runChain for obsidian-source messages", async () => {
-    const runChain = jest.fn();
+  it("calls runChain for obsidian-source messages and keeps reply local-only", async () => {
+    const runChain = jest
+      .fn()
+      .mockImplementation(
+        async (
+          _userMsg: unknown,
+          _abort: unknown,
+          _onPartial: unknown,
+          addMessage: (m: { message: string }) => void
+        ) => {
+          addMessage({ message: "local reply" });
+        }
+      );
     const agent = new TelegramAgent(client, store, makeChainManager(runChain) as any);
 
     const obsidianMsg = makeUserMsg({ source: "obsidian" });
@@ -118,6 +129,8 @@ describe("TelegramAgent", () => {
     await flushQueue();
 
     expect(runChain).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(mockAppendBotMessage).toHaveBeenCalledWith("local reply", 42, "obsidian");
   });
 
   // ── 3. Happy path ─────────────────────────────────────────────────────────
@@ -155,7 +168,7 @@ describe("TelegramAgent", () => {
 
     expect(runChain).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).toHaveBeenCalledWith(42, "I am the AI reply");
-    expect(mockAppendBotMessage).toHaveBeenCalledWith("I am the AI reply", 42);
+    expect(mockAppendBotMessage).toHaveBeenCalledWith("I am the AI reply", 42, "telegram");
     expect(callOrder).toEqual(["runChain", "sendMessage", "appendBotMessage"]);
   });
 
@@ -234,7 +247,11 @@ describe("TelegramAgent", () => {
     await flushQueue();
 
     expect(mockSendMessage).toHaveBeenCalledWith(42, "Sorry, I couldn't respond right now.");
-    expect(mockAppendBotMessage).toHaveBeenCalledWith("Sorry, I couldn't respond right now.", 42);
+    expect(mockAppendBotMessage).toHaveBeenCalledWith(
+      "Sorry, I couldn't respond right now.",
+      42,
+      "telegram"
+    );
   });
 
   // ── 6. Chain error → fallback send fails; appendBotMessage is NOT called ──
@@ -252,7 +269,26 @@ describe("TelegramAgent", () => {
     expect(mockAppendBotMessage).not.toHaveBeenCalled();
   });
 
-  // ── 7. dispose() is idempotent ────────────────────────────────────────────
+  // ── 7. Obsidian-source chain error → local fallback append; no Telegram send ──
+
+  it("persists local fallback message without sending to Telegram for obsidian-source failures", async () => {
+    const runChain = jest.fn().mockRejectedValue(new Error("LLM exploded"));
+
+    const agent = new TelegramAgent(client, store, makeChainManager(runChain) as any);
+    const msg = makeUserMsg({ source: "obsidian" });
+
+    await agent.enqueueReply(msg);
+    await flushQueue();
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(mockAppendBotMessage).toHaveBeenCalledWith(
+      "Sorry, I couldn't respond right now.",
+      42,
+      "obsidian"
+    );
+  });
+
+  // ── 8. dispose() is idempotent ────────────────────────────────────────────
 
   it("dispose() is safe to call multiple times", () => {
     const agent = new TelegramAgent(client, store, makeChainManager() as any);
@@ -262,7 +298,7 @@ describe("TelegramAgent", () => {
     }).not.toThrow();
   });
 
-  // ── 8. updateChatMemory is called with history excluding the current message
+  // ── 9. updateChatMemory is called with history excluding the current message
 
   it("calls updateChatMemory with the thread history excluding the inbound message", async () => {
     const storedAt = 1000;

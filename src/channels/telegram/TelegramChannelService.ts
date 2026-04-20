@@ -126,6 +126,7 @@ export class TelegramChannelService {
   setAgent(agent: TelegramAgent): void {
     this.agent?.dispose();
     this.agent = agent;
+    // TelegramAgent decides whether replies are sent to Telegram or kept local based on message source.
     this.store.setOnLocalMessage((msg) => agent.enqueueReply(msg));
   }
 
