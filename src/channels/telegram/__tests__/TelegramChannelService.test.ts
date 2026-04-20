@@ -182,4 +182,10 @@ describe("TelegramChannelService", () => {
     expect(firstAgent.dispose).toHaveBeenCalledTimes(1);
     expect(secondAgent.dispose).not.toHaveBeenCalled();
   });
+
+  it("clears the store onLocalMessage callback when stopped", () => {
+    (service as any).running = true;
+    service.stop();
+    expect(mockSetOnLocalMessage).toHaveBeenCalledWith(null);
+  });
 });

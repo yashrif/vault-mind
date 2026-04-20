@@ -254,6 +254,26 @@ describe("TelegramStore", () => {
     });
   });
 
+  describe("setOnLocalMessage", () => {
+    it("clears the callback when called with null so appendLocal no longer fires it", async () => {
+      setupEmptyVault();
+      const store = new TelegramStore();
+      await store.initialize();
+      // bind a chat id so appendLocal does not throw
+      store.setAllowedChatIds([100]);
+      await store.appendInbound(makeUpdate(1, 100));
+
+      const handler = jest.fn();
+      store.setOnLocalMessage(handler);
+      await store.appendLocal("first");
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      store.setOnLocalMessage(null);
+      await store.appendLocal("second");
+      expect(handler).toHaveBeenCalledTimes(1); // must NOT increase
+    });
+  });
+
   describe("non-text message handling", () => {
     beforeEach(async () => {
       setupEmptyVault();

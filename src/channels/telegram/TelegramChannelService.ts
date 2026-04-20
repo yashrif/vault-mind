@@ -96,6 +96,7 @@ export class TelegramChannelService {
     this.abortController = null;
     this.agent?.dispose();
     this.agent = null;
+    this.store.setOnLocalMessage(null); // clear stale callback
     logInfo("[TelegramChannelService] Stopped.");
   }
 

@@ -99,7 +99,7 @@ export class TelegramStore {
    * Register a callback invoked whenever a message is appended via appendLocal.
    * Used by TelegramChannelService to route UI-typed messages to the AI agent.
    */
-  setOnLocalMessage(handler: (msg: TelegramStoredMessage) => void): void {
+  setOnLocalMessage(handler: ((msg: TelegramStoredMessage) => void) | null): void {
     this.onLocalMessageHandler = handler;
   }
 
