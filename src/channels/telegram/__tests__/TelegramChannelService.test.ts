@@ -50,6 +50,7 @@ const mockSetOffset = jest.fn();
 const mockResetForNewBot = jest.fn();
 const mockAppendInbound = jest.fn();
 const mockSetAllowedChatIds = jest.fn();
+const mockSetOnLocalMessage = jest.fn();
 
 jest.mock("../TelegramStore", () => ({
   TelegramStore: jest.fn().mockImplementation(() => ({
@@ -59,6 +60,7 @@ jest.mock("../TelegramStore", () => ({
     resetForNewBot: mockResetForNewBot,
     appendInbound: mockAppendInbound,
     setAllowedChatIds: mockSetAllowedChatIds,
+    setOnLocalMessage: mockSetOnLocalMessage,
   })),
 }));
 
@@ -160,5 +162,24 @@ describe("TelegramChannelService", () => {
     await service.restart("new-token");
     // Should have started twice in total
     expect(mockStoreInitialize).toHaveBeenCalledTimes(2);
+  });
+
+  it("stop() disposes the current agent", async () => {
+    const mockAgent = { dispose: jest.fn(), enqueueReply: jest.fn() };
+    service.setAgent(mockAgent as any);
+    (service as any).running = true;
+    service.stop();
+    expect(mockAgent.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("setAgent() disposes the previous agent before replacing", () => {
+    const firstAgent = { dispose: jest.fn(), enqueueReply: jest.fn() };
+    const secondAgent = { dispose: jest.fn(), enqueueReply: jest.fn() };
+
+    service.setAgent(firstAgent as any);
+    service.setAgent(secondAgent as any);
+
+    expect(firstAgent.dispose).toHaveBeenCalledTimes(1);
+    expect(secondAgent.dispose).not.toHaveBeenCalled();
   });
 });

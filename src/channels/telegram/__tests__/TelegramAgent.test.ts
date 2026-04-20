@@ -237,7 +237,32 @@ describe("TelegramAgent", () => {
     expect(mockAppendBotMessage).toHaveBeenCalledWith("Sorry, I couldn't respond right now.", 42);
   });
 
-  // ── 6. updateChatMemory is called with history excluding the current message
+  // ── 6. Chain error → fallback send fails; appendBotMessage is NOT called ──
+
+  it("does not persist fallback message when fallback send itself fails", async () => {
+    const runChain = jest.fn().mockRejectedValue(new Error("LLM exploded"));
+    mockSendMessage.mockRejectedValue(new Error("network error"));
+
+    const agent = new TelegramAgent(client, store, makeChainManager(runChain) as any);
+    const msg = makeUserMsg();
+
+    await agent.enqueueReply(msg);
+    await flushQueue();
+
+    expect(mockAppendBotMessage).not.toHaveBeenCalled();
+  });
+
+  // ── 7. dispose() is idempotent ────────────────────────────────────────────
+
+  it("dispose() is safe to call multiple times", () => {
+    const agent = new TelegramAgent(client, store, makeChainManager() as any);
+    expect(() => {
+      agent.dispose();
+      agent.dispose();
+    }).not.toThrow();
+  });
+
+  // ── 8. updateChatMemory is called with history excluding the current message
 
   it("calls updateChatMemory with the thread history excluding the inbound message", async () => {
     const storedAt = 1000;

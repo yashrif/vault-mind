@@ -88,12 +88,14 @@ export class TelegramChannelService {
     }
   }
 
-  /** Stop polling. */
+  /** Stop polling and dispose the current agent. */
   stop(): void {
     if (!this.running) return;
     this.running = false;
     this.abortController?.abort();
     this.abortController = null;
+    this.agent?.dispose();
+    this.agent = null;
     logInfo("[TelegramChannelService] Stopped.");
   }
 
@@ -121,6 +123,7 @@ export class TelegramChannelService {
    * @param agent - The TelegramAgent instance to handle inbound message replies.
    */
   setAgent(agent: TelegramAgent): void {
+    this.agent?.dispose();
     this.agent = agent;
     this.store.setOnLocalMessage((msg) => agent.enqueueReply(msg));
   }

@@ -331,7 +331,8 @@ export class TelegramStore {
     try {
       if (await app.vault.adapter.exists(THREAD_PATH)) {
         const raw = await app.vault.adapter.read(THREAD_PATH);
-        return JSON.parse(raw) as TelegramStoredMessage[];
+        const messages = JSON.parse(raw) as TelegramStoredMessage[];
+        return messages.map((m) => (m.local_id ? m : { ...m, local_id: crypto.randomUUID() }));
       }
     } catch (err) {
       logWarn("[TelegramStore] Could not read thread.json — starting fresh:", err);
