@@ -48,10 +48,10 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
   currentChain,
 }) => {
   const isCopilotPlus = isPlusChain(currentChain);
-  const isTelegramChain = currentChain === ChainType.TELEGRAM_CHAIN;
-  const canShowToolControls = isCopilotPlus || isTelegramChain;
+  const canShowToolControls =
+    isCopilotPlus || currentChain === ChainType.TELEGRAM_CHAIN;
   const showAutonomousAgent = canShowToolControls && currentChain !== ChainType.PROJECT_CHAIN;
-  const areManualToolTogglesDisabled = autonomousAgentToggle || isTelegramChain;
+  const areManualToolTogglesDisabled = autonomousAgentToggle;
 
   const handleAutonomousAgentToggle = () => {
     const newValue = !autonomousAgentToggle;
@@ -120,68 +120,63 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
           </Tooltip>
         )}
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost2"
-              size="fit"
-              onClick={handleVaultToggle}
-              disabled={areManualToolTogglesDisabled}
-              className={cn(
-                "tw-text-muted hover:tw-text-accent disabled:tw-opacity-50",
-                vaultToggle && "tw-text-accent tw-bg-accent/10"
-              )}
-            >
-              <Database className="tw-size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="tw-px-1 tw-py-0.5">
-            {isTelegramChain ? "Unavailable in Telegram mode" : "Toggle vault search"}
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost2"
-              size="fit"
-              onClick={handleWebToggle}
-              disabled={areManualToolTogglesDisabled}
-              className={cn(
-                "tw-text-muted hover:tw-text-accent disabled:tw-opacity-50",
-                webToggle && "tw-text-accent tw-bg-accent/10"
-              )}
-            >
-              <Globe className="tw-size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="tw-px-1 tw-py-0.5">
-            {isTelegramChain ? "Unavailable in Telegram mode" : "Toggle web search"}
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost2"
-              size="fit"
-              onClick={handleComposerToggle}
-              disabled={areManualToolTogglesDisabled}
-              className={cn(
-                "tw-text-muted hover:tw-text-accent disabled:tw-opacity-50",
-                composerToggle && "tw-text-accent tw-bg-accent/10"
-              )}
-            >
-              <span className="tw-flex tw-items-center tw-gap-0.5">
-                <Sparkles className="tw-size-2" />
-                <Pen className="tw-size-3" />
-              </span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="tw-px-1 tw-py-0.5">
-            {isTelegramChain
-              ? "Unavailable in Telegram mode"
-              : "Toggle composer (note editing)"}
-          </TooltipContent>
-        </Tooltip>
+        {!autonomousAgentToggle && (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost2"
+                  size="fit"
+                  onClick={handleVaultToggle}
+                  className={cn(
+                    "tw-text-muted hover:tw-text-accent",
+                    vaultToggle && "tw-text-accent tw-bg-accent/10"
+                  )}
+                >
+                  <Database className="tw-size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="tw-px-1 tw-py-0.5">Toggle vault search</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost2"
+                  size="fit"
+                  onClick={handleWebToggle}
+                  className={cn(
+                    "tw-text-muted hover:tw-text-accent",
+                    webToggle && "tw-text-accent tw-bg-accent/10"
+                  )}
+                >
+                  <Globe className="tw-size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="tw-px-1 tw-py-0.5">Toggle web search</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost2"
+                  size="fit"
+                  onClick={handleComposerToggle}
+                  className={cn(
+                    "tw-text-muted hover:tw-text-accent",
+                    composerToggle && "tw-text-accent tw-bg-accent/10"
+                  )}
+                >
+                  <span className="tw-flex tw-items-center tw-gap-0.5">
+                    <Sparkles className="tw-size-2" />
+                    <Pen className="tw-size-3" />
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="tw-px-1 tw-py-0.5">
+                Toggle composer (note editing)
+              </TooltipContent>
+            </Tooltip>
+          </>
+        )}
       </div>
 
       {/* Mobile view - show overflow dropdown when container is narrow */}
@@ -207,44 +202,75 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
               </DropdownMenuItem>
             )}
 
-            <DropdownMenuItem
-              onClick={handleVaultToggle}
-              disabled={areManualToolTogglesDisabled}
-              className="tw-flex tw-items-center tw-justify-between"
-            >
-              <div className="tw-flex tw-items-center tw-gap-2">
-                <Database className="tw-size-4" />
-                <span>
-                  {isTelegramChain ? "Vault Search (Unavailable in Telegram)" : "Vault Search"}
-                </span>
-              </div>
-              {vaultToggle && !areManualToolTogglesDisabled && <Check className="tw-size-4" />}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={handleWebToggle}
-              disabled={areManualToolTogglesDisabled}
-              className="tw-flex tw-items-center tw-justify-between"
-            >
-              <div className="tw-flex tw-items-center tw-gap-2">
-                <Globe className="tw-size-4" />
-                <span>{isTelegramChain ? "Web Search (Unavailable in Telegram)" : "Web Search"}</span>
-              </div>
-              {webToggle && !areManualToolTogglesDisabled && <Check className="tw-size-4" />}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={handleComposerToggle}
-              disabled={areManualToolTogglesDisabled}
-              className="tw-flex tw-items-center tw-justify-between"
-            >
-              <div className="tw-flex tw-items-center tw-gap-2">
-                <span className="tw-flex tw-items-center tw-gap-0.5">
-                  <Sparkles className="tw-size-2" />
-                  <Pen className="tw-size-3" />
-                </span>
-                <span>{isTelegramChain ? "Composer (Unavailable in Telegram)" : "Composer"}</span>
-              </div>
-              {composerToggle && !areManualToolTogglesDisabled && <Check className="tw-size-4" />}
-            </DropdownMenuItem>
+            {!autonomousAgentToggle && (
+              <>
+                <DropdownMenuItem
+                  onClick={handleVaultToggle}
+                  className="tw-flex tw-items-center tw-justify-between"
+                >
+                  <div className="tw-flex tw-items-center tw-gap-2">
+                    <Database className="tw-size-4" />
+                    <span>Vault Search</span>
+                  </div>
+                  {vaultToggle && <Check className="tw-size-4" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleWebToggle}
+                  className="tw-flex tw-items-center tw-justify-between"
+                >
+                  <div className="tw-flex tw-items-center tw-gap-2">
+                    <Globe className="tw-size-4" />
+                    <span>Web Search</span>
+                  </div>
+                  {webToggle && <Check className="tw-size-4" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleComposerToggle}
+                  className="tw-flex tw-items-center tw-justify-between"
+                >
+                  <div className="tw-flex tw-items-center tw-gap-2">
+                    <span className="tw-flex tw-items-center tw-gap-0.5">
+                      <Sparkles className="tw-size-2" />
+                      <Pen className="tw-size-3" />
+                    </span>
+                    <span>Composer</span>
+                  </div>
+                  {composerToggle && <Check className="tw-size-4" />}
+                </DropdownMenuItem>
+              </>
+            )}
+
+            {autonomousAgentToggle && (
+              <>
+                <DropdownMenuItem
+                  onClick={handleVaultToggle}
+                  disabled
+                  className="tw-flex tw-items-center tw-gap-2"
+                >
+                  <Database className="tw-size-4" />
+                  <span>Vault Search</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleWebToggle}
+                  disabled
+                  className="tw-flex tw-items-center tw-gap-2"
+                >
+                  <Globe className="tw-size-4" />
+                  <span>Web Search</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleComposerToggle}
+                  disabled
+                  className="tw-flex tw-items-center tw-gap-2"
+                >
+                  <span className="tw-flex tw-items-center tw-gap-0.5">
+                    <Sparkles className="tw-size-2" />
+                    <Pen className="tw-size-3" />
+                  </span>
+                  <span>Composer</span>
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

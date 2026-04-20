@@ -256,7 +256,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
     // Build tool calls based on toggle states
     const toolCalls: string[] = [];
-    const canInjectToolCalls = isCopilotPlus && !isTelegramChain;
+    const canInjectToolCalls = supportsRichContext;
     // Only add tool calls when autonomous agent is off
     // When autonomous agent is on, it handles all tools internally
     if (canInjectToolCalls && !autonomousAgentToggle) {

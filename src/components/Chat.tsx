@@ -1044,7 +1044,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
             onLoadHistory={handleLoadChatHistory}
             onModeChange={handleChainModeChange}
             selectedChain={selectedChain}
-            showModeSelector={false}
             chatHistory={chatHistoryItems}
             onUpdateChatTitle={handleUpdateChatTitle}
             onDeleteChat={handleDeleteChat}
@@ -1131,8 +1130,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                   showIndexingCard={() => {
                     setIndexingCardVisible(true);
                   }}
-                  showChainSelector={true}
-                  onChainChange={handleChainModeChange}
                 />
               ) : (
                 <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl">
