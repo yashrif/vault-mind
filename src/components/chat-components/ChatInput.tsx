@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ModelSelector } from "@/components/ui/ModelSelector";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChatToolControls } from "./ChatToolControls";
+import { ChainModeSelector } from "./ChainModeSelector";
 import { isPlusChain } from "@/utils";
 import {
   mergeWebTabContexts,
@@ -64,6 +65,8 @@ interface ChatInputProps {
   onRemoveSelectedText?: (id: string) => void;
   showProgressCard: () => void;
   showIndexingCard?: () => void;
+  showChainSelector?: boolean;
+  onChainChange?: (chainType: ChainType) => void | Promise<void>;
 
   // Edit mode props
   editMode?: boolean;
@@ -105,6 +108,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
   onRemoveSelectedText,
   showProgressCard,
   showIndexingCard,
+  showChainSelector = false,
+  onChainChange,
   editMode = false,
   onEditSave,
   onEditCancel,
@@ -130,6 +135,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const [toolsFromPills, setToolsFromPills] = useState<string[]>([]);
   const [webTabsFromPills, setWebTabsFromPills] = useState<WebTabContext[]>([]);
   const isCopilotPlus = isPlusChain(currentChain);
+  const isTelegramChain = currentChain === ChainType.TELEGRAM_CHAIN;
+  const supportsRichContext = isCopilotPlus || isTelegramChain;
 
   // Merge badge-only contextWebTabs with pills-derived webTabsFromPills for display
   // Uses shared normalization policy from urlNormalization.ts
@@ -236,7 +243,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
     const webTabsFromEditor = getWebTabsFromEditorSnapshot();
     const allWebTabs = mergeWebTabContexts([...contextWebTabs, ...webTabsFromEditor]);
 
-    if (!isCopilotPlus) {
+    if (!supportsRichContext) {
       // Non-Plus chains: only webTabs needs explicit passing
       // - contextNotes: Chat.tsx has state, closure can access
       // - contextFolders: {folderPath} in text gets expanded by processPrompt()
@@ -249,9 +256,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
     // Build tool calls based on toggle states
     const toolCalls: string[] = [];
+    const canInjectToolCalls = isCopilotPlus && !isTelegramChain;
     // Only add tool calls when autonomous agent is off
     // When autonomous agent is on, it handles all tools internally
-    if (!autonomousAgentToggle) {
+    if (canInjectToolCalls && !autonomousAgentToggle) {
       const messageLower = inputMessage.toLowerCase();
 
       // Only add tools from buttons if they're not already in the message
@@ -576,7 +584,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   // URL pill-to-context synchronization (when URL pills are added) - only for Plus chains
   useEffect(() => {
-    if (isPlusChain(currentChain)) {
+    if (supportsRichContext) {
       setContextUrls((prev) => {
         const contextUrlSet = new Set(prev);
 
@@ -597,7 +605,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
       // Clear URLs for non-Plus chains
       setContextUrls([]);
     }
-  }, [urlsFromPills, currentChain]);
+  }, [urlsFromPills, supportsRichContext]);
 
   // Folder-to-context synchronization (when folders are added via pills)
   useEffect(() => {
@@ -774,8 +782,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
           onNotesRemoved={handleNotePillsRemoved}
           onActiveNoteAdded={handleActiveNoteAdded}
           onActiveNoteRemoved={handleActiveNoteRemoved}
-          onURLsChange={isCopilotPlus ? setUrlsFromPills : undefined}
-          onURLsRemoved={isCopilotPlus ? handleURLPillsRemoved : undefined}
+          onURLsChange={supportsRichContext ? setUrlsFromPills : undefined}
+          onURLsRemoved={supportsRichContext ? handleURLPillsRemoved : undefined}
           onToolsChange={isCopilotPlus ? setToolsFromPills : undefined}
           onToolsRemoved={isCopilotPlus ? handleToolPillsRemoved : undefined}
           onFoldersChange={setFoldersFromPills}
@@ -801,21 +809,26 @@ const ChatInput: React.FC<ChatInputProps> = ({
             <span>Generating...</span>
           </div>
         ) : (
-          <div className="tw-min-w-0 tw-flex-1">
-            <ModelSelector
-              variant="ghost2"
-              size="fit"
-              disabled={disableModelSwitch}
-              value={getDisplayModelKey()}
-              onChange={(modelKey) => {
-                // In project mode, we don't update the global model key
-                // as the project model takes precedence
-                if (currentChain !== ChainType.PROJECT_CHAIN) {
-                  setCurrentModelKey(modelKey);
-                }
-              }}
-              className="tw-max-w-full tw-truncate"
-            />
+          <div className="tw-flex tw-min-w-0 tw-flex-1 tw-items-center tw-gap-1">
+            {showChainSelector && onChainChange && (
+              <ChainModeSelector selectedChain={currentChain} onSelectChain={onChainChange} />
+            )}
+            <div className="tw-min-w-0 tw-flex-1">
+              <ModelSelector
+                variant="ghost2"
+                size="fit"
+                disabled={disableModelSwitch}
+                value={getDisplayModelKey()}
+                onChange={(modelKey) => {
+                  // In project mode, we don't update the global model key
+                  // as the project model takes precedence
+                  if (currentChain !== ChainType.PROJECT_CHAIN) {
+                    setCurrentModelKey(modelKey);
+                  }
+                }}
+                className="tw-max-w-full tw-truncate"
+              />
+            </div>
           </div>
         )}
 

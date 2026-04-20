@@ -76,11 +76,11 @@ export class TelegramAgent {
 
     // Build the user ChatMessage for the chain
     const userChatMessage: ChatMessage = {
-      message: msg.text,
+      message: msg.processedText || msg.contextEnvelope?.serializedText || msg.text,
       sender: USER_SENDER,
       isVisible: true,
       timestamp: formatDateTime(new Date(msg.stored_at)),
-      contextEnvelope: this.buildMinimalEnvelope(msg.text),
+      contextEnvelope: msg.contextEnvelope || this.buildMinimalEnvelope(msg.text),
     };
 
     // Run chain pinned to TELEGRAM_CHAIN so UI chain-type changes don't affect it.

@@ -1,4 +1,4 @@
-import { getCurrentProject, setCurrentProject, setProjectLoading, useChainType } from "@/aiParams";
+import { getCurrentProject, setProjectLoading } from "@/aiParams";
 import { ProjectContextCache } from "@/cache/projectContextCache";
 import { ChainType } from "@/chainFactory";
 import { ConfirmModal } from "@/components/modals/ConfirmModal";
@@ -13,15 +13,12 @@ import { DropdownMenu, DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu
 import {
   AlertTriangle,
   CheckCircle,
-  ChevronDown,
   Download,
   FileText,
   History,
-  LibraryBig,
   MessageCirclePlus,
   MoreHorizontal,
   RefreshCw,
-  Send,
   Sparkles,
 } from "lucide-react";
 import { Notice } from "obsidian";
@@ -32,6 +29,7 @@ import {
 } from "@/components/chat-components/ChatHistoryPopover";
 import { TokenCounter } from "./TokenCounter";
 import { ChatSettingsPopover } from "@/components/chat-components/ChatSettingsPopover";
+import { ChainModeSelector } from "@/components/chat-components/ChainModeSelector";
 
 export async function refreshVaultIndex() {
   try {
@@ -172,8 +170,9 @@ interface ChatControlsProps {
   onNewChat: () => void;
   onSaveAsNote: () => Promise<void>;
   onLoadHistory: () => void;
-  onModeChange: (mode: ChainType) => void;
-  onCloseProject?: () => void;
+  onModeChange: (mode: ChainType) => void | Promise<void>;
+  selectedChain: ChainType;
+  showModeSelector?: boolean;
   chatHistory: ChatHistoryItem[];
   onUpdateChatTitle: (id: string, newTitle: string) => Promise<void>;
   onDeleteChat: (id: string) => Promise<void>;
@@ -187,7 +186,8 @@ export function ChatControls({
   onSaveAsNote,
   onLoadHistory,
   onModeChange,
-  onCloseProject,
+  selectedChain,
+  showModeSelector = true,
   chatHistory,
   onUpdateChatTitle,
   onDeleteChat,
@@ -196,94 +196,17 @@ export function ChatControls({
   latestTokenCount,
 }: ChatControlsProps) {
   const settings = useSettingsValue();
-  const [selectedChain, setSelectedChain] = useChainType();
-  const handleModeChange = async (chainType: ChainType) => {
-    // If leaving project mode with autosave enabled, save chat BEFORE clearing project context
-    // This ensures the chat is saved with the correct project prefix
-    const isLeavingProjectMode =
-      selectedChain === ChainType.PROJECT_CHAIN && chainType !== ChainType.PROJECT_CHAIN;
-    if (isLeavingProjectMode && settings.autosaveChat) {
-      await onSaveAsNote();
-    }
-
-    setSelectedChain(chainType);
-    onModeChange(chainType);
-    if (chainType !== ChainType.PROJECT_CHAIN) {
-      setCurrentProject(null);
-      onCloseProject?.();
-    }
-  };
 
   return (
     <div className="tw-flex tw-w-full tw-items-center tw-justify-between tw-p-1">
       <div className="tw-flex-1">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost2" size="fit" className="tw-ml-1 tw-text-sm tw-text-muted">
-              {selectedChain === ChainType.LLM_CHAIN && "chat (free)"}
-              {selectedChain === ChainType.VAULT_QA_CHAIN && "vault QA (free)"}
-              {selectedChain === ChainType.TOOL_CHAIN && (
-                <div className="tw-flex tw-items-center tw-gap-1">
-                  <Sparkles className="tw-size-4" />
-                  agentic copilot
-                </div>
-              )}
-              {selectedChain === ChainType.PROJECT_CHAIN && "projects (alpha)"}
-              {selectedChain === ChainType.TELEGRAM_CHAIN && (
-                <div className="tw-flex tw-items-center tw-gap-1">
-                  <Send className="tw-size-4" />
-                  telegram
-                </div>
-              )}
-              <ChevronDown className="tw-mt-0.5 tw-size-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem
-              onSelect={() => {
-                handleModeChange(ChainType.LLM_CHAIN);
-              }}
-            >
-              chat (free)
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => {
-                handleModeChange(ChainType.VAULT_QA_CHAIN);
-              }}
-            >
-              vault QA (free)
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => {
-                handleModeChange(ChainType.TOOL_CHAIN);
-              }}
-            >
-              <div className="tw-flex tw-items-center tw-gap-1">
-                <Sparkles className="tw-size-4" />
-                agentic copilot
-              </div>
-            </DropdownMenuItem>
-
-            <DropdownMenuItem
-              className="tw-flex tw-items-center tw-gap-1"
-              onSelect={() => {
-                handleModeChange(ChainType.PROJECT_CHAIN);
-              }}
-            >
-              <LibraryBig className="tw-size-4" />
-              projects (alpha)
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="tw-flex tw-items-center tw-gap-1"
-              onSelect={() => {
-                handleModeChange(ChainType.TELEGRAM_CHAIN);
-              }}
-            >
-              <Send className="tw-size-4" />
-              telegram
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {showModeSelector && (
+          <ChainModeSelector
+            selectedChain={selectedChain}
+            onSelectChain={onModeChange}
+            className="tw-ml-1"
+          />
+        )}
       </div>
       <div className="tw-flex tw-items-center tw-gap-1">
         <div className="tw-mr-2">

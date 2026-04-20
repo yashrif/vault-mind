@@ -1,4 +1,5 @@
 import { logError, logInfo, logWarn } from "@/logger";
+import type { PromptContextEnvelope } from "@/context/PromptContextTypes";
 import type { TelegramMeta, TelegramStoredMessage, TelegramUpdate } from "./TelegramTypes";
 
 /** Generate a unique local ID that works in Electron, browser, and Jest environments. */
@@ -209,7 +210,13 @@ export class TelegramStore {
    * Append a message typed in the Obsidian input.
    * Always appends to thread.json (no dedup needed).
    */
-  async appendLocal(text: string): Promise<TelegramStoredMessage> {
+  async appendLocal(
+    text: string,
+    payload?: {
+      contextEnvelope?: PromptContextEnvelope;
+      processedText?: string;
+    }
+  ): Promise<TelegramStoredMessage> {
     return this.withWriteLock(async () => {
       if (this.meta.primary_chat_id === null) {
         throw new Error("Telegram primary chat is not bound yet.");
@@ -222,6 +229,8 @@ export class TelegramStore {
         sender_type: "user",
         source: "obsidian",
         text,
+        contextEnvelope: payload?.contextEnvelope,
+        processedText: payload?.processedText,
         date: Math.floor(Date.now() / 1000),
         stored_at: Date.now(),
       };

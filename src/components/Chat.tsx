@@ -15,6 +15,8 @@ import { resetSessionSystemPromptSettings } from "@/system-prompts";
 import { ChainType } from "@/chainFactory";
 import { useProjectContextStatus } from "@/hooks/useProjectContextStatus";
 import { logInfo, logError } from "@/logger";
+import { PromptContextEngine } from "@/context/PromptContextEngine";
+import type { PromptLayerSegment } from "@/context/PromptContextTypes";
 import type { WebTabContext } from "@/types/message";
 import { mapTelegramMessagesToChatMessages } from "@/channels/telegram/TelegramMessageAdapter";
 import type { TelegramStore } from "@/channels/telegram/TelegramStore";
@@ -24,6 +26,7 @@ import ChatInput from "@/components/chat-components/ChatInput";
 import ChatMessages from "@/components/chat-components/ChatMessages";
 import { NewVersionBanner } from "@/components/chat-components/NewVersionBanner";
 import { ProjectList } from "@/components/chat-components/ProjectList";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import IndexingProgressCard from "@/components/IndexingProgressCard";
 import ProgressCard from "@/components/project/progress-card";
 import { ABORT_REASON, AI_SENDER, EVENT_NAMES, LOADING_MESSAGES, USER_SENDER } from "@/constants";
@@ -45,6 +48,7 @@ import { arrayBufferToBase64 } from "@/utils/base64";
 import { Notice, TFile } from "obsidian";
 import { ContextManageModal } from "@/components/modals/project/context-manage-modal";
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { ChatHistoryItem } from "@/components/chat-components/ChatHistoryPopover";
 import { useActiveWebTabState } from "@/components/chat-components/hooks/useActiveWebTabState";
@@ -276,37 +280,128 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     settings.telegramBotApiKey,
   ]);
 
+  type TelegramComposerMetadata = {
+    toolCalls?: string[];
+    urls?: string[];
+    contextNotes?: TFile[];
+    contextFolders?: string[];
+    webTabs?: WebTabContext[];
+  };
+
+  /**
+   * Build a Telegram prompt envelope from composer context so TelegramAgent can
+   * consume structured context payloads instead of plain text only.
+   */
+  const buildTelegramContextEnvelope = useCallback(
+    (text: string, metadata?: TelegramComposerMetadata) => {
+      const l3Segments: PromptLayerSegment[] = [];
+
+      const notePaths = (metadata?.contextNotes || []).map((note) => note.path);
+      if (notePaths.length > 0) {
+        l3Segments.push({
+          id: "telegram-context-notes",
+          stable: true,
+          content: `<context_notes>\n${notePaths.join("\n")}\n</context_notes>`,
+        });
+      }
+
+      if ((metadata?.urls || []).length > 0) {
+        l3Segments.push({
+          id: "telegram-context-urls",
+          stable: true,
+          content: `<context_urls>\n${metadata?.urls?.join("\n")}\n</context_urls>`,
+        });
+      }
+
+      if ((metadata?.contextFolders || []).length > 0) {
+        l3Segments.push({
+          id: "telegram-context-folders",
+          stable: true,
+          content: `<context_folders>\n${metadata?.contextFolders?.join("\n")}\n</context_folders>`,
+        });
+      }
+
+      if ((metadata?.webTabs || []).length > 0) {
+        const serializedWebTabs = metadata?.webTabs
+          ?.map((webTab) => `${webTab.title || "Untitled"}: ${webTab.url}`)
+          .join("\n");
+        l3Segments.push({
+          id: "telegram-context-webtabs",
+          stable: true,
+          content: `<context_web_tabs>\n${serializedWebTabs}\n</context_web_tabs>`,
+        });
+      }
+
+      if (selectedTextContexts.length > 0) {
+        const serializedSelection = selectedTextContexts
+          .map((context) => {
+            if (context.sourceType === "web") {
+              return `${context.title || context.url}: ${context.content}`;
+            }
+            return `${context.notePath}:${context.startLine}-${context.endLine}: ${context.content}`;
+          })
+          .join("\n");
+        l3Segments.push({
+          id: "telegram-context-selected-text",
+          stable: true,
+          content: `<selected_text_context>\n${serializedSelection}\n</selected_text_context>`,
+        });
+      }
+
+      if (selectedImages.length > 0) {
+        l3Segments.push({
+          id: "telegram-context-images",
+          stable: true,
+          content: `<attached_images>\n${selectedImages
+            .map((image) => image.name)
+            .join("\n")}\n</attached_images>`,
+        });
+      }
+
+      return PromptContextEngine.getInstance().buildEnvelope({
+        conversationId: null,
+        messageId: null,
+        layerSegments: {
+          L3_TURN: l3Segments,
+          L5_USER: [
+            {
+              id: "telegram-user-message",
+              stable: true,
+              content: text,
+            },
+          ],
+        },
+      });
+    },
+    [selectedImages, selectedTextContexts]
+  );
+
   /**
    * Send a local Telegram message through TelegramStore.
    * The paired TelegramAgent reply pipeline remains unchanged.
    */
-  const handleTelegramSendMessage = useCallback(async () => {
-    const text = telegramInput.trim();
-    if (!telegramStore || !text || telegramPrimaryChatId === null) {
-      return;
-    }
+  const handleTelegramSendMessage = useCallback(
+    async (metadata?: TelegramComposerMetadata) => {
+      const text = telegramInput.trim();
+      if (!telegramStore || !text || telegramPrimaryChatId === null) {
+        return;
+      }
 
-    setTelegramInput("");
-    try {
-      await telegramStore.appendLocal(text);
-    } catch (error) {
-      logError("Failed to send Telegram message from unified chat layout:", error);
-      setTelegramInput(text);
-      new Notice("Failed to send Telegram message. Please try again.");
-    }
-  }, [telegramInput, telegramPrimaryChatId, telegramStore]);
-
-  /**
-   * Submit Telegram input with Enter and preserve Shift+Enter for new lines.
-   */
-  const handleTelegramInputKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        void handleTelegramSendMessage();
+      setTelegramInput("");
+      setSelectedImages([]);
+      try {
+        const contextEnvelope = buildTelegramContextEnvelope(text, metadata);
+        await telegramStore.appendLocal(text, {
+          contextEnvelope,
+          processedText: contextEnvelope.serializedText,
+        });
+      } catch (error) {
+        logError("Failed to send Telegram message from unified chat layout:", error);
+        setTelegramInput(text);
+        new Notice("Failed to send Telegram message. Please try again.");
       }
     },
-    [handleTelegramSendMessage]
+    [buildTelegramContextEnvelope, telegramInput, telegramPrimaryChatId, telegramStore]
   );
 
   const handleSendMessage = async ({
@@ -443,6 +538,34 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
       new Notice("Failed to save chat as note. Check console for details.");
     }
   }, [app, chatUIState, currentModelKey]);
+
+  /**
+   * Shared chain transition handler used by both top controls and composer-level selector.
+   */
+  const handleChainModeChange = useCallback(
+    async (newMode: ChainType) => {
+      if (newMode === selectedChain) {
+        return;
+      }
+
+      const isLeavingProjectMode =
+        selectedChain === ChainType.PROJECT_CHAIN && newMode !== ChainType.PROJECT_CHAIN;
+      if (isLeavingProjectMode && settings.autosaveChat) {
+        await handleSaveAsNote();
+      }
+
+      setPreviousMode(selectedChain);
+      setSelectedChain(newMode);
+
+      if (newMode === ChainType.PROJECT_CHAIN) {
+        setShowChatUI(false);
+        return;
+      }
+
+      setCurrentProject(null);
+    },
+    [handleSaveAsNote, selectedChain, setSelectedChain, settings.autosaveChat]
+  );
 
   const handleStopGenerating = useCallback(
     (reason?: ABORT_REASON) => {
@@ -902,14 +1025,16 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     if (selectedChain === ChainType.TELEGRAM_CHAIN) {
       const canSendTelegramMessage =
         Boolean(telegramStore) && telegramAllowlistConfigured && telegramPrimaryChatId !== null;
-
-      const telegramInputPlaceholder = !telegramStore
-        ? "Enable Telegram in Settings first."
+      const telegramComposerBlockedTitle = !telegramStore
+        ? "Telegram Not Configured"
         : !telegramAllowlistConfigured
-          ? "Configure Allowed Chat IDs in Settings first."
-          : telegramPrimaryChatId === null
-            ? "Bind a chat first - DM your bot from an allowlisted chat."
-            : "Message...";
+          ? "Allowed Chat IDs Required"
+          : "Primary Chat Not Bound";
+      const telegramComposerBlockedDescription = !telegramStore
+        ? "Enable Telegram in settings and provide a valid bot token before composing messages."
+        : !telegramAllowlistConfigured
+          ? "Configure Allowed Chat IDs in settings before starting a Telegram conversation."
+          : "No primary chat_id is available yet. Send a DM to your bot from an allowlisted chat to bind the primary thread.";
 
       return (
         <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
@@ -917,10 +1042,9 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
             onNewChat={handleNewChat}
             onSaveAsNote={() => handleSaveAsNote()}
             onLoadHistory={handleLoadChatHistory}
-            onModeChange={(newMode) => {
-              setPreviousMode(selectedChain);
-              if (newMode === ChainType.PROJECT_CHAIN) setShowChatUI(false);
-            }}
+            onModeChange={handleChainModeChange}
+            selectedChain={selectedChain}
+            showModeSelector={false}
             chatHistory={chatHistoryItems}
             onUpdateChatTitle={handleUpdateChatTitle}
             onDeleteChat={handleDeleteChat}
@@ -979,25 +1103,52 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
             )}
 
             <div className="tw-border-t tw-border-border tw-p-2">
-              <div className="tw-flex tw-items-end tw-gap-2">
-                <textarea
-                  className="tw-flex-1 tw-resize-none tw-rounded-md tw-border tw-border-border tw-bg-modifier-form-field tw-p-2 tw-text-sm tw-text-normal tw-outline-none focus:tw-border-interactive-accent"
-                  rows={1}
-                  placeholder={telegramInputPlaceholder}
-                  value={telegramInput}
-                  onChange={(event) => setTelegramInput(event.target.value)}
-                  onKeyDown={handleTelegramInputKeyDown}
-                />
-                <button
-                  className="tw-rounded-md tw-bg-interactive-accent tw-px-3 tw-py-2 tw-text-sm tw-text-on-accent tw-transition-opacity disabled:tw-opacity-50"
-                  onClick={() => {
-                    void handleTelegramSendMessage();
+              {canSendTelegramMessage ? (
+                <ChatInput
+                  inputMessage={telegramInput}
+                  setInputMessage={setTelegramInput}
+                  handleSendMessage={handleTelegramSendMessage}
+                  isGenerating={false}
+                  onStopGenerating={() => {}}
+                  app={app}
+                  contextNotes={contextNotes}
+                  setContextNotes={setContextNotes}
+                  includeActiveNote={includeActiveNote}
+                  setIncludeActiveNote={setIncludeActiveNote}
+                  includeActiveWebTab={includeActiveWebTab}
+                  setIncludeActiveWebTab={setIncludeActiveWebTab}
+                  activeWebTab={currentActiveWebTab}
+                  selectedImages={selectedImages}
+                  onAddImage={(files: File[]) =>
+                    setSelectedImages((prev) => [...prev, ...files])
+                  }
+                  setSelectedImages={setSelectedImages}
+                  selectedTextContexts={selectedTextContexts}
+                  onRemoveSelectedText={handleRemoveSelectedText}
+                  showProgressCard={() => {
+                    setProgressCardVisible(true);
                   }}
-                  disabled={!telegramInput.trim() || !canSendTelegramMessage}
-                >
-                  Send
-                </button>
-              </div>
+                  showIndexingCard={() => {
+                    setIndexingCardVisible(true);
+                  }}
+                  showChainSelector={true}
+                  onChainChange={handleChainModeChange}
+                />
+              ) : (
+                <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl">
+                  <Card className="tw-w-full tw-border tw-border-solid tw-border-border tw-bg-transparent tw-shadow-none">
+                    <CardHeader>
+                      <CardTitle className="tw-flex tw-items-center tw-gap-2 tw-text-sm">
+                        <AlertCircle className="tw-size-4 tw-text-error" />
+                        {telegramComposerBlockedTitle}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="tw-text-xs tw-text-muted">{telegramComposerBlockedDescription}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1058,13 +1209,8 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                 onNewChat={handleNewChat}
                 onSaveAsNote={() => handleSaveAsNote()}
                 onLoadHistory={handleLoadChatHistory}
-                onModeChange={(newMode) => {
-                  setPreviousMode(selectedChain);
-                  // Hide chat UI when switching to project mode
-                  if (newMode === ChainType.PROJECT_CHAIN) {
-                    setShowChatUI(false);
-                  }
-                }}
+                onModeChange={handleChainModeChange}
+                selectedChain={selectedChain}
                 chatHistory={chatHistoryItems}
                 onUpdateChatTitle={handleUpdateChatTitle}
                 onDeleteChat={handleDeleteChat}
