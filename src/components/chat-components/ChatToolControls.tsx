@@ -110,9 +110,10 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
                 variant="ghost2"
                 size="fit"
                 onClick={handleAutonomousAgentToggle}
-                disabled={isTelegramChain}
+                aria-disabled={isTelegramChain}
                 className={cn(
-                  "tw-text-muted hover:tw-text-accent disabled:tw-opacity-100",
+                  "tw-text-muted hover:tw-text-accent",
+                  isTelegramChain && "tw-cursor-default",
                   autonomousAgentToggle && "tw-text-accent tw-bg-accent/10"
                 )}
               >
