@@ -1038,19 +1038,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
       return (
         <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
-          <ChatControls
-            onNewChat={handleNewChat}
-            onSaveAsNote={() => handleSaveAsNote()}
-            onLoadHistory={handleLoadChatHistory}
-            onModeChange={handleChainModeChange}
-            selectedChain={selectedChain}
-            chatHistory={chatHistoryItems}
-            onUpdateChatTitle={handleUpdateChatTitle}
-            onDeleteChat={handleDeleteChat}
-            onLoadChat={handleLoadChat}
-            onOpenSourceFile={handleOpenSourceFile}
-            latestTokenCount={null}
-          />
           <div className="tw-flex tw-h-full tw-flex-1 tw-flex-col tw-overflow-hidden">
             {telegramChatHistory.length > 0 ? (
               <ChatMessages
@@ -1101,52 +1088,63 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
               </div>
             )}
 
-            <div className="tw-border-t tw-border-border tw-p-2">
-              {canSendTelegramMessage ? (
-                <ChatInput
-                  inputMessage={telegramInput}
-                  setInputMessage={setTelegramInput}
-                  handleSendMessage={handleTelegramSendMessage}
-                  isGenerating={false}
-                  onStopGenerating={() => {}}
-                  app={app}
-                  contextNotes={contextNotes}
-                  setContextNotes={setContextNotes}
-                  includeActiveNote={includeActiveNote}
-                  setIncludeActiveNote={setIncludeActiveNote}
-                  includeActiveWebTab={includeActiveWebTab}
-                  setIncludeActiveWebTab={setIncludeActiveWebTab}
-                  activeWebTab={currentActiveWebTab}
-                  selectedImages={selectedImages}
-                  onAddImage={(files: File[]) =>
-                    setSelectedImages((prev) => [...prev, ...files])
-                  }
-                  setSelectedImages={setSelectedImages}
-                  selectedTextContexts={selectedTextContexts}
-                  onRemoveSelectedText={handleRemoveSelectedText}
-                  showProgressCard={() => {
-                    setProgressCardVisible(true);
-                  }}
-                  showIndexingCard={() => {
-                    setIndexingCardVisible(true);
-                  }}
-                />
-              ) : (
-                <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl">
-                  <Card className="tw-w-full tw-border tw-border-solid tw-border-border tw-bg-transparent tw-shadow-none">
-                    <CardHeader>
-                      <CardTitle className="tw-flex tw-items-center tw-gap-2 tw-text-sm">
-                        <AlertCircle className="tw-size-4 tw-text-error" />
-                        {telegramComposerBlockedTitle}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="tw-text-xs tw-text-muted">{telegramComposerBlockedDescription}</p>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </div>
+            <ChatControls
+              onNewChat={handleNewChat}
+              onSaveAsNote={() => handleSaveAsNote()}
+              onLoadHistory={handleLoadChatHistory}
+              onModeChange={handleChainModeChange}
+              selectedChain={selectedChain}
+              chatHistory={chatHistoryItems}
+              onUpdateChatTitle={handleUpdateChatTitle}
+              onDeleteChat={handleDeleteChat}
+              onLoadChat={handleLoadChat}
+              onOpenSourceFile={handleOpenSourceFile}
+              latestTokenCount={null}
+            />
+            {canSendTelegramMessage ? (
+              <ChatInput
+                inputMessage={telegramInput}
+                setInputMessage={setTelegramInput}
+                handleSendMessage={handleTelegramSendMessage}
+                isGenerating={false}
+                onStopGenerating={() => {}}
+                app={app}
+                contextNotes={contextNotes}
+                setContextNotes={setContextNotes}
+                includeActiveNote={includeActiveNote}
+                setIncludeActiveNote={setIncludeActiveNote}
+                includeActiveWebTab={includeActiveWebTab}
+                setIncludeActiveWebTab={setIncludeActiveWebTab}
+                activeWebTab={currentActiveWebTab}
+                selectedImages={selectedImages}
+                onAddImage={(files: File[]) =>
+                  setSelectedImages((prev) => [...prev, ...files])
+                }
+                setSelectedImages={setSelectedImages}
+                selectedTextContexts={selectedTextContexts}
+                onRemoveSelectedText={handleRemoveSelectedText}
+                showProgressCard={() => {
+                  setProgressCardVisible(true);
+                }}
+                showIndexingCard={() => {
+                  setIndexingCardVisible(true);
+                }}
+              />
+            ) : (
+              <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl tw-p-2">
+                <Card className="tw-w-full tw-border tw-border-solid tw-border-border tw-bg-transparent tw-shadow-none">
+                  <CardHeader>
+                    <CardTitle className="tw-flex tw-items-center tw-gap-2 tw-text-sm">
+                      <AlertCircle className="tw-size-4 tw-text-error" />
+                      {telegramComposerBlockedTitle}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="tw-text-xs tw-text-muted">{telegramComposerBlockedDescription}</p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </div>
         </div>
       );
