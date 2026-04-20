@@ -16,8 +16,9 @@ import { ChainType } from "@/chainFactory";
 import { useProjectContextStatus } from "@/hooks/useProjectContextStatus";
 import { logInfo, logError } from "@/logger";
 import type { WebTabContext } from "@/types/message";
-
-import { TelegramChatView } from "@/channels/telegram/TelegramChatView";
+import { mapTelegramMessagesToChatMessages } from "@/channels/telegram/TelegramMessageAdapter";
+import type { TelegramStore } from "@/channels/telegram/TelegramStore";
+import type { TelegramStoredMessage } from "@/channels/telegram/TelegramTypes";
 import { ChatControls, reloadCurrentProject } from "@/components/chat-components/ChatControls";
 import ChatInput from "@/components/chat-components/ChatInput";
 import ChatMessages from "@/components/chat-components/ChatMessages";
@@ -227,6 +228,16 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
   const [previousMode, setPreviousMode] = useState<ChainType | null>(null);
   const [selectedChain, setSelectedChain] = useChainType();
+  const telegramStore = (plugin as any).telegramChannelService?.store as TelegramStore | undefined;
+  const [telegramMessages, setTelegramMessages] = useState<TelegramStoredMessage[]>([]);
+  const [telegramInput, setTelegramInput] = useState("");
+  const [telegramPrimaryChatId, setTelegramPrimaryChatId] = useState<number | null>(null);
+  const [telegramAllowlistConfigured, setTelegramAllowlistConfigured] = useState(false);
+
+  const telegramChatHistory = useMemo(
+    () => mapTelegramMessagesToChatMessages(telegramMessages),
+    [telegramMessages]
+  );
 
   const appContext = useContext(AppContext);
   const app = plugin.app || appContext;
@@ -240,6 +251,63 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     onAddImage: (files) => setSelectedImages((prev) => [...prev, ...files]),
     containerRef: chatContainerRef,
   });
+
+  useEffect(() => {
+    if (!telegramStore) {
+      setTelegramMessages([]);
+      setTelegramPrimaryChatId(null);
+      setTelegramAllowlistConfigured(false);
+      return;
+    }
+
+    const refresh = () => {
+      setTelegramMessages(telegramStore.getVisibleMessages());
+      setTelegramPrimaryChatId(telegramStore.getMeta().primary_chat_id);
+      setTelegramAllowlistConfigured(telegramStore.hasConfiguredAllowlist());
+    };
+
+    refresh();
+    const unsubscribe = telegramStore.subscribe(refresh);
+    return unsubscribe;
+  }, [
+    telegramStore,
+    settings.telegramEnabled,
+    settings.telegramAllowedChatIds,
+    settings.telegramBotApiKey,
+  ]);
+
+  /**
+   * Send a local Telegram message through TelegramStore.
+   * The paired TelegramAgent reply pipeline remains unchanged.
+   */
+  const handleTelegramSendMessage = useCallback(async () => {
+    const text = telegramInput.trim();
+    if (!telegramStore || !text || telegramPrimaryChatId === null) {
+      return;
+    }
+
+    setTelegramInput("");
+    try {
+      await telegramStore.appendLocal(text);
+    } catch (error) {
+      logError("Failed to send Telegram message from unified chat layout:", error);
+      setTelegramInput(text);
+      new Notice("Failed to send Telegram message. Please try again.");
+    }
+  }, [telegramInput, telegramPrimaryChatId, telegramStore]);
+
+  /**
+   * Submit Telegram input with Enter and preserve Shift+Enter for new lines.
+   */
+  const handleTelegramInputKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        void handleTelegramSendMessage();
+      }
+    },
+    [handleTelegramSendMessage]
+  );
 
   const handleSendMessage = async ({
     toolCalls,
@@ -799,8 +867,9 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
   // Event listener for abort stream events
   useEffect(() => {
-    const handleAbortStream = (event: CustomEvent) => {
-      const reason = event.detail?.reason || ABORT_REASON.NEW_CHAT;
+    const handleAbortStream = (event: Event) => {
+      const customEvent = event as CustomEvent<{ reason?: ABORT_REASON }>;
+      const reason = customEvent.detail?.reason || ABORT_REASON.NEW_CHAT;
       handleStopGenerating(reason);
     };
 
@@ -831,6 +900,17 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
   const renderChatComponents = () => {
     if (selectedChain === ChainType.TELEGRAM_CHAIN) {
+      const canSendTelegramMessage =
+        Boolean(telegramStore) && telegramAllowlistConfigured && telegramPrimaryChatId !== null;
+
+      const telegramInputPlaceholder = !telegramStore
+        ? "Enable Telegram in Settings first."
+        : !telegramAllowlistConfigured
+          ? "Configure Allowed Chat IDs in Settings first."
+          : telegramPrimaryChatId === null
+            ? "Bind a chat first - DM your bot from an allowlisted chat."
+            : "Message...";
+
       return (
         <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
           <ChatControls
@@ -848,7 +928,78 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
             onOpenSourceFile={handleOpenSourceFile}
             latestTokenCount={null}
           />
-          <TelegramChatView store={(plugin as any).telegramChannelService?.store} />
+          <div className="tw-flex tw-h-full tw-flex-1 tw-flex-col tw-overflow-hidden">
+            {telegramChatHistory.length > 0 ? (
+              <ChatMessages
+                chatHistory={telegramChatHistory}
+                currentAiMessage=""
+                app={app}
+                onRegenerate={() => {}}
+                onEdit={() => {}}
+                onDelete={() => {}}
+                onReplaceChat={setTelegramInput}
+                showHelperComponents={false}
+                actionCapabilities={{
+                  allowUserEdit: false,
+                  allowDelete: false,
+                  allowRegenerate: false,
+                  allowInsert: false,
+                  allowShowSources: false,
+                }}
+              />
+            ) : (
+              <div className="tw-flex tw-flex-1 tw-flex-col tw-items-center tw-justify-center tw-gap-3 tw-p-6 tw-text-center">
+                <span className="tw-text-2xl">✈️</span>
+                {!telegramStore ? (
+                  <>
+                    <p className="tw-text-sm tw-font-medium tw-text-normal">Telegram</p>
+                    <p className="tw-text-xs tw-text-muted">
+                      Enable Telegram in Settings and enter your bot token.
+                    </p>
+                  </>
+                ) : !telegramAllowlistConfigured ? (
+                  <>
+                    <p className="tw-text-sm tw-font-medium tw-text-normal">
+                      Get started with Telegram
+                    </p>
+                    <ol className="tw-list-none tw-space-y-1 tw-text-left tw-text-xs tw-text-muted">
+                      <li>1. Open Settings -&gt; Copilot -&gt; Telegram -&gt; Allowed Chat IDs</li>
+                      <li>2. Add your chat ID, then DM the bot from that chat to bind it</li>
+                      <li>3. Once bound, the send field unlocks and you can chat</li>
+                    </ol>
+                  </>
+                ) : (
+                  <p className="tw-text-sm tw-text-muted">
+                    {telegramPrimaryChatId === null
+                      ? "DM your bot to begin. The first allowlisted chat you message will become the primary thread."
+                      : "No messages yet. DM your bot or type below."}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="tw-border-t tw-border-border tw-p-2">
+              <div className="tw-flex tw-items-end tw-gap-2">
+                <textarea
+                  className="tw-flex-1 tw-resize-none tw-rounded-md tw-border tw-border-border tw-bg-modifier-form-field tw-p-2 tw-text-sm tw-text-normal tw-outline-none focus:tw-border-interactive-accent"
+                  rows={1}
+                  placeholder={telegramInputPlaceholder}
+                  value={telegramInput}
+                  onChange={(event) => setTelegramInput(event.target.value)}
+                  onKeyDown={handleTelegramInputKeyDown}
+                />
+                <button
+                  className="tw-rounded-md tw-bg-interactive-accent tw-px-3 tw-py-2 tw-text-sm tw-text-on-accent tw-transition-opacity disabled:tw-opacity-50"
+                  onClick={() => {
+                    void handleTelegramSendMessage();
+                  }}
+                  disabled={!telegramInput.trim() || !canSendTelegramMessage}
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       );
     }

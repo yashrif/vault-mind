@@ -1,4 +1,7 @@
-import { ChatButtons } from "@/components/chat-components/ChatButtons";
+import {
+  ChatActionCapabilities,
+  ChatButtons,
+} from "@/components/chat-components/ChatButtons";
 import { SourcesModal } from "@/components/modals/SourcesModal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -290,6 +293,7 @@ interface ChatSingleMessageProps {
   onRegenerate?: () => void;
   onEdit?: (newMessage: string) => void;
   onDelete: () => void;
+  actionCapabilities?: ChatActionCapabilities;
 }
 
 const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
@@ -299,6 +303,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
   onRegenerate,
   onEdit,
   onDelete,
+  actionCapabilities,
 }) => {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -1000,6 +1005,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
                 onDelete={onDelete}
                 onShowSources={handleShowSources}
                 hasSources={message.sources && message.sources.length > 0 ? true : false}
+                actionCapabilities={actionCapabilities}
               />
             </div>
           )}
