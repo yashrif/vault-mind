@@ -301,50 +301,52 @@ describe("TelegramStore", () => {
     it("backfills local_id without throwing when crypto.randomUUID is unavailable", async () => {
       // Simulate runtime without crypto.randomUUID
       const originalCrypto = global.crypto;
-      Object.defineProperty(global, "crypto", {
-        value: undefined,
-        configurable: true,
-      });
+      try {
+        Object.defineProperty(global, "crypto", {
+          value: undefined,
+          configurable: true,
+        });
 
-      const freshStore = new TelegramStore();
-      mockAdapter.exists.mockResolvedValue(true);
-      mockAdapter.mkdir.mockResolvedValue(undefined);
-      mockAdapter.write.mockResolvedValue(undefined);
-      // Return a thread entry missing local_id, with primary_chat_id bound so message is visible
-      mockAdapter.read.mockImplementation(async (path: string) => {
-        if (path.includes("thread.json")) {
-          return JSON.stringify([
-            {
-              chat_id: 100,
-              sender_name: "Bot",
-              sender_type: "bot",
-              source: "telegram",
-              text: "hello",
-              date: 0,
-              stored_at: 0,
-              // no local_id
-            },
-          ]);
-        }
-        if (path.includes("meta.json")) {
-          return JSON.stringify({ bot_id: 0, offset: 0, primary_chat_id: 100, reset_at: 0 });
-        }
-        return "[]";
-      });
+        const freshStore = new TelegramStore();
+        mockAdapter.exists.mockResolvedValue(true);
+        mockAdapter.mkdir.mockResolvedValue(undefined);
+        mockAdapter.write.mockResolvedValue(undefined);
+        // Return a thread entry missing local_id, with primary_chat_id bound so message is visible
+        mockAdapter.read.mockImplementation(async (path: string) => {
+          if (path.includes("thread.json")) {
+            return JSON.stringify([
+              {
+                chat_id: 100,
+                sender_name: "Bot",
+                sender_type: "bot",
+                source: "telegram",
+                text: "hello",
+                date: 0,
+                stored_at: 0,
+                // no local_id
+              },
+            ]);
+          }
+          if (path.includes("meta.json")) {
+            return JSON.stringify({ bot_id: 0, offset: 0, primary_chat_id: 100, reset_at: 0 });
+          }
+          return "[]";
+        });
 
-      // Should not throw and should return a message with local_id set
-      await expect(freshStore.initialize()).resolves.not.toThrow();
-      const messages = freshStore.getVisibleMessages();
-      // Without the fix, readThread throws internally and returns [] — messages would be empty
-      expect(messages).toHaveLength(1);
-      expect(messages[0].local_id).toBeDefined();
-      expect(typeof messages[0].local_id).toBe("string");
-
-      // Restore
-      Object.defineProperty(global, "crypto", {
-        value: originalCrypto,
-        configurable: true,
-      });
+        // Should not throw and should return a message with local_id set
+        await expect(freshStore.initialize()).resolves.not.toThrow();
+        const messages = freshStore.getVisibleMessages();
+        // Without the fix, readThread throws internally and returns [] — messages would be empty
+        expect(messages).toHaveLength(1);
+        expect(messages[0].local_id).toBeDefined();
+        expect(typeof messages[0].local_id).toBe("string");
+      } finally {
+        // Restore
+        Object.defineProperty(global, "crypto", {
+          value: originalCrypto,
+          configurable: true,
+        });
+      }
     });
   });
 });
