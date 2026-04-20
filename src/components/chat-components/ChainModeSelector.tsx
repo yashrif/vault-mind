@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { ChevronDown, LibraryBig, Send, Sparkles } from "lucide-react";
+import { Bot, ChevronDown, Database, FolderOpen, MessageCircle, Send } from "lucide-react";
 import React from "react";
 
 interface ChainModeSelectorProps {
@@ -24,21 +24,29 @@ interface ChainOption {
 }
 
 const CHAIN_OPTIONS: ChainOption[] = [
-  { chainType: ChainType.LLM_CHAIN, label: "chat (free)" },
-  { chainType: ChainType.VAULT_QA_CHAIN, label: "vault QA (free)" },
+  {
+    chainType: ChainType.LLM_CHAIN,
+    label: "Chat",
+    icon: <MessageCircle className="tw-size-4" />,
+  },
+  {
+    chainType: ChainType.VAULT_QA_CHAIN,
+    label: "Vault QA",
+    icon: <Database className="tw-size-4" />,
+  },
   {
     chainType: ChainType.TOOL_CHAIN,
-    label: "agentic copilot",
-    icon: <Sparkles className="tw-size-4" />,
+    label: "Agent",
+    icon: <Bot className="tw-size-4" />,
   },
   {
     chainType: ChainType.PROJECT_CHAIN,
-    label: "projects (alpha)",
-    icon: <LibraryBig className="tw-size-4" />,
+    label: "Project",
+    icon: <FolderOpen className="tw-size-4" />,
   },
   {
     chainType: ChainType.TELEGRAM_CHAIN,
-    label: "telegram",
+    label: "Telegram",
     icon: <Send className="tw-size-4" />,
   },
 ];
