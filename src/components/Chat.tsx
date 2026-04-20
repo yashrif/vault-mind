@@ -432,7 +432,8 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
         });
       }
 
-      // Route files: images → multimodal image_url, others → extracted text blocks
+      // Images → multimodal image_url in content[]; non-image files → context pipeline
+      const attachedFileContents: { name: string; content: string }[] = [];
       for (const file of selectedFiles) {
         if (isImageFile(file)) {
           const imageData = await file.arrayBuffer();
@@ -443,10 +444,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
           });
         } else {
           const text = await extractFileContent(file);
-          content.push({
-            type: "text",
-            text: `<attached_file name="${file.name}">\n${text}\n</attached_file>`,
-          });
+          attachedFileContents.push({ name: file.name, content: text });
         }
       }
 
@@ -472,6 +470,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
         folders: contextFolders || [],
         selectedTextContexts,
         webTabs: webTabs || [],
+        attachedFileContents: attachedFileContents.length > 0 ? attachedFileContents : undefined,
       };
 
       // Clear input and attached files

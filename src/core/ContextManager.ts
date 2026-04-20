@@ -215,6 +215,12 @@ export class ContextManager {
       const webTabs = message.context?.webTabs || [];
       const webTabContextAddition = await this.contextProcessor.processContextWebTabs(webTabs);
 
+      // 8b. Process locally-attached file contents (from the file picker, not vault TFiles)
+      const attachedFileContents = message.context?.attachedFileContents || [];
+      const attachedFilesAddition = attachedFileContents
+        .map((f) => `<attached_file name="${f.name}">\n${f.content}\n</attached_file>`)
+        .join("\n");
+
       // 9. Build context portion separately (for compaction boundary preservation)
       const contextPortion =
         l2Context +
@@ -223,7 +229,8 @@ export class ContextManager {
         folderContextAddition +
         urlContextAddition.urlContext +
         selectedTextContextAddition +
-        webTabContextAddition;
+        webTabContextAddition +
+        attachedFilesAddition;
 
       // Combine everything (L2 previous context, then L3 current turn context)
       let finalProcessedMessage = processedUserMessage + contextPortion;
@@ -284,6 +291,7 @@ export class ContextManager {
             urlContext: urlContextAddition.urlContext,
             selectedText: selectedTextContextAddition,
             webTabContext: webTabContextAddition,
+            attachedFilesContext: attachedFilesAddition,
           });
 
       return {
@@ -511,6 +519,7 @@ export class ContextManager {
     this.appendParsedSegments(turnSegments, params.urlContext);
     this.appendParsedSegments(turnSegments, params.selectedText);
     this.appendParsedSegments(turnSegments, params.webTabContext);
+    this.appendParsedSegments(turnSegments, params.attachedFilesContext);
 
     if (turnSegments.length > 0) {
       layerSegments.L3_TURN = turnSegments;
@@ -775,4 +784,5 @@ interface BuildPromptContextEnvelopeParams {
   urlContext: string;
   selectedText: string;
   webTabContext: string;
+  attachedFilesContext: string;
 }
