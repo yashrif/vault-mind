@@ -64,7 +64,7 @@ jest.mock("../TelegramStore", () => ({
   })),
 }));
 
-import { TelegramChannelService } from "../TelegramChannelService";
+import { TelegramChannelService, parseTelegramAllowedChatIds } from "../TelegramChannelService";
 import { TelegramUnauthorizedError } from "../TelegramClient";
 import { Notice, Platform } from "obsidian";
 
@@ -187,5 +187,43 @@ describe("TelegramChannelService", () => {
     (service as any).running = true;
     service.stop();
     expect(mockSetOnLocalMessage).toHaveBeenCalledWith(null);
+  });
+});
+
+describe("parseTelegramAllowedChatIds", () => {
+  it("returns empty array for empty string", () => {
+    expect(parseTelegramAllowedChatIds("")).toEqual([]);
+  });
+
+  it("returns empty array for whitespace-only string", () => {
+    expect(parseTelegramAllowedChatIds("   ")).toEqual([]);
+  });
+
+  it("ignores trailing comma", () => {
+    expect(parseTelegramAllowedChatIds("123,")).toEqual([123]);
+  });
+
+  it("ignores leading comma", () => {
+    expect(parseTelegramAllowedChatIds(",456")).toEqual([456]);
+  });
+
+  it("ignores double comma", () => {
+    expect(parseTelegramAllowedChatIds("123,,456")).toEqual([123, 456]);
+  });
+
+  it("ignores comma-only input", () => {
+    expect(parseTelegramAllowedChatIds(",")).toEqual([]);
+  });
+
+  it("accepts negative chat IDs", () => {
+    expect(parseTelegramAllowedChatIds("-100123")).toEqual([-100123]);
+  });
+
+  it("deduplicates", () => {
+    expect(parseTelegramAllowedChatIds("123, 123")).toEqual([123]);
+  });
+
+  it("parses a clean comma-separated list", () => {
+    expect(parseTelegramAllowedChatIds("123, 456, 789")).toEqual([123, 456, 789]);
   });
 });

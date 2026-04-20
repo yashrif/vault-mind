@@ -19,6 +19,7 @@ interface TelegramChannelServiceOptions {
 
 /**
  * Parse a comma-separated chat-ID string into unique numeric IDs.
+ * Rejects empty tokens and non-integer values (e.g. trailing commas, spaces).
  */
 export function parseTelegramAllowedChatIds(raw: string): number[] {
   if (!raw.trim()) {
@@ -26,8 +27,9 @@ export function parseTelegramAllowedChatIds(raw: string): number[] {
   }
   const parsed = raw
     .split(",")
-    .map((part) => Number(part.trim()))
-    .filter((id) => Number.isInteger(id));
+    .map((part) => part.trim())
+    .filter((part) => /^-?\d+$/.test(part)) // reject empty and non-numeric tokens
+    .map(Number);
   return Array.from(new Set(parsed));
 }
 
