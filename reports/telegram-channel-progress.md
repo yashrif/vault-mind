@@ -223,3 +223,38 @@ non-primary routing to `other-chats/`, `resetView()` cursor advance, pre/post-re
 ### Log 06 — Current closure update
 - User-confirmed fix applied for the reported blocking issue.
 - Consolidated state: Telegram channel is functionally stable with review-driven hardening applied; remaining backlog items stay in Phase 2b+ and Phase 3+ scope above.
+
+### Log 07 — File attachment expansion (2026-04-20)
+
+**Feature:** Extended the chat attachment button from images-only to all file types supported by the agentic pipeline (`ALLOWED_NOTE_CONTEXT_EXTENSIONS`): PDFs, DOCX, plain text, spreadsheets, audio (transcription via Groq), and code files.
+
+**Architecture — two-path routing at send time:**
+- Images → base64 `image_url` multimodal content (unchanged path)
+- All other files → text extraction → `MessageContext.attachedFileContents[]` → ContextManager pipeline → L3_TURN envelope segments
+
+**Two bugs found and fixed during development:**
+1. Initial implementation added non-image text as `{ type: "text" }` items to `content[]`. Both `LLMChainRunner` and `ToolChainRunner` overwrite/ignore these — only `image_url` items survive. Fixed by routing file text through `MessageContext.attachedFileContents` instead.
+2. `attachedFilesAddition` was added to `finalProcessedMessage` (legacy string) but not passed to `buildPromptContextEnvelope`. Chain runners use the context envelope for LLM requests. Fixed by adding `attachedFilesContext` to `BuildPromptContextEnvelopeParams` and wiring it into L3_TURN `appendParsedSegments`.
+
+**Files added:**
+| File | Purpose |
+|------|---------|
+| `src/utils/fileContentExtractor.ts` | `isImageFile()` + `extractFileContent()` routing to parsers |
+| `src/components/modals/AddFileModal.tsx` | Replaces `AddImageModal`; accepts all supported extensions |
+| `src/utils/fileContentExtractor.test.ts` | 29 unit tests for routing, error handling, extension detection |
+| `src/core/ContextManager.attachedFiles.test.ts` | 5 tests verifying attached file content reaches L3_TURN envelope |
+
+**Files modified:**
+| File | Change |
+|------|--------|
+| `src/types/message.ts` | Added `AttachedFileContent` interface and `attachedFileContents?` to `MessageContext` |
+| `src/services/audioTranscriptionService.ts` | Added `transcribeFromFile(File)` — bypasses vault/TFile |
+| `src/tools/FileParserManager.ts` | Exported `parsePdfLocal`, `parseDocxLocal`, `parseSpreadsheetLocal`, `parsePlainText` |
+| `src/core/ContextManager.ts` | Added `attachedFilesContext` to `BuildPromptContextEnvelopeParams`; wired into L3_TURN segments and legacy `processedContent` string |
+| `src/components/Chat.tsx` | Renamed `selectedImages` → `selectedFiles`; classifies files at send time |
+| `src/components/chat-components/ChatInput.tsx` | Prop renames; non-image preview shows file icon + name chip |
+| `src/components/chat-components/InlineMessageEditor.tsx` | Same prop renames |
+| `src/hooks/useChatFileDrop.ts` | Extended OS file drop to accept all `ALLOWED_NOTE_CONTEXT_EXTENSIONS` |
+| `src/services/audioTranscriptionService.test.ts` | Added 7 tests for `transcribeFromFile` method |
+
+**Test results:** 59 new/updated tests passing (29 extractor + 7 transcription + 5 context manager + 18 existing audio service tests retained).

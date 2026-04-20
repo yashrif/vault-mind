@@ -218,4 +218,100 @@ describe("AudioTranscriptionService", () => {
       expect(mockCacheInstance.set).not.toHaveBeenCalled();
     });
   });
+
+  describe("transcribeFromFile", () => {
+    function makeSystemFile(name: string, sizeBytes = 1000): File {
+      return {
+        name,
+        size: sizeBytes,
+        arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(8)),
+      } as unknown as File;
+    }
+
+    it("returns transcript on 200 response", async () => {
+      mockGetSettings.mockReturnValue(makeSettings());
+      mockFetch.mockResolvedValue({ ok: true, text: async () => "  hello from file  " });
+
+      const file = makeSystemFile("recording.mp3");
+      const result = await service.transcribeFromFile(file);
+
+      expect(result).toBe("hello from file");
+    });
+
+    it("calls Groq endpoint with correct method and auth header", async () => {
+      mockGetSettings.mockReturnValue(makeSettings());
+      mockFetch.mockResolvedValue({ ok: true, text: async () => "transcript" });
+
+      const file = makeSystemFile("audio.wav");
+      await service.transcribeFromFile(file);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.groq.com/openai/v1/audio/transcriptions",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({ Authorization: "Bearer sk-test-key" }),
+        })
+      );
+    });
+
+    it("returns bracketed error when no STT model configured", async () => {
+      mockGetSettings.mockReturnValue(makeSettings({ activeAudioSTTModels: [] }));
+
+      const file = makeSystemFile("audio.mp3");
+      const result = await service.transcribeFromFile(file);
+
+      expect(result).toMatch(/^\[Error:/);
+      expect(result).toContain("no active STT model");
+    });
+
+    it("returns bracketed error when API key is missing", async () => {
+      mockGetSettings.mockReturnValue(
+        makeSettings({ activeAudioSTTModels: [{ ...baseModel, apiKey: "" }], groqApiKey: "" })
+      );
+
+      const file = makeSystemFile("audio.mp3");
+      const result = await service.transcribeFromFile(file);
+
+      expect(result).toMatch(/^\[Error:/);
+      expect(result).toContain("API key");
+    });
+
+    it("returns bracketed error when file exceeds 25 MB", async () => {
+      mockGetSettings.mockReturnValue(makeSettings());
+      const oversizeBytes = 26 * 1024 * 1024;
+
+      const file = makeSystemFile("large.wav", oversizeBytes);
+      const result = await service.transcribeFromFile(file);
+
+      expect(result).toMatch(/^\[Error:/);
+      expect(result).toContain("25 MB");
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("returns bracketed error on HTTP 401", async () => {
+      mockGetSettings.mockReturnValue(makeSettings());
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: { message: "Invalid API Key" } }),
+      });
+
+      const file = makeSystemFile("audio.mp3");
+      const result = await service.transcribeFromFile(file);
+
+      expect(result).toMatch(/^\[Error:/);
+      expect(result).toContain("Invalid API Key");
+    });
+
+    it("does not check or update cache", async () => {
+      mockGetSettings.mockReturnValue(makeSettings());
+      mockFetch.mockResolvedValue({ ok: true, text: async () => "transcript" });
+
+      const file = makeSystemFile("audio.mp3");
+      await service.transcribeFromFile(file);
+
+      expect(mockCacheInstance.get).not.toHaveBeenCalled();
+      expect(mockCacheInstance.set).not.toHaveBeenCalled();
+    });
+  });
 });
