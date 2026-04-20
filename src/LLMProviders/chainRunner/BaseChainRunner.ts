@@ -1,5 +1,6 @@
 import { ABORT_REASON, AI_SENDER } from "@/constants";
 import { logError, logInfo } from "@/logger";
+import MemoryManager from "@/LLMProviders/memoryManager";
 import { ChatMessage, ResponseMetadata } from "@/types/message";
 import { err2String, formatDateTime } from "@/utils";
 import ChainManager from "../chainManager";
@@ -14,6 +15,7 @@ export interface ChainRunner {
       debug?: boolean;
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
+      memoryManager?: MemoryManager;
     }
   ): Promise<string>;
 }
@@ -34,8 +36,14 @@ export abstract class BaseChainRunner implements ChainRunner {
       debug?: boolean;
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
+      memoryManager?: MemoryManager;
     }
   ): Promise<string>;
+
+  /** Returns the request-scoped MemoryManager override if provided, otherwise the shared singleton. */
+  protected resolveMemory(options?: { memoryManager?: MemoryManager }): MemoryManager {
+    return options?.memoryManager ?? this.chainManager.memoryManager;
+  }
 
   /**
    * Handles a completed LLM response by saving conversation memory, updating the chat history, and logging summary details.
@@ -58,7 +66,8 @@ export abstract class BaseChainRunner implements ChainRunner {
     updateCurrentAiMessage: (message: string) => void,
     sources?: { title: string; path: string; score: number }[],
     llmFormattedOutput?: string,
-    responseMetadata?: ResponseMetadata
+    responseMetadata?: ResponseMetadata,
+    memoryOverride?: MemoryManager
   ) {
     // Save to memory and add message if we have a response
     // Skip only if it's a NEW_CHAT abort (clearing everything)
@@ -80,7 +89,7 @@ export abstract class BaseChainRunner implements ChainRunner {
       const inputForMemory = l5Text || userMessage.originalMessage || userMessage.message;
       const outputForMemory =
         llmFormattedOutput || fullAIResponse || "[Response truncated - no content generated]";
-      await this.chainManager.memoryManager.saveContext(
+      await (memoryOverride ?? this.chainManager.memoryManager).saveContext(
         { input: inputForMemory },
         { output: outputForMemory }
       );
@@ -110,8 +119,9 @@ export abstract class BaseChainRunner implements ChainRunner {
       updateCurrentAiMessage("");
     }
     // Log compact memory summary and a truncated final response (~300 chars)
-    const historyMessages = (this.chainManager.memoryManager.getMemory().chatHistory as any)
-      .messages;
+    const historyMessages = (
+      (memoryOverride ?? this.chainManager.memoryManager).getMemory().chatHistory as any
+    ).messages;
     logInfo("Chat memory updated:\n", {
       turns: Array.isArray(historyMessages) ? historyMessages.length : 0,
     });

@@ -100,6 +100,7 @@ export class TelegramChannelService {
   /** Restart with a new token (called on settings change). */
   async restart(newToken: string): Promise<void> {
     this.stop();
+    this.agent?.dispose();
     this.agent = null;
     this.consecutiveFailures = 0;
     this.token = newToken;

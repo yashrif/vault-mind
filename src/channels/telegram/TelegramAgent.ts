@@ -59,32 +59,34 @@ export class TelegramAgent {
   private async runReply(msg: TelegramStoredMessage): Promise<void> {
     logInfo(`[TelegramAgent] Generating reply for chat ${msg.chat_id}: "${msg.text.slice(0, 80)}"`);
 
-    const originalMemory = this.chainManager.memoryManager;
-    this.chainManager.memoryManager = this.telegramMemory;
+    // Build history from visible thread, excluding the current inbound message.
+    // Use local_id when available (new messages); fall back to update_id for pre-migration rows.
+    const history = this.store
+      .getVisibleMessages()
+      .filter((m) => {
+        if (m.local_id && msg.local_id) return m.local_id !== msg.local_id;
+        return m.update_id !== msg.update_id;
+      })
+      .map((m) => this.toChainMessage(m));
+
+    // Rehydrate the isolated Telegram MemoryManager with thread context
+    await updateChatMemory(history, this.telegramMemory);
+
+    // Build the user ChatMessage for the chain
+    const userChatMessage: ChatMessage = {
+      message: msg.text,
+      sender: USER_SENDER,
+      isVisible: true,
+      timestamp: formatDateTime(new Date(msg.stored_at)),
+      contextEnvelope: this.buildMinimalEnvelope(msg.text),
+    };
+
+    // Run chain pinned to TELEGRAM_CHAIN so UI chain-type changes don't affect it.
+    // Pass telegramMemory via options — no global mutation of chainManager.memoryManager.
+    const abortController = new AbortController();
+    let finalText = "";
 
     try {
-      // Build history from visible thread, excluding the current inbound message
-      const history = this.store
-        .getVisibleMessages()
-        .filter((m) => m.update_id !== msg.update_id)
-        .map((m) => this.toChainMessage(m));
-
-      // Rehydrate the isolated Telegram MemoryManager with thread context
-      await updateChatMemory(history, this.telegramMemory);
-
-      // Build the user ChatMessage for the chain
-      const userChatMessage: ChatMessage = {
-        message: msg.text,
-        sender: USER_SENDER,
-        isVisible: true,
-        timestamp: formatDateTime(new Date(msg.stored_at)),
-        contextEnvelope: this.buildMinimalEnvelope(msg.text),
-      };
-
-      // Run chain pinned to TELEGRAM_CHAIN so UI chain-type changes don't affect it
-      const abortController = new AbortController();
-      let finalText = "";
-
       await this.chainManager.runChain(
         userChatMessage,
         abortController,
@@ -94,7 +96,7 @@ export class TelegramAgent {
         (finalMessage: ChatMessage) => {
           finalText = finalMessage.message ?? "";
         },
-        { debug: false, chainType: ChainType.TELEGRAM_CHAIN }
+        { debug: false, chainType: ChainType.TELEGRAM_CHAIN, memoryManager: this.telegramMemory }
       );
 
       if (!finalText) {
@@ -111,14 +113,20 @@ export class TelegramAgent {
       logInfo(`[TelegramAgent] Reply sent to chat ${msg.chat_id} (${finalText.length} chars).`);
     } catch (err) {
       logError("[TelegramAgent] Failed to generate/send reply:", err);
+      const fallbackText = "Sorry, I couldn't respond right now.";
       try {
-        await this.client.sendMessage(msg.chat_id, "Sorry, I couldn't respond right now.");
+        await this.client.sendMessage(msg.chat_id, fallbackText);
+        // Persist only when the fallback send succeeded — never store an unsent message
+        await this.store.appendBotMessage(fallbackText, msg.chat_id);
       } catch (sendErr) {
         logError("[TelegramAgent] Also failed to send error message:", sendErr);
       }
-    } finally {
-      this.chainManager.memoryManager = originalMemory;
     }
+  }
+
+  /** Release the settings-change subscription held by the isolated MemoryManager. */
+  dispose(): void {
+    this.telegramMemory.dispose();
   }
 
   /**

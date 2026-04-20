@@ -7,14 +7,24 @@ export default class MemoryManager {
   private static instance: MemoryManager;
   private memory: BaseChatMemory;
   private debug: boolean;
+  private settingsUnsubscribe: (() => void) | undefined;
 
   private constructor() {
     this.initMemory();
-    subscribeToSettingsChange(() => {
+    this.settingsUnsubscribe = subscribeToSettingsChange(() => {
       // keep pre history
       const history = this.memory?.chatHistory;
       this.initMemory(history);
     });
+  }
+
+  /**
+   * Release the settings-change subscription. Call this when disposing an isolated instance.
+   * Safe to call multiple times — subsequent calls are no-ops.
+   */
+  dispose(): void {
+    this.settingsUnsubscribe?.();
+    this.settingsUnsubscribe = undefined;
   }
 
   static getInstance(): MemoryManager {

@@ -1,5 +1,7 @@
 /** A single message stored in the primary thread or an other-chats file. */
 export interface TelegramStoredMessage {
+  /** Stable local UUID assigned on append. Optional only for backward compat with pre-existing rows. */
+  local_id?: string;
   /** Telegram update_id — only for source "telegram"; used for idempotent append. */
   update_id?: number;
   /** Telegram message ID. */

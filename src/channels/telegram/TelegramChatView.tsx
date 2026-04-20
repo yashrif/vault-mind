@@ -42,6 +42,7 @@ export const TelegramChatView: React.FC<TelegramChatViewProps> = ({ store, onRes
   const [messages, setMessages] = useState<TelegramStoredMessage[]>([]);
   const [input, setInput] = useState("");
   const [primaryChatId, setPrimaryChatId] = useState<number | null>(null);
+  const [allowlistConfigured, setAllowlistConfigured] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Subscribe to store changes
@@ -51,6 +52,7 @@ export const TelegramChatView: React.FC<TelegramChatViewProps> = ({ store, onRes
     const refresh = () => {
       setMessages(store.getVisibleMessages());
       setPrimaryChatId(store.getMeta().primary_chat_id);
+      setAllowlistConfigured(store.hasConfiguredAllowlist());
     };
     refresh();
     const unsub = store.subscribe(refresh);
@@ -97,18 +99,29 @@ export const TelegramChatView: React.FC<TelegramChatViewProps> = ({ store, onRes
       {/* Messages */}
       <div className="tw-flex-1 tw-overflow-y-auto tw-p-3">
         {messages.length === 0 ? (
-          <div className="tw-flex tw-h-full tw-flex-col tw-items-center tw-justify-center tw-gap-2 tw-text-center">
+          <div className="tw-flex tw-h-full tw-flex-col tw-items-center tw-justify-center tw-gap-3 tw-p-6 tw-text-center">
             <span className="tw-text-2xl">✈️</span>
-            <p className="tw-text-sm tw-text-muted">
-              {primaryChatId === null
-                ? "DM your bot to begin. The first chat you message will become the primary thread."
-                : "No messages yet. DM your bot or type below."}
-            </p>
+            {!allowlistConfigured ? (
+              <>
+                <p className="tw-text-sm tw-font-medium tw-text-normal">Get started with Telegram</p>
+                <ol className="tw-list-none tw-space-y-1 tw-text-left tw-text-xs tw-text-muted">
+                  <li>1. Open <strong>Settings → Copilot → Telegram → Allowed Chat IDs</strong></li>
+                  <li>2. Add your chat ID, then DM the bot from that chat to bind it</li>
+                  <li>3. Once bound, the send field unlocks and you can chat</li>
+                </ol>
+              </>
+            ) : (
+              <p className="tw-text-sm tw-text-muted">
+                {primaryChatId === null
+                  ? "DM your bot to begin. The first allowlisted chat you message will become the primary thread."
+                  : "No messages yet. DM your bot or type below."}
+              </p>
+            )}
           </div>
         ) : (
           <div className="tw-flex tw-flex-col tw-gap-2">
             {messages.map((m, i) => (
-              <MessageBubble key={m.update_id ?? `obs-${m.stored_at}-${i}`} message={m} />
+              <MessageBubble key={m.local_id ?? m.update_id ?? `obs-${m.stored_at}-${i}`} message={m} />
             ))}
             <div ref={bottomRef} />
           </div>
@@ -121,7 +134,13 @@ export const TelegramChatView: React.FC<TelegramChatViewProps> = ({ store, onRes
           <textarea
             className="tw-flex-1 tw-resize-none tw-rounded-md tw-border tw-border-border tw-bg-modifier-form-field tw-p-2 tw-text-sm tw-text-normal tw-outline-none focus:tw-border-interactive-accent"
             rows={1}
-            placeholder={primaryChatId === null ? "Bind a chat first (Settings → Telegram)." : "Message..."}
+            placeholder={
+              !allowlistConfigured
+                ? "Configure Allowed Chat IDs in Settings first."
+                : primaryChatId === null
+                  ? "Bind a chat first — DM your bot from an allowlisted chat."
+                  : "Message..."
+            }
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

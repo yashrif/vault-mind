@@ -335,6 +335,8 @@ export default class ChainManager {
       updateLoading?: (loading: boolean) => void;
       /** Pin a specific chain type, bypassing the mutable UI chain-type atom. */
       chainType?: ChainType;
+      /** Request-scoped MemoryManager override — use instead of the shared singleton. */
+      memoryManager?: import("@/LLMProviders/memoryManager").default;
     } = {}
   ) {
     const { ignoreSystemMessage = false } = options;

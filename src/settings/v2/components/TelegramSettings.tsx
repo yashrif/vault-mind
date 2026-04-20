@@ -4,7 +4,7 @@ import { getDecryptedKey } from "@/encryptionService";
 import { logError } from "@/logger";
 import { updateSetting, useSettingsValue } from "@/settings/model";
 import { err2String } from "@/utils";
-import { CheckCircle, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { Platform } from "obsidian";
 import React, { useState } from "react";
 
@@ -114,12 +114,23 @@ export const TelegramSettings: React.FC = () => {
           title="Allowed Chat IDs"
           description="Comma-separated chat IDs allowed to bind and receive replies. Required for explicit binding."
         >
-          <input
-            className="tw-w-full tw-rounded tw-border tw-border-solid tw-bg-modifier-form-field tw-px-2 tw-py-1"
-            placeholder="123456789, -100987654321"
-            value={settings.telegramAllowedChatIds}
-            onChange={(e) => updateSetting("telegramAllowedChatIds", e.target.value)}
-          />
+          <div className="tw-flex tw-w-full tw-flex-col tw-gap-1">
+            <input
+              className="tw-w-full tw-rounded tw-border tw-border-solid tw-bg-modifier-form-field tw-px-2 tw-py-1"
+              placeholder="123456789, -100987654321"
+              value={settings.telegramAllowedChatIds}
+              onChange={(e) => updateSetting("telegramAllowedChatIds", e.target.value)}
+            />
+            {settings.telegramEnabled && !settings.telegramAllowedChatIds.trim() && (
+              <div className="tw-flex tw-items-center tw-gap-1 tw-text-xs tw-text-warning">
+                <AlertTriangle className="tw-size-3.5 tw-shrink-0" />
+                <span>
+                  No allowed chat IDs configured. Messages from Telegram will be silently dropped
+                  until at least one chat ID is added.
+                </span>
+              </div>
+            )}
+          </div>
         </SettingItem>
       </section>
     </div>

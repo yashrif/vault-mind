@@ -39,6 +39,7 @@ export class VaultQAChainRunner extends BaseChainRunner {
       debug?: boolean;
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
+      memoryManager?: import("@/LLMProviders/memoryManager").default;
     }
   ): Promise<string> {
     // Check if the current model has reasoning capability
@@ -81,7 +82,7 @@ export class VaultQAChainRunner extends BaseChainRunner {
       logInfo("[VaultQA] Extracted tags before condensing:", tags);
 
       // Step 3: Get chat history from memory (L4)
-      const memory = this.chainManager.memoryManager.getMemory();
+      const memory = this.resolveMemory(options).getMemory();
       const memoryVariables = await memory.loadMemoryVariables({});
       const chatHistory = extractChatHistory(memoryVariables);
 
@@ -274,7 +275,8 @@ export class VaultQAChainRunner extends BaseChainRunner {
       updateCurrentAiMessage,
       undefined,
       undefined,
-      responseMetadata
+      responseMetadata,
+      this.resolveMemory(options)
     );
 
     return fullAIResponse;

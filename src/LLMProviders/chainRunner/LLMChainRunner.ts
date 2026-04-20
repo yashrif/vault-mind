@@ -15,7 +15,10 @@ export class LLMChainRunner extends BaseChainRunner {
    * Construct messages array using envelope-based context (L1-L5 layers)
    * Requires context envelope - throws error if unavailable
    */
-  private async constructMessages(userMessage: ChatMessage): Promise<any[]> {
+  private async constructMessages(
+    userMessage: ChatMessage,
+    memoryOverride?: import("@/LLMProviders/memoryManager").default
+  ): Promise<any[]> {
     // Require envelope for LLM chain
     if (!userMessage.contextEnvelope) {
       throw new Error(
@@ -41,7 +44,7 @@ export class LLMChainRunner extends BaseChainRunner {
     }
 
     // Add chat history (L4)
-    const memory = this.chainManager.memoryManager.getMemory();
+    const memory = this.resolveMemory({ memoryManager: memoryOverride }).getMemory();
     await loadAndAddChatHistory(memory, messages);
 
     // Add user message (L2+L3+L5 merged)
@@ -77,6 +80,7 @@ export class LLMChainRunner extends BaseChainRunner {
       debug?: boolean;
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
+      memoryManager?: import("@/LLMProviders/memoryManager").default;
     }
   ): Promise<string> {
     // Check if the current model has reasoning capability
@@ -100,7 +104,7 @@ export class LLMChainRunner extends BaseChainRunner {
 
     try {
       // Construct messages using envelope or legacy approach
-      const messages = await this.constructMessages(userMessage);
+      const messages = await this.constructMessages(userMessage, options.memoryManager);
 
       // Record the payload for debugging (includes layered view if envelope available)
       const chatModel = this.chainManager.chatModelManager.getChatModel();
@@ -159,7 +163,8 @@ export class LLMChainRunner extends BaseChainRunner {
       updateCurrentAiMessage,
       undefined,
       undefined,
-      responseMetadata
+      responseMetadata,
+      this.resolveMemory(options)
     );
 
     return result.content;

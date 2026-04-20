@@ -379,6 +379,7 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
       updateLoadingMessage?: (message: string) => void;
+      memoryManager?: import("@/LLMProviders/memoryManager").default;
     }
   ): Promise<string> {
     this.llmFormattedMessages = [];
@@ -403,7 +404,8 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
     const context = await this.prepareAgentConversation(
       userMessage,
       chatModel,
-      options.updateLoadingMessage
+      options.updateLoadingMessage,
+      options.memoryManager
     );
 
     try {
@@ -449,7 +451,8 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
         updateCurrentAiMessage,
         uniqueSources.length > 0 ? uniqueSources : undefined,
         this.llmFormattedMessages.join("\n\n"),
-        loopResult.responseMetadata
+        loopResult.responseMetadata,
+        options.memoryManager
       );
 
       this.lastDisplayedContent = "";
@@ -499,7 +502,9 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
           addMessage,
           updateCurrentAiMessage,
           undefined,
-          fullAIResponse
+          fullAIResponse,
+          undefined,
+          options.memoryManager
         );
       }
     }
@@ -517,7 +522,8 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
   private async prepareAgentConversation(
     userMessage: ChatMessage,
     chatModel: any,
-    _updateLoadingMessage?: (message: string) => void // Unused, kept for potential future use
+    _updateLoadingMessage?: (message: string) => void, // Unused, kept for potential future use
+    memoryOverride?: import("@/LLMProviders/memoryManager").default
   ): Promise<AgentRunContext> {
     const messages: BaseMessage[] = [];
     const availableTools = this.getAvailableTools();
@@ -550,7 +556,7 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
     });
 
     // Get memory for chat history loading
-    const memory = this.chainManager.memoryManager.getMemory();
+    const memory = (memoryOverride ?? this.chainManager.memoryManager).getMemory();
 
     // Build system message: L1+L2 from envelope + tool guidelines from metadata
     const systemMessage = baseMessages.find((m) => m.role === "system");

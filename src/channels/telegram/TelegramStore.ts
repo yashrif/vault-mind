@@ -1,6 +1,14 @@
 import { logError, logInfo, logWarn } from "@/logger";
 import type { TelegramMeta, TelegramStoredMessage, TelegramUpdate } from "./TelegramTypes";
 
+/** Generate a unique local ID that works in Electron, browser, and Jest environments. */
+function genLocalId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 const STATE_DIR = ".copilot/telegram-state";
 const META_PATH = `${STATE_DIR}/meta.json`;
 const THREAD_PATH = `${STATE_DIR}/thread.json`;
@@ -56,9 +64,15 @@ export class TelegramStore {
       }).catch((err) => {
         logError("[TelegramStore] Failed to write meta after unbinding primary chat", err);
       });
-      // Notify UI immediately to disable input
-      this.notify();
     }
+
+    // Always notify — allowlist changes affect onboarding state visible in the UI.
+    this.notify();
+  }
+
+  /** Returns true when at least one allowed chat ID has been configured. */
+  hasConfiguredAllowlist(): boolean {
+    return this.allowedChatIds.size > 0;
   }
 
   /**
@@ -165,6 +179,7 @@ export class TelegramStore {
       }
 
       const stored: TelegramStoredMessage = {
+        local_id: genLocalId(),
         update_id: update.update_id,
         message_id: msg.message_id,
         chat_id: chatId,
@@ -204,6 +219,7 @@ export class TelegramStore {
       }
 
       const stored: TelegramStoredMessage = {
+        local_id: genLocalId(),
         chat_id: this.meta.primary_chat_id,
         sender_name: "You",
         sender_type: "user",
@@ -233,6 +249,7 @@ export class TelegramStore {
       }
 
       const stored: TelegramStoredMessage = {
+        local_id: genLocalId(),
         chat_id: resolvedChatId,
         sender_name: "Bot",
         sender_type: "bot",

@@ -222,9 +222,9 @@ describe("TelegramAgent", () => {
     expect(order).toEqual(["chain-1-start", "chain-1-end", "chain-2-start", "chain-2-end"]);
   });
 
-  // ── 5. Chain error → fallback sendMessage; appendBotMessage NOT called ────
+  // ── 5. Chain error → fallback sendMessage; appendBotMessage IS called (fallback persisted) ──
 
-  it("sends fallback error message and does NOT call appendBotMessage when runChain throws", async () => {
+  it("sends fallback error message and persists it via appendBotMessage when fallback send succeeds", async () => {
     const runChain = jest.fn().mockRejectedValue(new Error("LLM exploded"));
 
     const agent = new TelegramAgent(client, store, makeChainManager(runChain) as any);
@@ -234,7 +234,7 @@ describe("TelegramAgent", () => {
     await flushQueue();
 
     expect(mockSendMessage).toHaveBeenCalledWith(42, "Sorry, I couldn't respond right now.");
-    expect(mockAppendBotMessage).not.toHaveBeenCalled();
+    expect(mockAppendBotMessage).toHaveBeenCalledWith("Sorry, I couldn't respond right now.", 42);
   });
 
   // ── 6. updateChatMemory is called with history excluding the current message
