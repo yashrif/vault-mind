@@ -183,6 +183,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
     if (currentChain === ChainType.PROJECT_CHAIN) {
       // Force off in Projects mode
       setAutonomousAgentToggle(false);
+    } else if (currentChain === ChainType.TELEGRAM_CHAIN) {
+      setAutonomousAgentToggle(true);
     } else {
       // In other modes, use the actual settings value
       setAutonomousAgentToggle(settings.enableAutonomousAgent);

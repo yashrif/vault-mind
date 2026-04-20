@@ -48,12 +48,16 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
   currentChain,
 }) => {
   const isCopilotPlus = isPlusChain(currentChain);
+  const isTelegramChain = currentChain === ChainType.TELEGRAM_CHAIN;
   const canShowToolControls =
-    isCopilotPlus || currentChain === ChainType.TELEGRAM_CHAIN;
+    isCopilotPlus || isTelegramChain;
   const showAutonomousAgent = canShowToolControls && currentChain !== ChainType.PROJECT_CHAIN;
   const areManualToolTogglesDisabled = autonomousAgentToggle;
 
   const handleAutonomousAgentToggle = () => {
+    if (isTelegramChain) {
+      return;
+    }
     const newValue = !autonomousAgentToggle;
     setAutonomousAgentToggle(newValue);
     updateSetting("enableAutonomousAgent", newValue);
@@ -106,8 +110,9 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
                 variant="ghost2"
                 size="fit"
                 onClick={handleAutonomousAgentToggle}
+                disabled={isTelegramChain}
                 className={cn(
-                  "tw-text-muted hover:tw-text-accent",
+                  "tw-text-muted hover:tw-text-accent disabled:tw-opacity-100",
                   autonomousAgentToggle && "tw-text-accent tw-bg-accent/10"
                 )}
               >
@@ -115,7 +120,9 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
               </Button>
             </TooltipTrigger>
             <TooltipContent className="tw-px-1 tw-py-0.5">
-              Toggle autonomous agent mode
+              {isTelegramChain
+                ? "Autonomous agent is always active in Telegram"
+                : "Toggle autonomous agent mode"}
             </TooltipContent>
           </Tooltip>
         )}
@@ -191,12 +198,21 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
             {/* Autonomous Agent option - only show in Copilot Plus mode and NOT in Projects mode */}
             {showAutonomousAgent && (
               <DropdownMenuItem
-                onClick={handleAutonomousAgentToggle}
+                onSelect={(event) => {
+                  if (isTelegramChain) {
+                    event.preventDefault();
+                    return;
+                  }
+                  handleAutonomousAgentToggle();
+                }}
+                disabled={isTelegramChain}
                 className="tw-flex tw-items-center tw-justify-between"
               >
                 <div className="tw-flex tw-items-center tw-gap-2">
                   <Brain className="tw-size-4" />
-                  <span>Autonomous Agent</span>
+                  <span>
+                    {isTelegramChain ? "Autonomous Agent (Always On)" : "Autonomous Agent"}
+                  </span>
                 </div>
                 {autonomousAgentToggle && <Check className="tw-size-4" />}
               </DropdownMenuItem>
