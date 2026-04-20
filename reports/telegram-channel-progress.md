@@ -191,3 +191,35 @@ non-primary routing to `other-chats/`, `resetView()` cursor advance, pre/post-re
 | 3 | `telegramAllowedChatIds` allowlist | Restrict replies to specific chats |
 | 4 | Multi-chat UI (surfacing `other-chats/` entries) | Display conversations from non-primary chats |
 | 5 | Webhook mode | Replace polling with push notifications |
+
+---
+
+## Review Logs (2026-04-20)
+
+### Log 01 — External baseline (`openclaw-telegram-channel-report.md`)
+- Established reliability target: restartable polling cycles, strict offset safety, dedupe, webhook hardening, and idempotency-aware retry boundaries.
+- Recommended adapter-first architecture and phased rollout (foundation → inbound → end-to-end → hardening → groups/topics → webhook).
+
+### Log 02 — First deep review (`telegram-channel-review-analysis.md`)
+- Flagged critical memory isolation risk from shared memory pointer mutation and major context-quality risk from `update_id`-based exclusion.
+- Requested lifecycle cleanup for isolated memory subscriptions and stronger outbound/send-path tests.
+- Status at this point: **Request Changes**.
+
+### Log 03 — Follow-up fixes (`telegram-channel-review-analysis-2.md`)
+- Fixed: explicit allowlist binding, obsidian-source reply behavior, pre-bind local-send guard, true exponential backoff, serialized store writes, and cold-start allowlist revalidation.
+- Planned then tracked: channel-scoped memory isolation and explicit Telegram chain scoping API.
+- Test snapshot updated to 4 suites / 45 tests passing.
+
+### Log 04 — Isolation/onboarding review (`telegram-channel-review-findings.md`)
+- Confirmed: request-scoped memory override wiring, fallback persistence behavior, and onboarding visibility improvements.
+- Reported remaining gaps at that time: agent disposal lifecycle, legacy `local_id` normalization, and additional coverage/doc alignment.
+- Status at this point: **Request Changes**.
+
+### Log 05 — Agentic integration review (`telegram-agentic-integration-review-report.md`)
+- Confirmed agentic routing correctness through `TELEGRAM_CHAIN` with isolated request-scoped memory.
+- Raised two key issues: stale local callback path after disable and allowlist parsing edge case (`0` from empty tokens).
+- Full validation snapshot captured: 102 suites / 1918 tests passing.
+
+### Log 06 — Current closure update
+- User-confirmed fix applied for the reported blocking issue.
+- Consolidated state: Telegram channel is functionally stable with review-driven hardening applied; remaining backlog items stay in Phase 2b+ and Phase 3+ scope above.
