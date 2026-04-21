@@ -1,4 +1,5 @@
 import { logInfo, logWarn } from "@/logger";
+import { requestUrl } from "obsidian";
 import type { TelegramBotInfo, TelegramUpdate } from "./TelegramTypes";
 
 /** Token-redacted string used in all log/error messages. */
@@ -124,15 +125,33 @@ export class TelegramClient {
    */
   async downloadFileAsArrayBuffer(filePath: string): Promise<ArrayBuffer> {
     const url = `https://api.telegram.org/file/bot${this.token}/${filePath}`;
-    const resp = await fetch(url);
-    if (!resp.ok) {
-      throw new TelegramApiError(
-        resp.status,
-        `Failed to download file: ${resp.statusText}`,
-        this.redactedId
-      );
+    try {
+      const resp = await requestUrl({
+        url,
+        method: "GET",
+        throw: false,
+      });
+
+      if (resp.status === 401) {
+        throw new TelegramUnauthorizedError(this.redactedId);
+      }
+
+      if (resp.status < 200 || resp.status >= 300) {
+        throw new TelegramApiError(
+          resp.status,
+          `Failed to download file (status ${resp.status})`,
+          this.redactedId
+        );
+      }
+
+      return resp.arrayBuffer;
+    } catch (err) {
+      if (err instanceof TelegramUnauthorizedError || err instanceof TelegramApiError) {
+        throw err;
+      }
+
+      throw new TelegramNetworkError(String((err as Error).message ?? err));
     }
-    return resp.arrayBuffer();
   }
 
   /**

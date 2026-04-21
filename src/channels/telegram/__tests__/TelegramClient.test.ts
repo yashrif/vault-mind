@@ -4,10 +4,16 @@ jest.mock("@/logger", () => ({
   logError: jest.fn(),
 }));
 
+const mockRequestUrl = jest.fn();
+jest.mock("obsidian", () => ({
+  requestUrl: mockRequestUrl,
+}));
+
 const mockFetch = jest.fn();
 global.fetch = mockFetch as any;
 
 import {
+  TelegramApiError,
   TelegramClient,
   TelegramNetworkError,
   TelegramRateLimitError,
@@ -22,6 +28,13 @@ function makeResponse(body: object, status = 200, headers: Record<string, string
     status,
     headers: { get: (k: string) => headers[k] ?? null },
     json: async () => body,
+  };
+}
+
+function makeRequestUrlResponse(status = 200, arrayBuffer = new ArrayBuffer(0)) {
+  return {
+    status,
+    arrayBuffer,
   };
 }
 
@@ -111,6 +124,46 @@ describe("TelegramClient", () => {
     it("resolves without throwing on API failure (logs warning)", async () => {
       mockFetch.mockResolvedValueOnce(makeResponse({ ok: false, description: "No webhook" }));
       await expect(client.deleteWebhook()).resolves.toBeUndefined();
+    });
+  });
+
+  describe("downloadFileAsArrayBuffer", () => {
+    it("downloads media bytes through requestUrl so renderer CORS does not block file saves", async () => {
+      const bytes = Uint8Array.from([1, 2, 3, 4]).buffer;
+      mockRequestUrl.mockResolvedValueOnce(makeRequestUrlResponse(200, bytes));
+
+      await expect(client.downloadFileAsArrayBuffer("photos/file_1.jpg")).resolves.toBe(bytes);
+
+      expect(mockRequestUrl).toHaveBeenCalledWith({
+        url: `https://api.telegram.org/file/bot${TOKEN}/photos/file_1.jpg`,
+        method: "GET",
+        throw: false,
+      });
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("throws TelegramUnauthorizedError on 401", async () => {
+      mockRequestUrl.mockResolvedValueOnce(makeRequestUrlResponse(401));
+
+      await expect(client.downloadFileAsArrayBuffer("photos/file_1.jpg")).rejects.toBeInstanceOf(
+        TelegramUnauthorizedError
+      );
+    });
+
+    it("throws TelegramApiError on non-success status", async () => {
+      mockRequestUrl.mockResolvedValueOnce(makeRequestUrlResponse(404));
+
+      await expect(client.downloadFileAsArrayBuffer("photos/file_1.jpg")).rejects.toBeInstanceOf(
+        TelegramApiError
+      );
+    });
+
+    it("wraps requestUrl failures as TelegramNetworkError", async () => {
+      mockRequestUrl.mockRejectedValueOnce(new Error("socket hang up"));
+
+      await expect(client.downloadFileAsArrayBuffer("photos/file_1.jpg")).rejects.toBeInstanceOf(
+        TelegramNetworkError
+      );
     });
   });
 });

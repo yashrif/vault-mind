@@ -14,12 +14,16 @@ jest.mock("obsidian", () => ({
 const mockGetMe = jest.fn();
 const mockGetUpdates = jest.fn();
 const mockDeleteWebhook = jest.fn();
+const mockGetFile = jest.fn();
+const mockDownloadFileAsArrayBuffer = jest.fn();
 
 jest.mock("../TelegramClient", () => ({
   TelegramClient: jest.fn().mockImplementation(() => ({
     getMe: mockGetMe,
     getUpdates: mockGetUpdates,
     deleteWebhook: mockDeleteWebhook,
+    getFile: mockGetFile,
+    downloadFileAsArrayBuffer: mockDownloadFileAsArrayBuffer,
   })),
   TelegramUnauthorizedError: class TelegramUnauthorizedError extends Error {
     constructor(id: string) {
@@ -69,6 +73,18 @@ import { TelegramUnauthorizedError } from "../TelegramClient";
 import { Notice, Platform } from "obsidian";
 
 const BOT_INFO = { id: 7, first_name: "TestBot", username: "testbot", is_bot: true as const };
+const mockVaultAdapter = {
+  exists: jest.fn(),
+  mkdir: jest.fn(),
+  writeBinary: jest.fn(),
+};
+
+// @ts-ignore - global app is provided by Obsidian at runtime.
+global.app = {
+  vault: {
+    adapter: mockVaultAdapter as any,
+  },
+} as any;
 
 describe("TelegramChannelService", () => {
   let service: TelegramChannelService;
@@ -84,6 +100,11 @@ describe("TelegramChannelService", () => {
     mockSetOffset.mockResolvedValue(undefined);
     mockResetForNewBot.mockResolvedValue(undefined);
     mockGetUpdates.mockResolvedValue([]);
+    mockGetFile.mockResolvedValue("photos/file_1.jpg");
+    mockDownloadFileAsArrayBuffer.mockResolvedValue(Uint8Array.from([1, 2, 3]).buffer);
+    mockVaultAdapter.exists.mockResolvedValue(true);
+    mockVaultAdapter.mkdir.mockResolvedValue(undefined);
+    mockVaultAdapter.writeBinary.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -149,6 +170,61 @@ describe("TelegramChannelService", () => {
     await (service as any).runPollCycle();
 
     expect(mockSetOffset).toHaveBeenCalledWith(7, 3); // max update_id + 1
+  });
+
+  it("downloads media through the client and saves it into the vault media directory", async () => {
+    const bytes = Uint8Array.from([9, 8, 7]).buffer;
+    mockGetFile.mockResolvedValueOnce("photos/file_1.jpg");
+    mockDownloadFileAsArrayBuffer.mockResolvedValueOnce(bytes);
+
+    const media = await (service as any).downloadAndSaveMedia({
+      message_id: 42,
+      chat: { id: 1, type: "private" },
+      date: 0,
+      from: { id: 2, first_name: "A" },
+      photo: [{ file_id: "photo-file-id", file_unique_id: "uniq", width: 10, height: 10 }],
+    });
+
+    expect(mockGetFile).toHaveBeenCalledWith("photo-file-id");
+    expect(mockDownloadFileAsArrayBuffer).toHaveBeenCalledWith("photos/file_1.jpg");
+    expect(mockVaultAdapter.writeBinary).toHaveBeenCalledWith(
+      ".copilot/telegram-state/media/42_photo.jpg",
+      bytes
+    );
+    expect(media).toEqual({
+      mediaPath: ".copilot/telegram-state/media/42_photo.jpg",
+      mediaType: "image/jpeg",
+      mediaName: "photo.jpg",
+    });
+  });
+
+  it("passes saved media metadata into the store when polling inbound photo updates", async () => {
+    const update = {
+      update_id: 9,
+      message: {
+        message_id: 77,
+        chat: { id: 1, type: "private" as const },
+        date: 0,
+        from: { id: 2, first_name: "A" },
+        photo: [{ file_id: "photo-file-id", file_unique_id: "uniq", width: 10, height: 10 }],
+      },
+    };
+
+    mockGetUpdates.mockResolvedValueOnce([update]).mockResolvedValue([]);
+    mockAppendInbound.mockResolvedValue(null);
+
+    (service as any).running = true;
+    await (service as any).runPollCycle();
+
+    expect(mockAppendInbound).toHaveBeenCalledWith(update, {
+      mediaPath: ".copilot/telegram-state/media/77_photo.jpg",
+      mediaType: "image/jpeg",
+      mediaName: "photo.jpg",
+    });
+    expect(mockVaultAdapter.writeBinary).toHaveBeenCalledWith(
+      ".copilot/telegram-state/media/77_photo.jpg",
+      expect.any(ArrayBuffer)
+    );
   });
 
   it("stops cleanly via stop()", async () => {
