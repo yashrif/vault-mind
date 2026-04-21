@@ -916,6 +916,20 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
       return (
         <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
           <div className="tw-flex tw-h-full tw-flex-1 tw-flex-col tw-overflow-hidden">
+            <ChatControls
+              onNewChat={handleNewChat}
+              onSaveAsNote={() => handleSaveAsNote()}
+              onLoadHistory={handleLoadChatHistory}
+              onModeChange={handleChainModeChange}
+              selectedChain={selectedChain}
+              chatHistory={chatHistoryItems}
+              onUpdateChatTitle={handleUpdateChatTitle}
+              onDeleteChat={handleDeleteChat}
+              onLoadChat={handleLoadChat}
+              onOpenSourceFile={handleOpenSourceFile}
+              latestTokenCount={null}
+            />
+
             {telegramChatHistory.length > 0 ? (
               <ChatMessages
                 chatHistory={telegramChatHistory}
@@ -964,20 +978,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                 )}
               </div>
             )}
-
-            <ChatControls
-              onNewChat={handleNewChat}
-              onSaveAsNote={() => handleSaveAsNote()}
-              onLoadHistory={handleLoadChatHistory}
-              onModeChange={handleChainModeChange}
-              selectedChain={selectedChain}
-              chatHistory={chatHistoryItems}
-              onUpdateChatTitle={handleUpdateChatTitle}
-              onDeleteChat={handleDeleteChat}
-              onLoadChat={handleLoadChat}
-              onOpenSourceFile={handleOpenSourceFile}
-              latestTokenCount={null}
-            />
           </div>
         </div>
       );
