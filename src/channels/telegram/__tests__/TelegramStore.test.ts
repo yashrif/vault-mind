@@ -314,7 +314,7 @@ describe("TelegramStore", () => {
           from: { id: 9999, first_name: "Bob" },
           chat: { id: 111, type: "private" },
           date: Math.floor(Date.now() / 1000),
-          photo: [{}],
+          photo: [{ file_id: "abc", file_unique_id: "uabc", width: 100, height: 100 }],
         },
       };
       await store.appendInbound(update);

@@ -151,8 +151,12 @@ export class TelegramStore {
    * Routes to thread.json if chat_id === primary_chat_id (or binds on first message).
    * Routes to other-chats/<chatId>.json otherwise.
    * Returns the stored message if it was new, or null if it was a duplicate.
+   * @param photoUrl - Optional pre-downloaded base64 data URL for photo messages.
    */
-  async appendInbound(update: TelegramUpdate): Promise<TelegramStoredMessage | null> {
+  async appendInbound(
+    update: TelegramUpdate,
+    photoUrl?: string
+  ): Promise<TelegramStoredMessage | null> {
     return this.withWriteLock(async () => {
       const msg = update.message;
       if (!msg) return null;
@@ -185,6 +189,7 @@ export class TelegramStore {
         sender_type: "user",
         source: "telegram",
         text: this.extractText(msg),
+        photoUrl,
         date: msg.date,
         stored_at: Date.now(),
       };

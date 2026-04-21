@@ -172,6 +172,34 @@ export class TelegramChannelService {
     return Math.min(Math.max(exponential, retryAfterSeconds * 1000), MAX_BACKOFF_MS);
   }
 
+  /**
+   * Download the largest photo from a Telegram message as a base64 data URL.
+   * Returns undefined if no photo or download fails.
+   */
+  private async downloadInboundPhoto(
+    msg: import("./TelegramTypes").TelegramMessage
+  ): Promise<string | undefined> {
+    if (!msg.photo || msg.photo.length === 0) return undefined;
+    // Telegram returns photos sorted smallest → largest; take the last (largest).
+    const largest = msg.photo[msg.photo.length - 1];
+    try {
+      const filePath = await this.client.getFile(largest.file_id);
+      const ext = filePath.split(".").pop()?.toLowerCase() ?? "jpg";
+      const mimeMap: Record<string, string> = {
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        png: "image/png",
+        gif: "image/gif",
+        webp: "image/webp",
+      };
+      const mime = mimeMap[ext] ?? "image/jpeg";
+      return await this.client.downloadFileAsBase64(filePath, mime);
+    } catch (err) {
+      logWarn("[TelegramChannelService] Failed to download photo:", err);
+      return undefined;
+    }
+  }
+
   private async runPollCycle(): Promise<void> {
     if (!this.running) return;
 
@@ -184,7 +212,10 @@ export class TelegramChannelService {
       // Store-then-commit: write all messages first, advance offset last
       let newOffset = meta.offset;
       for (const update of updates) {
-        const stored = await this.store.appendInbound(update);
+        const photoUrl = update.message
+          ? await this.downloadInboundPhoto(update.message)
+          : undefined;
+        const stored = await this.store.appendInbound(update, photoUrl);
         if (stored) {
           this.onMessageStored(stored.chat_id, stored);
         }

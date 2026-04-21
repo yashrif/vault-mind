@@ -74,13 +74,23 @@ export class TelegramAgent {
     // Rehydrate the isolated Telegram MemoryManager with thread context
     await updateChatMemory(history, this.telegramMemory);
 
+    // Build content array — include image if available
+    const messageText = msg.processedText || msg.contextEnvelope?.serializedText || msg.text;
+    const content: ChatMessage["content"] = msg.photoUrl
+      ? [
+          { type: "text", text: messageText || "What is in this image?" },
+          { type: "image_url", image_url: { url: msg.photoUrl } },
+        ]
+      : undefined;
+
     // Build the user ChatMessage for the chain
     const userChatMessage: ChatMessage = {
-      message: msg.processedText || msg.contextEnvelope?.serializedText || msg.text,
+      message: messageText,
       sender: USER_SENDER,
       isVisible: true,
       timestamp: formatDateTime(new Date(msg.stored_at)),
-      contextEnvelope: msg.contextEnvelope || this.buildMinimalEnvelope(msg.text),
+      contextEnvelope: msg.contextEnvelope || this.buildMinimalEnvelope(messageText),
+      content,
     };
 
     // Run chain pinned to TELEGRAM_CHAIN so UI chain-type changes don't affect it.

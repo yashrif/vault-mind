@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { FileText, Mic, Video, Music, Sticker } from "lucide-react";
 import type { TelegramStore } from "./TelegramStore";
 import type { TelegramStoredMessage } from "./TelegramTypes";
 
@@ -16,6 +17,44 @@ interface MessageBubbleProps {
   message: TelegramStoredMessage;
 }
 
+/** Render the visual content of a message bubble. */
+function MessageBubbleContent({ message }: { message: TelegramStoredMessage }) {
+  if (message.photoUrl) {
+    return (
+      <div className="tw-flex tw-flex-col tw-gap-1">
+        <img
+          src={message.photoUrl}
+          alt="Photo"
+          className="tw-max-w-[260px] tw-rounded-md tw-object-cover"
+        />
+        {message.text && message.text !== "[photo]" && (
+          <span className="tw-text-sm">{message.text}</span>
+        )}
+      </div>
+    );
+  }
+
+  const mediaIcon: Record<string, React.ReactNode> = {
+    "[voice]": <><Mic className="tw-size-3.5" /><span>Voice message</span></>,
+    "[audio]": <><Music className="tw-size-3.5" /><span>Audio</span></>,
+    "[video]": <><Video className="tw-size-3.5" /><span>Video</span></>,
+    "[document]": <><FileText className="tw-size-3.5" /><span>Document</span></>,
+    "[sticker]": <><Sticker className="tw-size-3.5" /><span>Sticker</span></>,
+    "[photo]": <><FileText className="tw-size-3.5" /><span>Photo (unavailable)</span></>,
+  };
+
+  const icon = mediaIcon[message.text];
+  if (icon) {
+    return (
+      <span className="tw-flex tw-items-center tw-gap-1.5 tw-italic tw-text-muted tw-text-xs">
+        {icon}
+      </span>
+    );
+  }
+
+  return <span>{message.text}</span>;
+}
+
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const isUser = message.sender_type === "user";
   return (
@@ -28,7 +67,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           isUser ? "tw-bg-interactive-accent tw-text-on-accent" : "tw-bg-secondary tw-text-normal"
         }`}
       >
-        {message.text}
+        <MessageBubbleContent message={message} />
       </div>
     </div>
   );

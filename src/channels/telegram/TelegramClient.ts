@@ -102,6 +102,45 @@ export class TelegramClient {
   }
 
   /**
+   * Resolves a file_id to a server-side file_path (relative, no token).
+   * Use getFileDownloadUrl() to build the full download URL.
+   */
+  async getFile(fileId: string): Promise<string> {
+    const resp = await fetch(`${this.baseUrl}/getFile?file_id=${encodeURIComponent(fileId)}`);
+    if (resp.status === 401) throw new TelegramUnauthorizedError(this.redactedId);
+    const data = await resp.json();
+    if (!data.ok) {
+      throw new TelegramApiError(
+        data.error_code ?? 0,
+        data.description ?? "getFile failed",
+        this.redactedId
+      );
+    }
+    return data.result.file_path as string;
+  }
+
+  /**
+   * Downloads a Telegram file and returns it as a base64 data URL.
+   * @param filePath - The file_path returned by getFile().
+   * @param mimeType - MIME type to embed in the data URL (default: "image/jpeg").
+   */
+  async downloadFileAsBase64(filePath: string, mimeType = "image/jpeg"): Promise<string> {
+    const url = `https://api.telegram.org/file/bot${this.token}/${filePath}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      throw new TelegramApiError(resp.status, `Failed to download file: ${resp.statusText}`, this.redactedId);
+    }
+    const buffer = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+    return `data:${mimeType};base64,${base64}`;
+  }
+
+  /**
    * Sends a text message to a Telegram chat.
    * Automatically chunks text that exceeds the 4096-character Bot API limit.
    * @param chatId - Telegram chat ID to send to.

@@ -5,6 +5,7 @@ import {
 import { SourcesModal } from "@/components/modals/SourcesModal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
+  ContextAttachedFileBadge,
   ContextFolderBadge,
   ContextNoteBadge,
   ContextSelectedTextBadge,
@@ -204,13 +205,24 @@ function MessageContext({ context }: { context: ChatMessage["context"] }) {
       !context.webTabs?.length &&
       !context.tags?.length &&
       !context.folders?.length &&
-      !context.selectedTextContexts?.length)
+      !context.selectedTextContexts?.length &&
+      !context.attachedFileContents?.length)
   ) {
     return null;
   }
 
   return (
     <div className="tw-flex tw-flex-wrap tw-gap-2">
+      {context.attachedFileContents?.map((file, index) => (
+        <Tooltip key={`file-${index}-${file.name}`}>
+          <TooltipTrigger asChild>
+            <div>
+              <ContextAttachedFileBadge file={file} />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="tw-max-w-sm tw-break-words">{file.name}</TooltipContent>
+        </Tooltip>
+      ))}
       {context.notes.map((note, index) => (
         <Tooltip key={`note-${index}-${note.path}`}>
           <TooltipTrigger asChild>

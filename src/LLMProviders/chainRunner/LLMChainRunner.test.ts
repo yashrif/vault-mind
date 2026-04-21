@@ -160,7 +160,7 @@ describe("LLMChainRunner - Multimodal Message Construction", () => {
       },
     };
 
-    runner = new LLMChainRunner(chainManagerMock, jest.fn());
+    runner = new LLMChainRunner(chainManagerMock);
   });
 
   describe("constructMessages with text + image", () => {
