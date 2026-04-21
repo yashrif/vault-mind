@@ -19,35 +19,51 @@ interface MessageBubbleProps {
 
 /** Render the visual content of a message bubble. */
 function MessageBubbleContent({ message }: { message: TelegramStoredMessage }) {
-  if (message.photoUrl) {
+  // Image: resolve vault resource path for display
+  if (message.mediaPath && message.mediaType?.startsWith("image/")) {
+    const resourceUrl = app?.vault?.adapter?.getResourcePath?.(message.mediaPath);
     return (
       <div className="tw-flex tw-flex-col tw-gap-1">
-        <img
-          src={message.photoUrl}
-          alt="Photo"
-          className="tw-max-w-[260px] tw-rounded-md tw-object-cover"
-        />
-        {message.text && message.text !== "[photo]" && (
-          <span className="tw-text-sm">{message.text}</span>
+        {resourceUrl ? (
+          <img src={resourceUrl} alt="Photo" className="tw-max-w-[260px] tw-rounded-md tw-object-cover" />
+        ) : (
+          <span className="tw-italic tw-text-muted tw-text-xs">Photo (loading…)</span>
         )}
       </div>
     );
   }
 
-  const mediaIcon: Record<string, React.ReactNode> = {
+  // Non-image file: show filename + type label
+  if (message.mediaPath && message.mediaName) {
+    const mediaIcon: Record<string, React.ReactNode> = {
+      "audio/": <Mic className="tw-size-3.5" />,
+      "video/": <Video className="tw-size-3.5" />,
+    };
+    const icon =
+      Object.entries(mediaIcon).find(([prefix]) => message.mediaType?.startsWith(prefix))?.[1] ??
+      <FileText className="tw-size-3.5" />;
+    return (
+      <span className="tw-flex tw-items-center tw-gap-1.5 tw-text-xs">
+        {icon}
+        <span>{message.mediaName}</span>
+      </span>
+    );
+  }
+
+  // Placeholder text for messages without downloaded media
+  const mediaLabel: Record<string, React.ReactNode> = {
     "[voice]": <><Mic className="tw-size-3.5" /><span>Voice message</span></>,
     "[audio]": <><Music className="tw-size-3.5" /><span>Audio</span></>,
     "[video]": <><Video className="tw-size-3.5" /><span>Video</span></>,
     "[document]": <><FileText className="tw-size-3.5" /><span>Document</span></>,
     "[sticker]": <><Sticker className="tw-size-3.5" /><span>Sticker</span></>,
-    "[photo]": <><FileText className="tw-size-3.5" /><span>Photo (unavailable)</span></>,
+    "[photo]": <><FileText className="tw-size-3.5" /><span>Photo</span></>,
   };
-
-  const icon = mediaIcon[message.text];
-  if (icon) {
+  const label = mediaLabel[message.text];
+  if (label) {
     return (
       <span className="tw-flex tw-items-center tw-gap-1.5 tw-italic tw-text-muted tw-text-xs">
-        {icon}
+        {label}
       </span>
     );
   }

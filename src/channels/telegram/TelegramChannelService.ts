@@ -7,14 +7,22 @@ import {
   TelegramUnauthorizedError,
 } from "./TelegramClient";
 import { TelegramStore } from "./TelegramStore";
-import type { TelegramStoredMessage } from "./TelegramTypes";
+import type { TelegramMessage, TelegramStoredMessage } from "./TelegramTypes";
 import { TelegramAgent } from "./TelegramAgent";
 
 const MAX_BACKOFF_MS = 60_000;
 const INITIAL_BACKOFF_MS = 1_000;
+const MEDIA_DIR = ".copilot/telegram-state/media";
 
 interface TelegramChannelServiceOptions {
   allowedChatIds?: number[];
+}
+
+/** Resolved info for a downloadable Telegram media attachment. */
+interface MediaInfo {
+  fileId: string;
+  fileName: string;
+  mimeType: string;
 }
 
 /**
@@ -75,6 +83,7 @@ export class TelegramChannelService {
     this.running = true;
 
     try {
+      await this.ensureMediaDir();
       await this.store.initialize();
       this.store.setAllowedChatIds(this.allowedChatIds);
       await this.runStartupSequence();
@@ -137,6 +146,12 @@ export class TelegramChannelService {
 
   // ─── Internal ────────────────────────────────────────────────────────────
 
+  private async ensureMediaDir(): Promise<void> {
+    if (!(await app.vault.adapter.exists(MEDIA_DIR))) {
+      await app.vault.adapter.mkdir(MEDIA_DIR);
+    }
+  }
+
   private async runStartupSequence(): Promise<void> {
     const botInfo = await this.client.getMe();
     logInfo(`[TelegramChannelService] Connected as @${botInfo.username} (id: ${botInfo.id})`);
@@ -173,29 +188,59 @@ export class TelegramChannelService {
   }
 
   /**
-   * Download the largest photo from a Telegram message as a base64 data URL.
-   * Returns undefined if no photo or download fails.
+   * Extract downloadable media info from a Telegram message.
+   * Returns undefined if the message has no downloadable media.
    */
-  private async downloadInboundPhoto(
-    msg: import("./TelegramTypes").TelegramMessage
-  ): Promise<string | undefined> {
-    if (!msg.photo || msg.photo.length === 0) return undefined;
-    // Telegram returns photos sorted smallest → largest; take the last (largest).
-    const largest = msg.photo[msg.photo.length - 1];
-    try {
-      const filePath = await this.client.getFile(largest.file_id);
-      const ext = filePath.split(".").pop()?.toLowerCase() ?? "jpg";
-      const mimeMap: Record<string, string> = {
-        jpg: "image/jpeg",
-        jpeg: "image/jpeg",
-        png: "image/png",
-        gif: "image/gif",
-        webp: "image/webp",
+  private extractMediaInfo(msg: TelegramMessage): MediaInfo | undefined {
+    if (msg.photo && msg.photo.length > 0) {
+      const largest = msg.photo[msg.photo.length - 1];
+      return { fileId: largest.file_id, fileName: "photo.jpg", mimeType: "image/jpeg" };
+    }
+    if (msg.document) {
+      return {
+        fileId: msg.document.file_id,
+        fileName: msg.document.file_name ?? "document",
+        mimeType: msg.document.mime_type ?? "application/octet-stream",
       };
-      const mime = mimeMap[ext] ?? "image/jpeg";
-      return await this.client.downloadFileAsBase64(filePath, mime);
+    }
+    if (msg.voice) {
+      return { fileId: msg.voice.file_id, fileName: "voice.ogg", mimeType: msg.voice.mime_type ?? "audio/ogg" };
+    }
+    if (msg.audio) {
+      const name = msg.audio.file_name ?? msg.audio.title ?? "audio";
+      return { fileId: msg.audio.file_id, fileName: name, mimeType: msg.audio.mime_type ?? "audio/mpeg" };
+    }
+    if (msg.video) {
+      const name = msg.video.file_name ?? "video.mp4";
+      return { fileId: msg.video.file_id, fileName: name, mimeType: msg.video.mime_type ?? "video/mp4" };
+    }
+    return undefined;
+  }
+
+  /**
+   * Download a Telegram media file, save it under MEDIA_DIR, and return the vault path.
+   * Returns undefined if download fails.
+   */
+  private async downloadAndSaveMedia(
+    msg: TelegramMessage
+  ): Promise<{ mediaPath: string; mediaType: string; mediaName: string } | undefined> {
+    const info = this.extractMediaInfo(msg);
+    if (!info) return undefined;
+
+    try {
+      const filePath = await this.client.getFile(info.fileId);
+      const buffer = await this.client.downloadFileAsArrayBuffer(filePath);
+
+      // Build a stable filename: <messageId>_<originalName>
+      const safeName = info.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const vaultPath = `${MEDIA_DIR}/${msg.message_id}_${safeName}`;
+
+      await app.vault.adapter.writeBinary(vaultPath, buffer);
+      logInfo(`[TelegramChannelService] Saved media to ${vaultPath} (${buffer.byteLength} bytes)`);
+
+      return { mediaPath: vaultPath, mediaType: info.mimeType, mediaName: info.fileName };
     } catch (err) {
-      logWarn("[TelegramChannelService] Failed to download photo:", err);
+      logWarn("[TelegramChannelService] Failed to download/save media:", err);
       return undefined;
     }
   }
@@ -212,10 +257,10 @@ export class TelegramChannelService {
       // Store-then-commit: write all messages first, advance offset last
       let newOffset = meta.offset;
       for (const update of updates) {
-        const photoUrl = update.message
-          ? await this.downloadInboundPhoto(update.message)
+        const mediaData = update.message
+          ? await this.downloadAndSaveMedia(update.message)
           : undefined;
-        const stored = await this.store.appendInbound(update, photoUrl);
+        const stored = await this.store.appendInbound(update, mediaData);
         if (stored) {
           this.onMessageStored(stored.chat_id, stored);
         }

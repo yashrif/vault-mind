@@ -240,8 +240,8 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   const [telegramAllowlistConfigured, setTelegramAllowlistConfigured] = useState(false);
 
   const telegramChatHistory = useMemo(
-    () => mapTelegramMessagesToChatMessages(telegramMessages),
-    [telegramMessages]
+    () => mapTelegramMessagesToChatMessages(telegramMessages, plugin.app),
+    [telegramMessages, plugin.app]
   );
 
   const appContext = useContext(AppContext);

@@ -42,6 +42,7 @@ import { preprocessAIResponse } from "@/utils/markdownPreprocess";
 import { App, Component, MarkdownRenderer, MarkdownView, TFile } from "obsidian";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSettingsValue } from "@/settings/model";
+import { FileText, Mic, Music, Video } from "lucide-react";
 import {
   buildCopilotCollapsibleDomId,
   captureCopilotCollapsibleOpenStates,
@@ -51,6 +52,17 @@ import {
 } from "@/components/chat-components/collapsibleStateUtils";
 
 const FOOTNOTE_SUFFIX_PATTERN = /^\d+-\d+$/;
+
+/** Maps Telegram media placeholder text to a display label + icon. */
+const TELEGRAM_MEDIA_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
+  "[voice]": { label: "Voice message", icon: <Mic className="tw-size-3.5" /> },
+  "[audio]": { label: "Audio", icon: <Music className="tw-size-3.5" /> },
+  "[video]": { label: "Video", icon: <Video className="tw-size-3.5" /> },
+  "[document]": { label: "Document", icon: <FileText className="tw-size-3.5" /> },
+  "[sticker]": { label: "Sticker", icon: <FileText className="tw-size-3.5" /> },
+  "[photo]": { label: "Photo", icon: <FileText className="tw-size-3.5" /> },
+  "[unsupported message type]": { label: "Unsupported message", icon: <FileText className="tw-size-3.5" /> },
+};
 
 /**
  * Normalizes rendered markdown footnotes to align with inline citation UX.
@@ -948,13 +960,23 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
     }
 
     // Fallback for messages without content array
-    return message.sender === USER_SENDER ? (
-      <div className="tw-whitespace-pre-wrap tw-break-words tw-text-[calc(var(--font-text-size)_-_2px)] tw-font-normal">
-        {message.message}
-      </div>
-    ) : (
-      <div ref={contentRef} className={message.isErrorMessage ? "tw-text-error" : ""}></div>
-    );
+    if (message.sender === USER_SENDER) {
+      const mediaLabel = TELEGRAM_MEDIA_LABELS[message.message];
+      if (mediaLabel) {
+        return (
+          <span className="tw-flex tw-items-center tw-gap-1.5 tw-italic tw-text-muted tw-text-xs">
+            {mediaLabel.icon}
+            <span>{mediaLabel.label}</span>
+          </span>
+        );
+      }
+      return (
+        <div className="tw-whitespace-pre-wrap tw-break-words tw-text-[calc(var(--font-text-size)_-_2px)] tw-font-normal">
+          {message.message}
+        </div>
+      );
+    }
+    return <div ref={contentRef} className={message.isErrorMessage ? "tw-text-error" : ""}></div>;
   };
 
   // If editing a user message, replace the entire message container with the inline editor

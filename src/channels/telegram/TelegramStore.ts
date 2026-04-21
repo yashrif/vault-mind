@@ -151,11 +151,11 @@ export class TelegramStore {
    * Routes to thread.json if chat_id === primary_chat_id (or binds on first message).
    * Routes to other-chats/<chatId>.json otherwise.
    * Returns the stored message if it was new, or null if it was a duplicate.
-   * @param photoUrl - Optional pre-downloaded base64 data URL for photo messages.
+   * @param mediaData - Optional saved-media info (path, MIME type, filename) for media messages.
    */
   async appendInbound(
     update: TelegramUpdate,
-    photoUrl?: string
+    mediaData?: { mediaPath: string; mediaType: string; mediaName: string }
   ): Promise<TelegramStoredMessage | null> {
     return this.withWriteLock(async () => {
       const msg = update.message;
@@ -189,7 +189,9 @@ export class TelegramStore {
         sender_type: "user",
         source: "telegram",
         text: this.extractText(msg),
-        photoUrl,
+        mediaPath: mediaData?.mediaPath,
+        mediaType: mediaData?.mediaType,
+        mediaName: mediaData?.mediaName,
         date: msg.date,
         stored_at: Date.now(),
       };

@@ -103,7 +103,6 @@ export class TelegramClient {
 
   /**
    * Resolves a file_id to a server-side file_path (relative, no token).
-   * Use getFileDownloadUrl() to build the full download URL.
    */
   async getFile(fileId: string): Promise<string> {
     const resp = await fetch(`${this.baseUrl}/getFile?file_id=${encodeURIComponent(fileId)}`);
@@ -120,24 +119,20 @@ export class TelegramClient {
   }
 
   /**
-   * Downloads a Telegram file and returns it as a base64 data URL.
+   * Downloads a Telegram file and returns its raw bytes.
    * @param filePath - The file_path returned by getFile().
-   * @param mimeType - MIME type to embed in the data URL (default: "image/jpeg").
    */
-  async downloadFileAsBase64(filePath: string, mimeType = "image/jpeg"): Promise<string> {
+  async downloadFileAsArrayBuffer(filePath: string): Promise<ArrayBuffer> {
     const url = `https://api.telegram.org/file/bot${this.token}/${filePath}`;
     const resp = await fetch(url);
     if (!resp.ok) {
-      throw new TelegramApiError(resp.status, `Failed to download file: ${resp.statusText}`, this.redactedId);
+      throw new TelegramApiError(
+        resp.status,
+        `Failed to download file: ${resp.statusText}`,
+        this.redactedId
+      );
     }
-    const buffer = await resp.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    let binary = "";
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const base64 = btoa(binary);
-    return `data:${mimeType};base64,${base64}`;
+    return resp.arrayBuffer();
   }
 
   /**

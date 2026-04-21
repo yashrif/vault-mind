@@ -1,9 +1,11 @@
 import { AI_SENDER, USER_SENDER } from "@/constants";
 import ChainManager from "@/LLMProviders/chainManager";
 import MemoryManager from "@/LLMProviders/memoryManager";
-import { logError, logInfo } from "@/logger";
+import { logError, logInfo, logWarn } from "@/logger";
 import { updateChatMemory } from "@/chatUtils";
 import { formatDateTime } from "@/utils";
+import { arrayBufferToBase64 } from "@/utils/base64";
+import { extractFileContent, isImageFile } from "@/utils/fileContentExtractor";
 import { ChatMessage } from "@/types/message";
 import type { PromptContextEnvelope } from "@/context/PromptContextTypes";
 import { ChainType } from "@/chainFactory";
@@ -74,22 +76,30 @@ export class TelegramAgent {
     // Rehydrate the isolated Telegram MemoryManager with thread context
     await updateChatMemory(history, this.telegramMemory);
 
-    // Build content array — include image if available
     const messageText = msg.processedText || msg.contextEnvelope?.serializedText || msg.text;
-    const content: ChatMessage["content"] = msg.photoUrl
-      ? [
-          { type: "text", text: messageText || "What is in this image?" },
-          { type: "image_url", image_url: { url: msg.photoUrl } },
-        ]
-      : undefined;
+
+    // Process saved media file: images → multimodal content; documents → extracted text context
+    let content: ChatMessage["content"] | undefined;
+    let extraContext = "";
+    if (msg.mediaPath) {
+      const { content: resolvedContent, context: resolvedContext } =
+        await this.resolveMediaForLLM(msg.mediaPath, msg.mediaType, msg.mediaName);
+      content = resolvedContent;
+      extraContext = resolvedContext;
+    }
+
+    // Merge any extracted file text into the envelope so the LLM sees it as context
+    const effectiveText = extraContext
+      ? `${messageText}\n\n${extraContext}`
+      : messageText;
 
     // Build the user ChatMessage for the chain
     const userChatMessage: ChatMessage = {
-      message: messageText,
+      message: effectiveText,
       sender: USER_SENDER,
       isVisible: true,
       timestamp: formatDateTime(new Date(msg.stored_at)),
-      contextEnvelope: msg.contextEnvelope || this.buildMinimalEnvelope(messageText),
+      contextEnvelope: msg.contextEnvelope || this.buildMinimalEnvelope(effectiveText),
       content,
     };
 
@@ -155,6 +165,41 @@ export class TelegramAgent {
   /** Release the settings-change subscription held by the isolated MemoryManager. */
   dispose(): void {
     this.telegramMemory.dispose();
+  }
+
+  /**
+   * Read a saved media file from the vault and prepare it for the LLM.
+   * - Images: returns multimodal content array with base64 data URL.
+   * - Non-images: extracts text content and returns it as a context string.
+   */
+  private async resolveMediaForLLM(
+    mediaPath: string,
+    mediaType = "application/octet-stream",
+    mediaName = "file"
+  ): Promise<{ content: ChatMessage["content"]; context: string }> {
+    try {
+      const buffer = await app.vault.adapter.readBinary(mediaPath);
+      const file = new File([buffer], mediaName, { type: mediaType });
+
+      if (isImageFile(file)) {
+        const base64 = arrayBufferToBase64(buffer);
+        return {
+          content: [
+            { type: "image_url", image_url: { url: `data:${mediaType};base64,${base64}` } },
+          ],
+          context: "",
+        };
+      }
+
+      const text = await extractFileContent(file);
+      return {
+        content: undefined,
+        context: `[Attached file: ${mediaName}]\n${text}`,
+      };
+    } catch (err) {
+      logWarn("[TelegramAgent] Failed to read media file:", mediaPath, err);
+      return { content: undefined, context: "" };
+    }
   }
 
   /**
