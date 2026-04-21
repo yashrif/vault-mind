@@ -15,8 +15,6 @@ import { resetSessionSystemPromptSettings } from "@/system-prompts";
 import { ChainType } from "@/chainFactory";
 import { useProjectContextStatus } from "@/hooks/useProjectContextStatus";
 import { logInfo, logError } from "@/logger";
-import { PromptContextEngine } from "@/context/PromptContextEngine";
-import type { PromptLayerSegment } from "@/context/PromptContextTypes";
 import type { WebTabContext } from "@/types/message";
 import { mapTelegramMessagesToChatMessages } from "@/channels/telegram/TelegramMessageAdapter";
 import type { TelegramStore } from "@/channels/telegram/TelegramStore";
@@ -26,7 +24,6 @@ import ChatInput from "@/components/chat-components/ChatInput";
 import ChatMessages from "@/components/chat-components/ChatMessages";
 import { NewVersionBanner } from "@/components/chat-components/NewVersionBanner";
 import { ProjectList } from "@/components/chat-components/ProjectList";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import IndexingProgressCard from "@/components/IndexingProgressCard";
 import ProgressCard from "@/components/project/progress-card";
 import { ABORT_REASON, AI_SENDER, EVENT_NAMES, LOADING_MESSAGES, USER_SENDER } from "@/constants";
@@ -49,7 +46,6 @@ import { extractFileContent, isImageFile } from "@/utils/fileContentExtractor";
 import { Notice, TFile } from "obsidian";
 import { ContextManageModal } from "@/components/modals/project/context-manage-modal";
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { ChatHistoryItem } from "@/components/chat-components/ChatHistoryPopover";
 import { useActiveWebTabState } from "@/components/chat-components/hooks/useActiveWebTabState";
@@ -235,7 +231,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   const [selectedChain, setSelectedChain] = useChainType();
   const telegramStore = (plugin as any).telegramChannelService?.store as TelegramStore | undefined;
   const [telegramMessages, setTelegramMessages] = useState<TelegramStoredMessage[]>([]);
-  const [telegramInput, setTelegramInput] = useState("");
   const [telegramPrimaryChatId, setTelegramPrimaryChatId] = useState<number | null>(null);
   const [telegramAllowlistConfigured, setTelegramAllowlistConfigured] = useState(false);
 
@@ -280,128 +275,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     settings.telegramAllowedChatIds,
     settings.telegramBotApiKey,
   ]);
-
-  type TelegramComposerMetadata = {
-    toolCalls?: string[];
-    urls?: string[];
-    contextNotes?: TFile[];
-    contextFolders?: string[];
-    webTabs?: WebTabContext[];
-  };
-
-  /**
-   * Build a Telegram prompt envelope from composer context so TelegramAgent can
-   * consume structured context payloads instead of plain text only.
-   */
-  const buildTelegramContextEnvelope = useCallback(
-    (text: string, metadata?: TelegramComposerMetadata) => {
-      const l3Segments: PromptLayerSegment[] = [];
-
-      const notePaths = (metadata?.contextNotes || []).map((note) => note.path);
-      if (notePaths.length > 0) {
-        l3Segments.push({
-          id: "telegram-context-notes",
-          stable: true,
-          content: `<context_notes>\n${notePaths.join("\n")}\n</context_notes>`,
-        });
-      }
-
-      if ((metadata?.urls || []).length > 0) {
-        l3Segments.push({
-          id: "telegram-context-urls",
-          stable: true,
-          content: `<context_urls>\n${metadata?.urls?.join("\n")}\n</context_urls>`,
-        });
-      }
-
-      if ((metadata?.contextFolders || []).length > 0) {
-        l3Segments.push({
-          id: "telegram-context-folders",
-          stable: true,
-          content: `<context_folders>\n${metadata?.contextFolders?.join("\n")}\n</context_folders>`,
-        });
-      }
-
-      if ((metadata?.webTabs || []).length > 0) {
-        const serializedWebTabs = metadata?.webTabs
-          ?.map((webTab) => `${webTab.title || "Untitled"}: ${webTab.url}`)
-          .join("\n");
-        l3Segments.push({
-          id: "telegram-context-webtabs",
-          stable: true,
-          content: `<context_web_tabs>\n${serializedWebTabs}\n</context_web_tabs>`,
-        });
-      }
-
-      if (selectedTextContexts.length > 0) {
-        const serializedSelection = selectedTextContexts
-          .map((context) => {
-            if (context.sourceType === "web") {
-              return `${context.title || context.url}: ${context.content}`;
-            }
-            return `${context.notePath}:${context.startLine}-${context.endLine}: ${context.content}`;
-          })
-          .join("\n");
-        l3Segments.push({
-          id: "telegram-context-selected-text",
-          stable: true,
-          content: `<selected_text_context>\n${serializedSelection}\n</selected_text_context>`,
-        });
-      }
-
-      if (selectedFiles.length > 0) {
-        l3Segments.push({
-          id: "telegram-context-images",
-          stable: true,
-          content: `<attached_images>\n${selectedFiles.map((f) => f.name).join("\n")}\n</attached_images>`,
-        });
-      }
-
-      return PromptContextEngine.getInstance().buildEnvelope({
-        conversationId: null,
-        messageId: null,
-        layerSegments: {
-          L3_TURN: l3Segments,
-          L5_USER: [
-            {
-              id: "telegram-user-message",
-              stable: true,
-              content: text,
-            },
-          ],
-        },
-      });
-    },
-    [selectedFiles, selectedTextContexts]
-  );
-
-  /**
-   * Send a local Telegram message through TelegramStore.
-   * The paired TelegramAgent reply pipeline remains unchanged.
-   */
-  const handleTelegramSendMessage = useCallback(
-    async (metadata?: TelegramComposerMetadata) => {
-      const text = telegramInput.trim();
-      if (!telegramStore || !text || telegramPrimaryChatId === null) {
-        return;
-      }
-
-      setTelegramInput("");
-      setSelectedFiles([]);
-      try {
-        const contextEnvelope = buildTelegramContextEnvelope(text, metadata);
-        await telegramStore.appendLocal(text, {
-          contextEnvelope,
-          processedText: contextEnvelope.serializedText,
-        });
-      } catch (error) {
-        logError("Failed to send Telegram message from unified chat layout:", error);
-        setTelegramInput(text);
-        new Notice("Failed to send Telegram message. Please try again.");
-      }
-    },
-    [buildTelegramContextEnvelope, telegramInput, telegramPrimaryChatId, telegramStore]
-  );
 
   const handleSendMessage = async ({
     toolCalls,
@@ -1040,19 +913,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
   const renderChatComponents = () => {
     if (selectedChain === ChainType.TELEGRAM_CHAIN) {
-      const canSendTelegramMessage =
-        Boolean(telegramStore) && telegramAllowlistConfigured && telegramPrimaryChatId !== null;
-      const telegramComposerBlockedTitle = !telegramStore
-        ? "Telegram Not Configured"
-        : !telegramAllowlistConfigured
-          ? "Allowed Chat IDs Required"
-          : "Primary Chat Not Bound";
-      const telegramComposerBlockedDescription = !telegramStore
-        ? "Enable Telegram in settings and provide a valid bot token before composing messages."
-        : !telegramAllowlistConfigured
-          ? "Configure Allowed Chat IDs in settings before starting a Telegram conversation."
-          : "No primary chat_id is available yet. Send a DM to your bot from an allowlisted chat to bind the primary thread.";
-
       return (
         <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
           <div className="tw-flex tw-h-full tw-flex-1 tw-flex-col tw-overflow-hidden">
@@ -1064,7 +924,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                 onRegenerate={() => {}}
                 onEdit={() => {}}
                 onDelete={() => {}}
-                onReplaceChat={setTelegramInput}
+                onReplaceChat={() => {}}
                 showHelperComponents={false}
                 actionCapabilities={{
                   allowUserEdit: false,
@@ -1092,14 +952,14 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                     <ol className="tw-list-none tw-space-y-1 tw-text-left tw-text-xs tw-text-muted">
                       <li>1. Open Settings -&gt; Copilot -&gt; Telegram -&gt; Allowed Chat IDs</li>
                       <li>2. Add your chat ID, then DM the bot from that chat to bind it</li>
-                      <li>3. Once bound, the send field unlocks and you can chat</li>
+                      <li>3. Once bound, inbound messages and replies appear in this thread</li>
                     </ol>
                   </>
                 ) : (
                   <p className="tw-text-sm tw-text-muted">
                     {telegramPrimaryChatId === null
                       ? "DM your bot to begin. The first allowlisted chat you message will become the primary thread."
-                      : "No messages yet. DM your bot or type below."}
+                      : "No messages yet. Send a message to your bot in Telegram to start."}
                   </p>
                 )}
               </div>
@@ -1118,48 +978,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
               onOpenSourceFile={handleOpenSourceFile}
               latestTokenCount={null}
             />
-            {canSendTelegramMessage ? (
-              <ChatInput
-                inputMessage={telegramInput}
-                setInputMessage={setTelegramInput}
-                handleSendMessage={handleTelegramSendMessage}
-                isGenerating={false}
-                onStopGenerating={() => {}}
-                app={app}
-                contextNotes={contextNotes}
-                setContextNotes={setContextNotes}
-                includeActiveNote={includeActiveNote}
-                setIncludeActiveNote={setIncludeActiveNote}
-                includeActiveWebTab={includeActiveWebTab}
-                setIncludeActiveWebTab={setIncludeActiveWebTab}
-                activeWebTab={currentActiveWebTab}
-                selectedFiles={selectedFiles}
-                onAddFile={(files: File[]) => setSelectedFiles((prev) => [...prev, ...files])}
-                setSelectedFiles={setSelectedFiles}
-                selectedTextContexts={selectedTextContexts}
-                onRemoveSelectedText={handleRemoveSelectedText}
-                showProgressCard={() => {
-                  setProgressCardVisible(true);
-                }}
-                showIndexingCard={() => {
-                  setIndexingCardVisible(true);
-                }}
-              />
-            ) : (
-              <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl tw-p-2">
-                <Card className="tw-w-full tw-border tw-border-solid tw-border-border tw-bg-transparent tw-shadow-none">
-                  <CardHeader>
-                    <CardTitle className="tw-flex tw-items-center tw-gap-2 tw-text-sm">
-                      <AlertCircle className="tw-size-4 tw-text-error" />
-                      {telegramComposerBlockedTitle}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="tw-text-xs tw-text-muted">{telegramComposerBlockedDescription}</p>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
           </div>
         </div>
       );

@@ -136,8 +136,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const [toolsFromPills, setToolsFromPills] = useState<string[]>([]);
   const [webTabsFromPills, setWebTabsFromPills] = useState<WebTabContext[]>([]);
   const isCopilotPlus = isPlusChain(currentChain);
-  const isTelegramChain = currentChain === ChainType.TELEGRAM_CHAIN;
-  const supportsRichContext = isCopilotPlus || isTelegramChain;
+  const supportsRichContext = isCopilotPlus;
 
   // Merge badge-only contextWebTabs with pills-derived webTabsFromPills for display
   // Uses shared normalization policy from urlNormalization.ts
@@ -184,8 +183,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
     if (currentChain === ChainType.PROJECT_CHAIN) {
       // Force off in Projects mode
       setAutonomousAgentToggle(false);
-    } else if (currentChain === ChainType.TELEGRAM_CHAIN) {
-      setAutonomousAgentToggle(true);
     } else {
       // In other modes, use the actual settings value
       setAutonomousAgentToggle(settings.enableAutonomousAgent);

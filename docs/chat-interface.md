@@ -25,18 +25,18 @@ The most powerful mode. Requires a [Copilot Plus](copilot-plus-and-self-host.md)
 Focused workspaces with their own context, model, system prompt, and isolated chat history. Useful for keeping separate AI conversations per project. See [Projects](projects.md) for details.
 
 ### Telegram
-A bridge between Telegram and Copilot. Telegram mode shows one always-on thread that merges Telegram inbound messages and messages you type in Obsidian.
+A bridge between Telegram and Copilot. Telegram mode shows one always-on read-only thread managed by Telegram channel state.
 
 - Requires desktop app
 - Requires a Telegram bot token
 - Requires at least one allowlisted chat ID in **Settings → Copilot → Telegram → Allowed Chat IDs**
 - The first inbound message from an allowlisted chat becomes the primary chat
-- Uses the same chat panel structure as other modes (mode bar, message list, and composer)
-- Messages you type in Obsidian stay local-only in the plugin thread and are not posted to Telegram
+- Uses the same chat panel structure as other modes (mode bar, message list, and controls)
+- Obsidian composer input is disabled in Telegram mode (send messages from Telegram)
 - Messages that arrive from Telegram still receive AI replies sent back to Telegram
 - In-message actions are intentionally limited in Telegram mode to avoid unsafe edits/regenerations on external chat history
 
-In Telegram mode, regular chat history/session controls are hidden because the thread is managed by Telegram channel state.
+In Telegram mode, only chain switching and reset thread controls are shown.
 
 ---
 

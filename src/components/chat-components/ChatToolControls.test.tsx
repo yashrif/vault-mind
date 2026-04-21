@@ -104,22 +104,16 @@ describe("ChatToolControls autonomous behavior", () => {
     expect(updateSetting).toHaveBeenCalledWith("enableAutonomousAgent", true);
   });
 
-  it("does not toggle autonomous mode in Telegram and shows always-on hint", () => {
+  it("does not render tool controls in Telegram chain", () => {
     render(
       <ChatToolControls
         {...baseProps}
         currentChain={ChainType.TELEGRAM_CHAIN}
-        autonomousAgentToggle={true}
       />
     );
 
-    const autonomousButton = screen.getAllByTestId("brain-icon")[0].closest("button");
-    expect(autonomousButton).not.toBeNull();
-
-    fireEvent.click(autonomousButton!);
-
+    expect(screen.queryByTestId("brain-icon")).toBeNull();
     expect(setAutonomousAgentToggle).not.toHaveBeenCalled();
     expect(updateSetting).not.toHaveBeenCalled();
-    expect(screen.getByText("Autonomous agent is always active in Telegram")).toBeTruthy();
   });
 });

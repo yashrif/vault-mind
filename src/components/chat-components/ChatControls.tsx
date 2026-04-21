@@ -196,6 +196,7 @@ export function ChatControls({
   latestTokenCount,
 }: ChatControlsProps) {
   const settings = useSettingsValue();
+  const isTelegramChain = selectedChain === ChainType.TELEGRAM_CHAIN;
 
   return (
     <div className="tw-flex tw-w-full tw-items-center tw-justify-between tw-p-1">
@@ -209,29 +210,26 @@ export function ChatControls({
         )}
       </div>
       <div className="tw-flex tw-items-center tw-gap-1">
-        <div className="tw-mr-2">
-          <TokenCounter tokenCount={latestTokenCount ?? null} />
-        </div>
+        {!isTelegramChain && (
+          <div className="tw-mr-2">
+            <TokenCounter tokenCount={latestTokenCount ?? null} />
+          </div>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost2"
               size="icon"
-              title={
-                selectedChain === ChainType.TELEGRAM_CHAIN ? "Reset Telegram Thread" : "New Chat"
-              }
+              title={isTelegramChain ? "Reset Telegram Thread" : "New Chat"}
               onClick={onNewChat}
             >
               <MessageCirclePlus className="tw-size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
-            {selectedChain === ChainType.TELEGRAM_CHAIN ? "Reset Telegram Thread" : "New Chat"}
-          </TooltipContent>
+          <TooltipContent>{isTelegramChain ? "Reset Telegram Thread" : "New Chat"}</TooltipContent>
         </Tooltip>
-        {selectedChain !== ChainType.PROJECT_CHAIN &&
-          selectedChain !== ChainType.TELEGRAM_CHAIN && <ChatSettingsPopover />}
-        {!settings.autosaveChat && selectedChain !== ChainType.TELEGRAM_CHAIN && (
+        {!isTelegramChain && selectedChain !== ChainType.PROJECT_CHAIN && <ChatSettingsPopover />}
+        {!isTelegramChain && !settings.autosaveChat && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost2" size="icon" title="Save Chat as Note" onClick={onSaveAsNote}>
@@ -241,7 +239,7 @@ export function ChatControls({
             <TooltipContent>Save Chat as Note</TooltipContent>
           </Tooltip>
         )}
-        {selectedChain !== ChainType.TELEGRAM_CHAIN && (
+        {!isTelegramChain && (
           <Tooltip>
             <ChatHistoryPopover
               chatHistory={chatHistory}
@@ -260,97 +258,99 @@ export function ChatControls({
           </Tooltip>
         )}
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost2" size="icon" title="Advanced Settings">
-              <MoreHorizontal className="tw-size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="tw-w-64">
-            <DropdownMenuItem
-              className="tw-flex tw-justify-between"
-              onSelect={(e) => {
-                e.preventDefault();
-                updateSetting("showSuggestedPrompts", !settings.showSuggestedPrompts);
-              }}
-            >
-              <div className="tw-flex tw-items-center tw-gap-2">
-                <Sparkles className="tw-size-4" />
-                Suggested Prompt
-              </div>
-              <SettingSwitch checked={settings.showSuggestedPrompts} />
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="tw-flex tw-justify-between"
-              onSelect={(e) => {
-                e.preventDefault();
-                updateSetting("showRelevantNotes", !settings.showRelevantNotes);
-              }}
-            >
-              <div className="tw-flex tw-items-center tw-gap-2">
-                <FileText className="tw-size-4" />
-                Relevant Note
-              </div>
-              <SettingSwitch checked={settings.showRelevantNotes} />
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="tw-flex tw-justify-between"
-              onSelect={(e) => {
-                e.preventDefault();
-                updateSetting("autoAcceptEdits", !settings.autoAcceptEdits);
-              }}
-            >
-              <div className="tw-flex tw-items-center tw-gap-2">
-                <CheckCircle className="tw-size-4" />
-                Auto-accept Edits
-              </div>
-              <SettingSwitch checked={settings.autoAcceptEdits} />
-            </DropdownMenuItem>
-            {selectedChain === ChainType.PROJECT_CHAIN ? (
-              <>
-                <DropdownMenuItem
-                  className="tw-flex tw-items-center tw-gap-2"
-                  onSelect={() => reloadCurrentProject()}
-                >
-                  <RefreshCw className="tw-size-4" />
-                  Reload Current Project
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="tw-flex tw-items-center tw-gap-2"
-                  onSelect={() => forceRebuildCurrentProjectContext()}
-                >
-                  <AlertTriangle className="tw-size-4" />
-                  Force Rebuild Context
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <>
-                <DropdownMenuItem
-                  className="tw-flex tw-items-center tw-gap-2"
-                  onSelect={() => refreshVaultIndex()}
-                >
-                  <RefreshCw className="tw-size-4" />
-                  Refresh Vault Index
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="tw-flex tw-items-center tw-gap-2"
-                  onSelect={() => {
-                    const modal = new ConfirmModal(
-                      app,
-                      () => forceReindexVault(),
-                      "This will delete and rebuild your entire vault index from scratch. This operation cannot be undone. Are you sure you want to proceed?",
-                      "Force Reindex Vault"
-                    );
-                    modal.open();
-                  }}
-                >
-                  <AlertTriangle className="tw-size-4" />
-                  Force Reindex Vault
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {!isTelegramChain && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost2" size="icon" title="Advanced Settings">
+                <MoreHorizontal className="tw-size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="tw-w-64">
+              <DropdownMenuItem
+                className="tw-flex tw-justify-between"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  updateSetting("showSuggestedPrompts", !settings.showSuggestedPrompts);
+                }}
+              >
+                <div className="tw-flex tw-items-center tw-gap-2">
+                  <Sparkles className="tw-size-4" />
+                  Suggested Prompt
+                </div>
+                <SettingSwitch checked={settings.showSuggestedPrompts} />
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="tw-flex tw-justify-between"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  updateSetting("showRelevantNotes", !settings.showRelevantNotes);
+                }}
+              >
+                <div className="tw-flex tw-items-center tw-gap-2">
+                  <FileText className="tw-size-4" />
+                  Relevant Note
+                </div>
+                <SettingSwitch checked={settings.showRelevantNotes} />
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="tw-flex tw-justify-between"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  updateSetting("autoAcceptEdits", !settings.autoAcceptEdits);
+                }}
+              >
+                <div className="tw-flex tw-items-center tw-gap-2">
+                  <CheckCircle className="tw-size-4" />
+                  Auto-accept Edits
+                </div>
+                <SettingSwitch checked={settings.autoAcceptEdits} />
+              </DropdownMenuItem>
+              {selectedChain === ChainType.PROJECT_CHAIN ? (
+                <>
+                  <DropdownMenuItem
+                    className="tw-flex tw-items-center tw-gap-2"
+                    onSelect={() => reloadCurrentProject()}
+                  >
+                    <RefreshCw className="tw-size-4" />
+                    Reload Current Project
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="tw-flex tw-items-center tw-gap-2"
+                    onSelect={() => forceRebuildCurrentProjectContext()}
+                  >
+                    <AlertTriangle className="tw-size-4" />
+                    Force Rebuild Context
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem
+                    className="tw-flex tw-items-center tw-gap-2"
+                    onSelect={() => refreshVaultIndex()}
+                  >
+                    <RefreshCw className="tw-size-4" />
+                    Refresh Vault Index
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="tw-flex tw-items-center tw-gap-2"
+                    onSelect={() => {
+                      const modal = new ConfirmModal(
+                        app,
+                        () => forceReindexVault(),
+                        "This will delete and rebuild your entire vault index from scratch. This operation cannot be undone. Are you sure you want to proceed?",
+                        "Force Reindex Vault"
+                      );
+                      modal.open();
+                    }}
+                  >
+                    <AlertTriangle className="tw-size-4" />
+                    Force Reindex Vault
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   );
