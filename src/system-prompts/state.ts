@@ -1,6 +1,7 @@
 import { atom, createStore, useAtom } from "jotai";
 import { useAtomValue, useSetAtom } from "jotai";
 import { UserSystemPrompt } from "@/system-prompts/type";
+import { PromptResolutionTarget } from "@/runtime/RuntimeChainPolicy";
 import { getSettings, updateSetting } from "@/settings/model";
 
 // Create independent store for system prompts (similar to custom commands)
@@ -168,6 +169,14 @@ export function getDefaultSystemPromptTitle(): string {
 }
 
 /**
+ * Get the Telegram-specific persistent system prompt title from settings.
+ * Empty string means Telegram falls back to the shared default prompt.
+ */
+export function getTelegramSystemPromptTitle(): string {
+  return getSettings().telegramSystemPromptTitle;
+}
+
+/**
  * Set the global default system prompt title (persisted to settings)
  * @param title - The prompt title to set as default
  */
@@ -176,29 +185,61 @@ export function setDefaultSystemPromptTitle(title: string): void {
 }
 
 /**
+ * Set the Telegram-specific persistent system prompt title.
+ */
+export function setTelegramSystemPromptTitle(title: string): void {
+  updateSetting("telegramSystemPromptTitle", title);
+}
+
+/**
+ * Resolve prompt content by title from the current in-memory prompt cache.
+ */
+function getPromptContentByTitle(title: string): string {
+  if (!title) {
+    return "";
+  }
+
+  const prompt = getCachedSystemPrompts().find((candidate) => candidate.title === title);
+  return prompt?.content ?? "";
+}
+
+/**
  * Get the effective system prompt content to use
  * Priority: session (selectedPromptTitleAtom) > global default > ""
  * @returns The prompt content
  */
-export function getEffectiveSystemPromptContent(): string {
-  const prompts = getCachedSystemPrompts();
+export function getEffectiveSystemPromptContent(
+  target: PromptResolutionTarget = "default"
+): string {
+  if (target === "telegram") {
+    const telegramPromptContent = getPromptContentByTitle(getTelegramSystemPromptTitle());
+    if (telegramPromptContent) {
+      return telegramPromptContent;
+    }
 
-  // 1. Check session-level selection first (from atom - temporary)
-  const sessionPrompt = getSelectedPromptTitle();
-  if (sessionPrompt) {
-    const prompt = prompts.find((p) => p.title === sessionPrompt);
-    if (prompt) return prompt.content;
+    return getPromptContentByTitle(getDefaultSystemPromptTitle());
   }
 
-  // 2. Check global default (from settings - persistent)
-  const defaultPrompt = getDefaultSystemPromptTitle();
-  if (defaultPrompt) {
-    const prompt = prompts.find((p) => p.title === defaultPrompt);
-    if (prompt) return prompt.content;
+  const sessionPromptContent = getPromptContentByTitle(getSelectedPromptTitle());
+  if (sessionPromptContent) {
+    return sessionPromptContent;
   }
 
-  // 3. No custom prompt selected
-  return "";
+  return getPromptContentByTitle(getDefaultSystemPromptTitle());
+}
+
+/**
+ * Resolve whether builtin system instructions should be disabled for a target.
+ * Telegram intentionally ignores the session-level disable toggle.
+ */
+export function getDisableBuiltinSystemPromptForTarget(
+  target: PromptResolutionTarget = "default"
+): boolean {
+  if (target === "telegram") {
+    return false;
+  }
+
+  return getDisableBuiltinSystemPrompt();
 }
 
 /**

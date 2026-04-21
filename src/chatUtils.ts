@@ -17,7 +17,9 @@ export async function updateChatMemory(
     if (msg.sender === USER_SENDER) {
       const nextMsg = messages[i + 1];
       if (nextMsg?.sender === AI_SENDER) {
-        await memoryManager.saveContext({ input: msg.message }, { output: nextMsg.message });
+        const l5Text = msg.contextEnvelope?.layers.find((layer) => layer.id === "L5_USER")?.text;
+        const inputForMemory = l5Text || msg.originalMessage || msg.message;
+        await memoryManager.saveContext({ input: inputForMemory }, { output: nextMsg.message });
       }
     }
   }

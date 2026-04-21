@@ -734,6 +734,7 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
       updateLoading?: (loading: boolean) => void;
       updateLoadingMessage?: (message: string) => void;
       memoryManager?: import("@/LLMProviders/memoryManager").default;
+      runtimePolicy?: import("@/runtime/RuntimeChainPolicy").RuntimeChainPolicy;
     }
   ): Promise<string> {
     const { updateLoadingMessage } = options;

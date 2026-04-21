@@ -166,6 +166,10 @@ export class SystemPromptManager {
             updateSetting("defaultSystemPromptTitle", newPrompt.title);
             logInfo(`Updated defaultSystemPromptTitle: ${oldTitle} -> ${newPrompt.title}`);
           }
+          if (settings.telegramSystemPromptTitle === oldTitle) {
+            updateSetting("telegramSystemPromptTitle", newPrompt.title);
+            logInfo(`Updated telegramSystemPromptTitle: ${oldTitle} -> ${newPrompt.title}`);
+          }
         }
         upsertCachedSystemPrompt(newPrompt);
       }
@@ -200,6 +204,10 @@ export class SystemPromptManager {
       if (settings.defaultSystemPromptTitle === title) {
         updateSetting("defaultSystemPromptTitle", "");
         logInfo(`Cleared defaultSystemPromptTitle (deleted: ${title})`);
+      }
+      if (settings.telegramSystemPromptTitle === title) {
+        updateSetting("telegramSystemPromptTitle", "");
+        logInfo(`Cleared telegramSystemPromptTitle (deleted: ${title})`);
       }
 
       if (getSelectedPromptTitle() === title) {

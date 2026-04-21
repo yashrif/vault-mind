@@ -40,6 +40,7 @@ export class VaultQAChainRunner extends BaseChainRunner {
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
       memoryManager?: import("@/LLMProviders/memoryManager").default;
+      runtimePolicy?: import("@/runtime/RuntimeChainPolicy").RuntimeChainPolicy;
     }
   ): Promise<string> {
     // Check if the current model has reasoning capability

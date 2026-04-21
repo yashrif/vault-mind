@@ -16,6 +16,7 @@ import {
   VaultQAChainRunner,
 } from "@/LLMProviders/chainRunner/index";
 import { logError, logInfo } from "@/logger";
+import { resolveRuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { getSettings, subscribeToSettingsChange } from "@/settings/model";
 import { getSystemPrompt } from "@/system-prompts/systemPromptBuilder";
 import { ChatMessage } from "@/types/message";
@@ -337,9 +338,13 @@ export default class ChainManager {
       chainType?: ChainType;
       /** Request-scoped MemoryManager override — use instead of the shared singleton. */
       memoryManager?: import("@/LLMProviders/memoryManager").default;
+      /** Request-scoped runtime policy override. */
+      runtimePolicy?: import("@/runtime/RuntimeChainPolicy").RuntimeChainPolicy;
     } = {}
   ) {
     const { ignoreSystemMessage = false } = options;
+    const resolvedChainType = options.chainType ?? getChainType();
+    const runtimePolicy = options.runtimePolicy ?? resolveRuntimeChainPolicy(resolvedChainType);
 
     const l5Text = userMessage.contextEnvelope?.layers.find((l) => l.id === "L5_USER")?.text;
     logInfo(
@@ -363,7 +368,7 @@ export default class ChainManager {
       // https://github.com/langchain-ai/langchain/issues/28895
       if (isOSeriesModel(chatModel)) {
         effectivePrompt = ChatPromptTemplate.fromMessages([
-          [USER_SENDER, getSystemPrompt() || ""],
+          [USER_SENDER, getSystemPrompt(runtimePolicy.promptTarget) || ""],
           effectivePrompt,
         ]);
       }
@@ -374,13 +379,10 @@ export default class ChainManager {
       });*/
     }
 
-    const chainRunner = this.getChainRunner(options.chainType);
-    return await chainRunner.run(
-      userMessage,
-      abortController,
-      updateCurrentAiMessage,
-      addMessage,
-      options
-    );
+    const chainRunner = this.getChainRunner(resolvedChainType);
+    return await chainRunner.run(userMessage, abortController, updateCurrentAiMessage, addMessage, {
+      ...options,
+      runtimePolicy,
+    });
   }
 }

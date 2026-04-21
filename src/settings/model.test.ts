@@ -16,6 +16,7 @@ import * as settingsModel from "@/settings/model";
 jest.mock("@/system-prompts/state", () => ({
   getEffectiveSystemPromptContent: jest.fn(() => ""),
   getDisableBuiltinSystemPrompt: jest.fn(() => false),
+  getDisableBuiltinSystemPromptForTarget: jest.fn(() => false),
 }));
 
 // Mock settings/model getSettings for legacy fallback tests
@@ -177,6 +178,19 @@ describe("sanitizeSettings - autoAddSelectionToContext migration", () => {
   });
 });
 
+describe("sanitizeSettings - telegramSystemPromptTitle", () => {
+  it("defaults telegramSystemPromptTitle when persisted value is invalid", () => {
+    const settingsWithInvalidTelegramPrompt = {
+      ...DEFAULT_SETTINGS,
+      telegramSystemPromptTitle: 42 as any,
+    };
+
+    const sanitized = sanitizeSettings(settingsWithInvalidTelegramPrompt);
+
+    expect(sanitized.telegramSystemPromptTitle).toBe(DEFAULT_SETTINGS.telegramSystemPromptTitle);
+  });
+});
+
 describe("sanitizeSettings - legacy Miyo settings cleanup", () => {
   it("strips obsolete Miyo keys from persisted settings", () => {
     const legacySettings = {
@@ -208,7 +222,7 @@ describe("getSystemPrompt", () => {
 
   it("returns only builtin prompt when no user prompt and builtin not disabled", () => {
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue("");
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(false);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(false);
 
     const result = getSystemPrompt();
 
@@ -218,7 +232,7 @@ describe("getSystemPrompt", () => {
   it("returns builtin prompt with user custom instructions when user prompt exists", () => {
     const userPrompt = "Always be concise and helpful.";
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue(userPrompt);
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(false);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(false);
 
     const result = getSystemPrompt();
 
@@ -231,7 +245,7 @@ ${userPrompt}
   it("returns only user prompt when builtin is disabled", () => {
     const userPrompt = "Custom system prompt only.";
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue(userPrompt);
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(true);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(true);
 
     const result = getSystemPrompt();
 
@@ -241,7 +255,7 @@ ${userPrompt}
 
   it("returns empty string when builtin is disabled and no user prompt", () => {
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue("");
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(true);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(true);
 
     const result = getSystemPrompt();
 
@@ -251,7 +265,7 @@ ${userPrompt}
   it("wraps user prompt in user_custom_instructions tags", () => {
     const userPrompt = "Be professional.";
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue(userPrompt);
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(false);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(false);
 
     const result = getSystemPrompt();
 
@@ -263,7 +277,7 @@ ${userPrompt}
   it("preserves multiline user prompts", () => {
     const userPrompt = "Line 1\nLine 2\nLine 3";
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue(userPrompt);
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(false);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(false);
 
     const result = getSystemPrompt();
 
@@ -277,10 +291,10 @@ ${userPrompt}
     expect(systemPromptsState.getEffectiveSystemPromptContent).toHaveBeenCalled();
   });
 
-  it("calls getDisableBuiltinSystemPrompt to check builtin status", () => {
+  it("calls getDisableBuiltinSystemPromptForTarget to check builtin status", () => {
     getSystemPrompt();
 
-    expect(systemPromptsState.getDisableBuiltinSystemPrompt).toHaveBeenCalled();
+    expect(systemPromptsState.getDisableBuiltinSystemPromptForTarget).toHaveBeenCalled();
   });
 
   it("respects priority: session > global default > empty", () => {
@@ -290,7 +304,7 @@ ${userPrompt}
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue(
       sessionPrompt
     );
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(false);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(false);
 
     const result = getSystemPrompt();
 

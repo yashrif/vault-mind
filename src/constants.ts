@@ -1026,6 +1026,7 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   diffViewMode: "split",
   userSystemPromptsFolder: DEFAULT_SYSTEM_PROMPTS_FOLDER,
   defaultSystemPromptTitle: "",
+  telegramSystemPromptTitle: "",
   autoCompactThreshold: 128000,
   convertedDocOutputFolder: DEFAULT_CONVERTED_DOC_OUTPUT_FOLDER,
   activeAudioSTTModels: BUILTIN_AUDIO_STT_MODELS,

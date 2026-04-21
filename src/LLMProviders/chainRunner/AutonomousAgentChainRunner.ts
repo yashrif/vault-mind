@@ -2,8 +2,10 @@ import { AGENT_LOOP_TIMEOUT_MS } from "@/constants";
 import { MessageContent } from "@/imageProcessing/imageProcessor";
 import { logError, logInfo, logWarn } from "@/logger";
 import { UserMemoryManager } from "@/memory/UserMemoryManager";
+import { getChainType } from "@/aiParams";
 
 import { getSettings } from "@/settings/model";
+import { resolveRuntimeChainPolicy, RuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { getSystemPromptWithMemory } from "@/system-prompts/systemPromptBuilder";
 import { initializeBuiltinTools } from "@/tools/builtinTools";
 import { ToolRegistry } from "@/tools/ToolRegistry";
@@ -125,7 +127,7 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
   private allReasoningSteps: Array<{ timestamp: number; summary: string; toolName?: string }> = []; // Full history of all steps
   private abortHandledByTimer = false; // Flag to prevent duplicate interrupted messages
 
-  private getAvailableTools(): StructuredTool[] {
+  private getAvailableTools(runtimePolicy?: RuntimeChainPolicy): StructuredTool[] {
     const settings = getSettings();
     const registry = ToolRegistry.getInstance();
 
@@ -134,11 +136,18 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
       initializeBuiltinTools(this.chainManager.app?.vault);
     }
 
-    // Get enabled tool IDs from settings
-    const enabledToolIds = new Set(settings.autonomousAgentEnabledToolIds || []);
+    const effectivePolicy = runtimePolicy ?? resolveRuntimeChainPolicy(getChainType());
+    const vaultAvailable = !!this.chainManager.app?.vault;
 
-    // Get all enabled tools from registry
-    return registry.getEnabledTools(enabledToolIds, !!this.chainManager.app?.vault);
+    if (effectivePolicy.autonomousToolPolicy === "full_builtin") {
+      return registry
+        .getAllTools()
+        .filter((definition) => !definition.metadata.requiresVault || vaultAvailable)
+        .map((definition) => definition.tool);
+    }
+
+    const enabledToolIds = new Set(settings.autonomousAgentEnabledToolIds || []);
+    return registry.getEnabledTools(enabledToolIds, vaultAvailable);
   }
 
   /**
@@ -380,6 +389,7 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
       updateLoading?: (loading: boolean) => void;
       updateLoadingMessage?: (message: string) => void;
       memoryManager?: import("@/LLMProviders/memoryManager").default;
+      runtimePolicy?: import("@/runtime/RuntimeChainPolicy").RuntimeChainPolicy;
     }
   ): Promise<string> {
     this.llmFormattedMessages = [];
@@ -405,7 +415,8 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
       userMessage,
       chatModel,
       options.updateLoadingMessage,
-      options.memoryManager
+      options.memoryManager,
+      options.runtimePolicy
     );
 
     try {
@@ -523,10 +534,11 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
     userMessage: ChatMessage,
     chatModel: any,
     _updateLoadingMessage?: (message: string) => void, // Unused, kept for potential future use
-    memoryOverride?: import("@/LLMProviders/memoryManager").default
+    memoryOverride?: import("@/LLMProviders/memoryManager").default,
+    runtimePolicy?: RuntimeChainPolicy
   ): Promise<AgentRunContext> {
     const messages: BaseMessage[] = [];
-    const availableTools = this.getAvailableTools();
+    const availableTools = this.getAvailableTools(runtimePolicy);
 
     // Bind tools to the model for native function calling
     const modelName = (chatModel as any).modelName || (chatModel as any).model || "unknown";

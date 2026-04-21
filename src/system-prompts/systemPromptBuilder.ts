@@ -3,9 +3,10 @@ import { getSettings } from "@/settings/model";
 import { DEFAULT_SYSTEM_PROMPT } from "@/constants";
 import { logInfo } from "@/logger";
 import {
-  getDisableBuiltinSystemPrompt,
+  getDisableBuiltinSystemPromptForTarget,
   getEffectiveSystemPromptContent,
 } from "@/system-prompts/state";
+import { PromptResolutionTarget } from "@/runtime/RuntimeChainPolicy";
 
 /**
  * Get the effective user custom prompt with legacy fallback.
@@ -15,8 +16,8 @@ import {
  *
  * @returns The user custom prompt content
  */
-export function getEffectiveUserPrompt(): string {
-  const fileBasedUserPrompt = getEffectiveSystemPromptContent();
+export function getEffectiveUserPrompt(target: PromptResolutionTarget = "default"): string {
+  const fileBasedUserPrompt = getEffectiveSystemPromptContent(target);
 
   // Fallback: if file-based prompts are unavailable (e.g. migration failed to write files),
   // continue honoring the legacy settings field to fulfill the promise in migration error message.
@@ -31,11 +32,11 @@ export function getEffectiveUserPrompt(): string {
  *
  * @returns The complete system prompt string
  */
-export function getSystemPrompt(): string {
-  const userPrompt = getEffectiveUserPrompt();
+export function getSystemPrompt(target: PromptResolutionTarget = "default"): string {
+  const userPrompt = getEffectiveUserPrompt(target);
 
   // Check if builtin prompt is disabled for current session
-  const disableBuiltin = getDisableBuiltinSystemPrompt();
+  const disableBuiltin = getDisableBuiltinSystemPromptForTarget(target);
 
   if (disableBuiltin) {
     // Only return user custom prompt
@@ -62,9 +63,10 @@ ${userPrompt}
  * @returns The complete system prompt with memory prefix
  */
 export async function getSystemPromptWithMemory(
-  userMemoryManager: UserMemoryManager | undefined
+  userMemoryManager: UserMemoryManager | undefined,
+  target: PromptResolutionTarget = "default"
 ): Promise<string> {
-  const systemPrompt = getSystemPrompt();
+  const systemPrompt = getSystemPrompt(target);
 
   if (!userMemoryManager) {
     logInfo("No UserMemoryManager provided to getSystemPromptWithMemory");

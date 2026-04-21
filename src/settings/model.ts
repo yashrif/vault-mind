@@ -189,6 +189,11 @@ export interface CopilotSettings {
    * Empty string means no custom system prompt (use builtin)
    */
   defaultSystemPromptTitle: string;
+  /**
+   * Telegram-specific persistent system prompt title.
+   * Empty string means Telegram falls back to the shared default prompt.
+   */
+  telegramSystemPromptTitle: string;
   /** Token threshold for auto-compacting large context (range: 64k-1M tokens, default: 128000) */
   autoCompactThreshold: number;
   /** Folder where converted document markdown files are saved */
@@ -610,6 +615,10 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
   const promptsFolder = (settingsToSanitize.customPromptsFolder || "").trim();
   sanitizedSettings.customPromptsFolder =
     promptsFolder.length > 0 ? promptsFolder : DEFAULT_SETTINGS.customPromptsFolder;
+
+  if (typeof sanitizedSettings.telegramSystemPromptTitle !== "string") {
+    sanitizedSettings.telegramSystemPromptTitle = DEFAULT_SETTINGS.telegramSystemPromptTitle;
+  }
 
   // Ensure chatHistorySortStrategy has a valid value (exclude "manual" which is only for custom commands)
   if (

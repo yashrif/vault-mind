@@ -1,20 +1,29 @@
 import { SettingItem } from "@/components/ui/setting-item";
+import { Button } from "@/components/ui/button";
+import { ObsidianNativeSelect } from "@/components/ui/obsidian-native-select";
 import { PasswordInput } from "@/components/ui/password-input";
 import { getDecryptedKey } from "@/encryptionService";
 import { logError } from "@/logger";
 import { updateSetting, useSettingsValue } from "@/settings/model";
+import { getPromptFilePath, SystemPromptAddModal } from "@/system-prompts";
+import { useSystemPrompts } from "@/system-prompts/state";
 import { err2String } from "@/utils";
-import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle, Plus, XCircle } from "lucide-react";
 import { Platform } from "obsidian";
 import React, { useState } from "react";
 
 export const TelegramSettings: React.FC = () => {
   const settings = useSettingsValue();
+  const prompts = useSystemPrompts();
   const [validationState, setValidationState] = useState<"idle" | "checking" | "ok" | "error">(
     "idle"
   );
   const [botUsername, setBotUsername] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const telegramPromptExists = prompts.some(
+    (prompt) => prompt.title === settings.telegramSystemPromptTitle
+  );
+  const telegramPromptValue = telegramPromptExists ? settings.telegramSystemPromptTitle : "";
 
   if (!Platform.isDesktopApp) {
     return (
@@ -58,6 +67,21 @@ export const TelegramSettings: React.FC = () => {
       setValidationState("error");
       setErrorMessage("Network error — check your connection.");
     }
+  };
+
+  const handleOpenPromptFile = () => {
+    if (!telegramPromptValue) {
+      return;
+    }
+
+    const filePath = getPromptFilePath(telegramPromptValue);
+    (app as any).setting.close();
+    app.workspace.openLinkText(filePath, "", true);
+  };
+
+  const handleAddPrompt = () => {
+    const modal = new SystemPromptAddModal(app, prompts);
+    modal.open();
   };
 
   return (
@@ -111,8 +135,45 @@ export const TelegramSettings: React.FC = () => {
 
         <SettingItem
           type="custom"
+          title="Telegram System Prompt"
+          description="Pick Telegram-specific system instructions. Leave empty to follow the shared default system prompt."
+        >
+          <div className="tw-flex tw-items-center tw-gap-2">
+            <ObsidianNativeSelect
+              value={telegramPromptValue}
+              onChange={(e) => updateSetting("telegramSystemPromptTitle", e.target.value)}
+              options={[
+                { label: "Follow shared default prompt", value: "" },
+                ...prompts.map((prompt) => ({
+                  label:
+                    prompt.title === settings.telegramSystemPromptTitle
+                      ? `${prompt.title} (Telegram)`
+                      : prompt.title,
+                  value: prompt.title,
+                })),
+              ]}
+              containerClassName="tw-flex-1"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleOpenPromptFile}
+              className="tw-size-5 tw-shrink-0 tw-p-0"
+              title="Open the source file"
+              disabled={!telegramPromptValue}
+            >
+              <ArrowUpRight className="tw-size-5" />
+            </Button>
+            <Button variant="default" size="icon" onClick={handleAddPrompt} title="Add new prompt">
+              <Plus className="tw-size-4" />
+            </Button>
+          </div>
+        </SettingItem>
+
+        <SettingItem
+          type="custom"
           title="Allowed Chat IDs"
-          description="Comma-separated chat IDs allowed to bind and receive replies. Required for explicit binding."
+          description="Comma-separated chat IDs allowed to bind and receive replies. Telegram stays isolated from shared chat history and always runs with its tool set enabled."
         >
           <div className="tw-flex tw-w-full tw-flex-col tw-gap-1">
             <input

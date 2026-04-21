@@ -25,6 +25,14 @@ jest.mock("@/utils/fileContentExtractor", () => ({
   isImageFile: (...args: unknown[]) => mockIsImageFile(...args),
 }));
 
+const mockPrepareMessage = jest.fn();
+
+jest.mock("@/core/MessagePreparationService", () => ({
+  MessagePreparationService: jest.fn().mockImplementation(() => ({
+    prepareMessage: (...args: unknown[]) => mockPrepareMessage(...args),
+  })),
+}));
+
 // ─── Mock TelegramClient ───────────────────────────────────────────────────
 
 const mockSendMessage = jest.fn();
@@ -135,6 +143,77 @@ describe("TelegramAgent", () => {
         },
       },
     } as any;
+    mockPrepareMessage.mockImplementation(async (params: any) => {
+      const userText = params.message.originalMessage || params.message.message;
+      const attachmentText =
+        params.message.context?.attachedFileContents
+          ?.map((file: { content: string }) => file.content)
+          .join("\n\n") || "";
+      const processedText = attachmentText ? `${attachmentText}\n\n${userText}` : userText;
+      const layers = [
+        {
+          id: "L1_SYSTEM",
+          label: "System Instructions",
+          text: "Telegram system",
+          stable: true,
+          segments: [],
+          hash: "",
+        },
+      ];
+
+      if (attachmentText) {
+        layers.push({
+          id: "L3_TURN",
+          label: "Current Turn Context",
+          text: attachmentText,
+          stable: true,
+          segments: [
+            {
+              id: "telegram-attachment",
+              content: attachmentText,
+              stable: true,
+            },
+          ],
+          hash: "",
+        } as any);
+      }
+
+      layers.push({
+        id: "L5_USER",
+        label: "User message",
+        text: userText,
+        stable: true,
+        segments: [
+          {
+            id: "telegram-user",
+            content: userText,
+            stable: true,
+          },
+        ],
+        hash: "",
+      } as any);
+
+      const contextEnvelope = {
+        version: 1,
+        conversationId: null,
+        messageId: params.message.id ?? null,
+        serializedText: processedText,
+        combinedHash: "",
+        layerHashes: {} as Record<string, string>,
+        layers,
+      };
+
+      return {
+        preparedMessage: {
+          ...params.message,
+          message: processedText,
+          originalMessage: userText,
+          contextEnvelope,
+        },
+        processedContent: processedText,
+        contextEnvelope,
+      };
+    });
   });
 
   afterEach(() => {
@@ -420,8 +499,11 @@ describe("TelegramAgent", () => {
 
     const [historyArg] = (updateChatMemory as jest.Mock).mock.calls[0];
     expect(historyArg).toHaveLength(1);
-    expect(historyArg[0].message).toContain("[Attached file: lecture_03.pdf]");
-    expect(historyArg[0].message).toContain("Parsed attachment text");
+    expect(historyArg[0].message).toBe("[document]");
+    expect(historyArg[0].contextEnvelope?.serializedText).toContain(
+      "[Attached file: lecture_03.pdf]"
+    );
+    expect(historyArg[0].contextEnvelope?.serializedText).toContain("Parsed attachment text");
     expect(mockUpdateMessagePromptState).toHaveBeenCalledWith(
       expect.objectContaining({ local_id: "prev-doc" }),
       expect.objectContaining({
@@ -442,20 +524,25 @@ describe("TelegramAgent", () => {
       mediaName: "lecture_03.pdf",
     });
 
-    const runChain = jest
-      .fn()
-      .mockImplementation(
-        async (
-          userMsg: { message: string; originalMessage?: string },
-          _abort: unknown,
-          _onPartial: unknown,
-          addMessage: (m: { message: string }) => void
-        ) => {
-          expect(userMsg.message).toContain("Parsed attachment text");
-          expect(userMsg.originalMessage).toBe("[document]");
-          addMessage({ message: "ok" });
-        }
-      );
+    const runChain = jest.fn().mockImplementation(
+      async (
+        userMsg: {
+          message: string;
+          originalMessage?: string;
+          contextEnvelope?: { layers: Array<{ id: string }> };
+        },
+        _abort: unknown,
+        _onPartial: unknown,
+        addMessage: (m: { message: string }) => void
+      ) => {
+        expect(userMsg.message).toContain("Parsed attachment text");
+        expect(userMsg.originalMessage).toBe("[document]");
+        expect(
+          userMsg.contextEnvelope?.layers.some((layer: { id: string }) => layer.id === "L1_SYSTEM")
+        ).toBe(true);
+        addMessage({ message: "ok" });
+      }
+    );
 
     const agent = new TelegramAgent(client, store, makeChainManager(runChain) as any);
     await agent.enqueueReply(mediaMsg);

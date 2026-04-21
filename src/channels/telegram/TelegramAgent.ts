@@ -1,23 +1,32 @@
 import { AI_SENDER, USER_SENDER } from "@/constants";
-import ChainManager from "@/LLMProviders/chainManager";
+import type ChainManager from "@/LLMProviders/chainManager";
 import MemoryManager from "@/LLMProviders/memoryManager";
+import { ChainType } from "@/chainFactory";
+import { MessagePreparationService } from "@/core/MessagePreparationService";
+import { MessageRepository } from "@/core/MessageRepository";
 import { logError, logInfo, logWarn } from "@/logger";
+import { resolveRuntimeChainPolicy, RuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
+import { FileParserManager } from "@/tools/FileParserManager";
 import { updateChatMemory } from "@/chatUtils";
 import { formatDateTime } from "@/utils";
 import { arrayBufferToBase64 } from "@/utils/base64";
 import { extractFileContent, isImageFile } from "@/utils/fileContentExtractor";
-import { ChatMessage } from "@/types/message";
+import { ChatMessage, MessageContext } from "@/types/message";
 import type { PromptContextEnvelope } from "@/context/PromptContextTypes";
-import { ChainType } from "@/chainFactory";
+import {
+  getTelegramStableMessageId,
+  TelegramMessageRepositoryAdapter,
+  TelegramRepositoryMessage,
+} from "./TelegramMessageRepositoryAdapter";
 import { TelegramClient } from "./TelegramClient";
 import { TelegramStore } from "./TelegramStore";
 import type { TelegramStoredMessage } from "./TelegramTypes";
 
 interface PreparedTelegramPromptState {
-  messageText: string;
   processedText: string;
   contextEnvelope: PromptContextEnvelope;
   content?: ChatMessage["content"];
+  context?: MessageContext;
 }
 
 /**
@@ -38,12 +47,25 @@ export class TelegramAgent {
 
   /** Isolated memory — not the shared UI singleton, preventing context bleed. */
   private readonly telegramMemory: MemoryManager = MemoryManager.createIsolated();
+  private readonly runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(
+    ChainType.TELEGRAM_CHAIN
+  );
+  private readonly fileParserManager: FileParserManager;
+  private readonly messagePreparationService: MessagePreparationService;
+  private readonly messageRepositoryAdapter = new TelegramMessageRepositoryAdapter();
 
   constructor(
     private readonly client: TelegramClient,
     private readonly store: TelegramStore,
     private readonly chainManager: ChainManager
-  ) {}
+  ) {
+    const vault = this.chainManager.app?.vault ?? app.vault;
+    this.fileParserManager = new FileParserManager(vault);
+    this.messagePreparationService = new MessagePreparationService(
+      this.chainManager,
+      this.fileParserManager
+    );
+  }
 
   /**
    * Enqueue an AI reply for the given inbound message.
@@ -69,36 +91,36 @@ export class TelegramAgent {
   private async runReply(msg: TelegramStoredMessage): Promise<void> {
     logInfo(`[TelegramAgent] Generating reply for chat ${msg.chat_id}: "${msg.text.slice(0, 80)}"`);
     const shouldSendToTelegram = msg.source === "telegram";
+    const { repo, currentMessageId } = await this.buildTransientMessageRepo(msg);
+    const historyMessages = repo
+      .getLLMMessages()
+      .filter((message) => message.id !== currentMessageId);
 
-    // Build history from visible thread, excluding the current inbound message.
-    // Use local_id when available (new messages); fall back to update_id for pre-migration rows.
-    const history = this.store
-      .getVisibleMessages()
-      .filter((m) => {
-        if (m.local_id && msg.local_id) return m.local_id !== msg.local_id;
-        return m.update_id !== msg.update_id;
+    await updateChatMemory(historyMessages, this.telegramMemory);
+
+    const currentMessage = repo.getMessage(currentMessageId);
+    if (!currentMessage) {
+      throw new Error(`Failed to materialize Telegram message ${currentMessageId}`);
+    }
+
+    const { preparedMessage, processedContent, contextEnvelope } =
+      await this.messagePreparationService.prepareMessage({
+        message: currentMessage,
+        messageRepo: repo,
+        chainType: ChainType.TELEGRAM_CHAIN,
+        vault: this.chainManager.app?.vault ?? app.vault,
+        runtimePolicy: this.runtimePolicy,
+        includeActiveNote: false,
+        activeNote: null,
       });
-
-    const chainHistory = await Promise.all(history.map((message) => this.toChainMessage(message)));
-
-    // Rehydrate the isolated Telegram MemoryManager with thread context
-    await updateChatMemory(chainHistory, this.telegramMemory);
-
-    const preparedMessage = await this.prepareMessageForLLM(msg, {
-      includeRichContent: true,
-      persistResolvedPromptState: true,
+    if (!contextEnvelope) {
+      throw new Error("Telegram shared preparation did not produce a context envelope.");
+    }
+    repo.updateProcessedText(currentMessageId, processedContent, contextEnvelope);
+    await this.store.updateMessagePromptState(msg, {
+      processedText: processedContent,
+      contextEnvelope,
     });
-
-    // Build the user ChatMessage for the chain
-    const userChatMessage: ChatMessage = {
-      message: preparedMessage.messageText,
-      originalMessage: msg.text,
-      sender: USER_SENDER,
-      isVisible: true,
-      timestamp: formatDateTime(new Date(msg.stored_at)),
-      contextEnvelope: preparedMessage.contextEnvelope,
-      content: preparedMessage.content,
-    };
 
     // Run chain pinned to TELEGRAM_CHAIN so UI chain-type changes don't affect it.
     // Pass telegramMemory via options — no global mutation of chainManager.memoryManager.
@@ -107,7 +129,7 @@ export class TelegramAgent {
 
     try {
       await this.chainManager.runChain(
-        userChatMessage,
+        preparedMessage,
         abortController,
         (_partial: string) => {
           // Streaming partial — no-op; we only need the final text
@@ -115,7 +137,12 @@ export class TelegramAgent {
         (finalMessage: ChatMessage) => {
           finalText = finalMessage.message ?? "";
         },
-        { debug: false, chainType: ChainType.TELEGRAM_CHAIN, memoryManager: this.telegramMemory }
+        {
+          debug: false,
+          chainType: ChainType.TELEGRAM_CHAIN,
+          memoryManager: this.telegramMemory,
+          runtimePolicy: this.runtimePolicy,
+        }
       );
 
       if (!finalText) {
@@ -200,28 +227,135 @@ export class TelegramAgent {
   }
 
   /**
-   * Convert a TelegramStoredMessage to a ChatMessage suitable for updateChatMemory.
+   * Build a transient repository from the visible Telegram thread plus the
+   * current inbound turn. This repo never escapes the Telegram pipeline.
    */
-  private async toChainMessage(m: TelegramStoredMessage): Promise<ChatMessage> {
-    const preparedMessage = await this.prepareMessageForLLM(m, {
+  private async buildTransientMessageRepo(
+    currentMessage: TelegramStoredMessage
+  ): Promise<{ repo: MessageRepository; currentMessageId: string }> {
+    const visibleMessages = this.store.getVisibleMessages();
+    const hasCurrentMessage = visibleMessages.some((message) =>
+      this.isSameStoredMessage(message, currentMessage)
+    );
+    const materializedMessages = hasCurrentMessage
+      ? visibleMessages
+      : [...visibleMessages, currentMessage];
+
+    const repositoryMessages = await Promise.all(
+      materializedMessages.map(async (message) => {
+        if (this.isSameStoredMessage(message, currentMessage)) {
+          return this.buildCurrentTurnRepositoryMessage(message);
+        }
+
+        return this.buildHistoricalRepositoryMessage(message);
+      })
+    );
+
+    return {
+      repo: this.messageRepositoryAdapter.materialize(repositoryMessages),
+      currentMessageId: getTelegramStableMessageId(currentMessage),
+    };
+  }
+
+  /**
+   * Build the current inbound Telegram turn for shared prompt preparation.
+   */
+  private async buildCurrentTurnRepositoryMessage(
+    msg: TelegramStoredMessage
+  ): Promise<TelegramRepositoryMessage> {
+    const resolvedMedia = await this.resolveTelegramMessageMedia(msg, {
+      includeRichContent: true,
+    });
+
+    return {
+      id: getTelegramStableMessageId(msg),
+      displayText: msg.text,
+      originalMessage: msg.text,
+      processedText: msg.text,
+      sender: msg.sender_type === "bot" ? AI_SENDER : USER_SENDER,
+      timestamp: formatDateTime(new Date(msg.stored_at)),
+      context: resolvedMedia.context,
+      content: resolvedMedia.content,
+      isVisible: true,
+    };
+  }
+
+  /**
+   * Build a historical Telegram row for transient repo materialization.
+   * Full envelopes are reused as-is; legacy plain/media rows are handled via
+   * compatibility readers without eagerly migrating the whole thread file.
+   */
+  private async buildHistoricalRepositoryMessage(
+    msg: TelegramStoredMessage
+  ): Promise<TelegramRepositoryMessage> {
+    const preparedMessage = await this.preparePromptStateForStoredMessage(msg, {
       includeRichContent: false,
       persistResolvedPromptState: true,
     });
 
     return {
-      message: preparedMessage.processedText,
-      originalMessage: m.text,
-      sender: m.sender_type === "bot" ? AI_SENDER : USER_SENDER,
+      id: getTelegramStableMessageId(msg),
+      displayText: msg.text,
+      originalMessage: msg.text,
+      processedText: preparedMessage.processedText,
+      sender: msg.sender_type === "bot" ? AI_SENDER : USER_SENDER,
+      timestamp: formatDateTime(new Date(msg.stored_at)),
+      contextEnvelope: preparedMessage.contextEnvelope,
+      content: preparedMessage.content,
+      context: preparedMessage.context,
       isVisible: true,
-      timestamp: formatDateTime(new Date(m.stored_at)),
     };
   }
 
   /**
-   * Resolve the prompt-visible state for a Telegram message, including any
-   * lazy media parsing needed for future follow-up turns.
+   * Resolve runtime media state for a Telegram message.
+   * Images keep multimodal content and a lightweight textual breadcrumb.
+   * Non-image files are exposed through attachedFileContents so shared prep
+   * emits them into L3 like normal chat attachments.
    */
-  private async prepareMessageForLLM(
+  private async resolveTelegramMessageMedia(
+    msg: TelegramStoredMessage,
+    options: {
+      includeRichContent: boolean;
+    }
+  ): Promise<{ context?: MessageContext; content?: ChatMessage["content"] }> {
+    if (!msg.mediaPath) {
+      return {};
+    }
+
+    const resolvedMedia = await this.resolveMediaForLLM(
+      msg.mediaPath,
+      msg.mediaType,
+      msg.mediaName
+    );
+    const attachedFileContent = resolvedMedia.context
+      ? [
+          {
+            name: msg.mediaName || "attachment",
+            content: resolvedMedia.context,
+          },
+        ]
+      : [];
+
+    return {
+      context:
+        attachedFileContent.length > 0
+          ? {
+              notes: [],
+              urls: [],
+              attachedFileContents: attachedFileContent,
+            }
+          : undefined,
+      content: options.includeRichContent ? resolvedMedia.content : undefined,
+    };
+  }
+
+  /**
+   * Resolve the compatibility prompt state for persisted Telegram messages.
+   * Full envelopes are reused; legacy media rows can be lazily upgraded when
+   * their attachment context is re-read during normal use.
+   */
+  private async preparePromptStateForStoredMessage(
     msg: TelegramStoredMessage,
     options: {
       includeRichContent: boolean;
@@ -234,7 +368,6 @@ export class TelegramAgent {
 
     if (!msg.mediaPath) {
       return {
-        messageText: persistedText,
         processedText: persistedText,
         contextEnvelope: persistedEnvelope,
       };
@@ -245,14 +378,17 @@ export class TelegramAgent {
     let attachmentContext = "";
 
     if (needsMediaRead) {
-      const resolvedMedia = await this.resolveMediaForLLM(msg.mediaPath, msg.mediaType, msg.mediaName);
+      const resolvedMedia = await this.resolveMediaForLLM(
+        msg.mediaPath,
+        msg.mediaType,
+        msg.mediaName
+      );
       resolvedContent = options.includeRichContent ? resolvedMedia.content : undefined;
       attachmentContext = resolvedMedia.context;
     }
 
     if (hasResolvedPromptState) {
       return {
-        messageText: persistedText,
         processedText: persistedText,
         contextEnvelope: persistedEnvelope,
         content: resolvedContent,
@@ -272,7 +408,6 @@ export class TelegramAgent {
     }
 
     return {
-      messageText: processedText,
       processedText,
       contextEnvelope,
       content: resolvedContent,
@@ -280,10 +415,38 @@ export class TelegramAgent {
   }
 
   /**
+   * Compare two stored Telegram rows using the stable IDs available in the
+   * current store schema and older pre-local-id rows.
+   */
+  private isSameStoredMessage(left: TelegramStoredMessage, right: TelegramStoredMessage): boolean {
+    if (left.local_id && right.local_id) {
+      return left.local_id === right.local_id;
+    }
+
+    if (left.update_id !== undefined && right.update_id !== undefined) {
+      return left.update_id === right.update_id;
+    }
+
+    if (left.message_id !== undefined && right.message_id !== undefined) {
+      return left.chat_id === right.chat_id && left.message_id === right.message_id;
+    }
+
+    return (
+      left.chat_id === right.chat_id &&
+      left.stored_at === right.stored_at &&
+      left.sender_type === right.sender_type &&
+      left.text === right.text
+    );
+  }
+
+  /**
    * Combine the message text with any extracted attachment context, avoiding
    * duplicate insertion when a message has already been upgraded.
    */
-  private mergeMessageWithAttachmentContext(messageText: string, attachmentContext: string): string {
+  private mergeMessageWithAttachmentContext(
+    messageText: string,
+    attachmentContext: string
+  ): string {
     if (!attachmentContext) {
       return messageText;
     }

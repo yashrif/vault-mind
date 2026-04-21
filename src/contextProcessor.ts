@@ -4,8 +4,8 @@ import { logWarn, logInfo, logError } from "@/logger";
 import { escapeXml } from "@/LLMProviders/chainRunner/utils/xmlParsing";
 import { getWebViewerService } from "@/services/webViewerService/webViewerServiceSingleton";
 import { WebViewerTimeoutError } from "@/services/webViewerService/webViewerServiceTypes";
+import { RuntimeChainPolicy, resolveRuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { FileParserManager } from "@/tools/FileParserManager";
-import { isPlusChain } from "@/utils";
 import { normalizeUrlString } from "@/utils/urlNormalization";
 import { TFile, Vault } from "obsidian";
 import {
@@ -243,13 +243,21 @@ export class ContextProcessor {
     note: TFile,
     vault: Vault,
     fileParserManager: FileParserManager,
-    chainType: ChainType
+    chainType: ChainType,
+    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(chainType)
   ): Promise<string> {
     let content = await fileParserManager.parseFile(note, vault);
 
-    content = await this.processEmbeddedNotes(content, note, vault, fileParserManager, chainType);
+    content = await this.processEmbeddedNotes(
+      content,
+      note,
+      vault,
+      fileParserManager,
+      chainType,
+      runtimePolicy
+    );
 
-    if (isPlusChain(chainType)) {
+    if (runtimePolicy.richContextPolicy === "plus") {
       content = await this.processEmbeddedPDFs(content, vault, fileParserManager);
     }
 
@@ -275,7 +283,8 @@ export class ContextProcessor {
     sourceNote: TFile,
     vault: Vault,
     fileParserManager: FileParserManager,
-    chainType: ChainType
+    chainType: ChainType,
+    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(chainType)
   ): Promise<string> {
     const embedRegex = /!\[\[([^\]]+)\]\]/g;
     let match: RegExpExecArray | null;
@@ -291,7 +300,8 @@ export class ContextProcessor {
         sourceNote,
         vault,
         fileParserManager,
-        chainType
+        chainType,
+        runtimePolicy
       );
       result += replacement;
       lastIndex = match.index + match[0].length;
@@ -310,7 +320,8 @@ export class ContextProcessor {
     sourceNote: TFile,
     vault: Vault,
     fileParserManager: FileParserManager,
-    chainType: ChainType
+    chainType: ChainType,
+    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(chainType)
   ): Promise<string> {
     const target = this.parseEmbeddedLinkTarget(rawTarget);
     if (!target) {
@@ -350,7 +361,7 @@ export class ContextProcessor {
         embeddedContent = segment.content;
       }
 
-      if (isPlusChain(chainType)) {
+      if (runtimePolicy.richContextPolicy === "plus") {
         embeddedContent = await this.processEmbeddedPDFs(embeddedContent, vault, fileParserManager);
       }
 
@@ -534,7 +545,8 @@ export class ContextProcessor {
     contextNotes: TFile[],
     includeActiveNote: boolean,
     activeNote: TFile | null,
-    currentChain: ChainType
+    currentChain: ChainType,
+    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(currentChain)
   ): Promise<string> {
     let additionalContext = "";
 
@@ -554,7 +566,13 @@ export class ContextProcessor {
 
         const content =
           note.extension === "md"
-            ? await this.buildMarkdownContextContent(note, vault, fileParserManager, currentChain)
+            ? await this.buildMarkdownContextContent(
+                note,
+                vault,
+                fileParserManager,
+                currentChain,
+                runtimePolicy
+              )
             : await fileParserManager.parseFile(note, vault);
 
         // Get file metadata

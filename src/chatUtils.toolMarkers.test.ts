@@ -54,4 +54,47 @@ describe("updateChatMemory with tool call markers", () => {
       "ENC:%5B%7B%22title%22%3A%22Lesson%201%22%7D%5D"
     );
   });
+
+  it("prefers L5 user text over processed message text when rebuilding memory", async () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "1",
+        sender: USER_SENDER,
+        message: "<attached_file>expanded context</attached_file>\n\nRaw question",
+        originalMessage: "Raw question",
+        contextEnvelope: {
+          version: 1,
+          conversationId: null,
+          messageId: "1",
+          serializedText: "<attached_file>expanded context</attached_file>\n\nRaw question",
+          combinedHash: "",
+          layerHashes: {} as Record<string, string>,
+          layers: [
+            {
+              id: "L5_USER",
+              label: "User Message",
+              text: "Raw question",
+              stable: true,
+              segments: [],
+              hash: "",
+            },
+          ],
+        } as any,
+        isVisible: true,
+        timestamp: null,
+      },
+      {
+        id: "2",
+        sender: AI_SENDER,
+        message: "Answer",
+        isVisible: true,
+        timestamp: null,
+      },
+    ];
+
+    const memoryManager: any = new MockMemoryManager();
+    await updateChatMemory(messages, memoryManager);
+
+    expect(memoryManager.getMemory().saved[0].input).toBe("Raw question");
+  });
 });
