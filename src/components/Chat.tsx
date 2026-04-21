@@ -438,9 +438,22 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
         if (isImageFile(file)) {
           const imageData = await file.arrayBuffer();
           const base64Image = arrayBufferToBase64(imageData);
+          const ext = (file.name.split(".").pop() ?? "").toLowerCase();
+          const EXT_MIME: Record<string, string> = {
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            png: "image/png",
+            gif: "image/gif",
+            webp: "image/webp",
+            svg: "image/svg+xml",
+            bmp: "image/bmp",
+            tiff: "image/tiff",
+            avif: "image/avif",
+          };
+          const mimeType = file.type || EXT_MIME[ext] || "image/png";
           content.push({
             type: "image_url",
-            image_url: { url: `data:${file.type};base64,${base64Image}` },
+            image_url: { url: `data:${mimeType};base64,${base64Image}` },
           });
         } else {
           const text = await extractFileContent(file);

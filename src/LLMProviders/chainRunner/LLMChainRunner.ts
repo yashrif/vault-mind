@@ -53,12 +53,18 @@ export class LLMChainRunner extends BaseChainRunner {
       // Handle multimodal content if present
       if (userMessage.content && Array.isArray(userMessage.content)) {
         // Merge envelope text with multimodal content (images)
+        const hasTextItem = userMessage.content.some((item: any) => item.type === "text");
         const updatedContent = userMessage.content.map((item: any) => {
           if (item.type === "text") {
             return { ...item, text: userMessageContent.content };
           }
           return item;
         });
+        // If the user sent only images (no text typed), inject the envelope text so the
+        // LLM always receives at least one text part — required by most providers.
+        if (!hasTextItem && userMessageContent.content) {
+          updatedContent.unshift({ type: "text", text: userMessageContent.content });
+        }
         messages.push({
           role: "user",
           content: updatedContent,

@@ -7,11 +7,14 @@ import { App } from "obsidian";
 
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tiff", "avif"];
 
-const ACCEPT_EXTENSIONS = [
+const EXTENSION_LIST = [
   ...new Set([...IMAGE_EXTENSIONS, ...TEXT_READABLE_EXTENSIONS, ...NON_PREVIEWABLE_EXTENSIONS]),
 ]
   .map((ext) => `.${ext}`)
   .join(",");
+
+// "image/*" is included explicitly so Electron/browsers correctly report file.type for image files.
+const ACCEPT_EXTENSIONS = `image/*,${EXTENSION_LIST}`;
 
 export class AddFileModal {
   private app: App;
