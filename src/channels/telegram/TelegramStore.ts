@@ -214,6 +214,34 @@ export class TelegramStore {
   }
 
   /**
+   * Persist processed prompt state for an existing thread message so future
+   * Telegram turns can rebuild memory with the same resolved context.
+   */
+  async updateMessagePromptState(
+    target: Pick<TelegramStoredMessage, "chat_id" | "local_id" | "update_id" | "message_id">,
+    payload: {
+      contextEnvelope: PromptContextEnvelope;
+      processedText: string;
+    }
+  ): Promise<void> {
+    await this.withWriteLock(async () => {
+      const messageIndex = this.findThreadMessageIndex(target);
+      if (messageIndex === -1) {
+        logWarn("[TelegramStore] Could not find thread message to update prompt state:", target);
+        return;
+      }
+
+      this.thread[messageIndex] = {
+        ...this.thread[messageIndex],
+        contextEnvelope: payload.contextEnvelope,
+        processedText: payload.processedText,
+      };
+
+      await this.writeThread(this.thread);
+    });
+  }
+
+  /**
    * Append a message typed in the Obsidian input.
    * Always appends to thread.json (no dedup needed).
    */
@@ -388,6 +416,7 @@ export class TelegramStore {
 
   private extractText(msg: {
     text?: string;
+    caption?: string;
     photo?: unknown[];
     sticker?: unknown;
     document?: unknown;
@@ -396,6 +425,7 @@ export class TelegramStore {
     voice?: unknown;
   }): string {
     if (msg.text) return msg.text;
+    if (msg.caption) return msg.caption;
     if (msg.photo) return "[photo]";
     if (msg.sticker) return "[sticker]";
     if (msg.document) return "[document]";
@@ -403,5 +433,29 @@ export class TelegramStore {
     if (msg.video) return "[video]";
     if (msg.voice) return "[voice]";
     return "[unsupported message type]";
+  }
+
+  /**
+   * Locate the thread entry matching the provided message identity.
+   */
+  private findThreadMessageIndex(
+    target: Pick<TelegramStoredMessage, "chat_id" | "local_id" | "update_id" | "message_id">
+  ): number {
+    if (target.local_id) {
+      return this.thread.findIndex((message) => message.local_id === target.local_id);
+    }
+
+    if (target.update_id !== undefined) {
+      return this.thread.findIndex((message) => message.update_id === target.update_id);
+    }
+
+    if (target.message_id !== undefined) {
+      return this.thread.findIndex(
+        (message) =>
+          message.chat_id === target.chat_id && message.message_id === target.message_id
+      );
+    }
+
+    return -1;
   }
 }

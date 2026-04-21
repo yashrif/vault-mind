@@ -149,6 +149,28 @@ describe("TelegramStore", () => {
       await store.appendInbound(makeUpdate(1, 111));
       expect(listener).toHaveBeenCalledTimes(1);
     });
+
+    it("prefers media captions over generic document placeholders", async () => {
+      const update: TelegramUpdate = {
+        update_id: 7,
+        message: {
+          message_id: 70,
+          from: { id: 9999, first_name: "Bob" },
+          chat: { id: 111, type: "private" },
+          date: Math.floor(Date.now() / 1000),
+          caption: "Explain the last 2 pages",
+          document: {
+            file_id: "doc-1",
+            file_unique_id: "doc-1-unique",
+            file_name: "lecture_03.pdf",
+            mime_type: "application/pdf",
+          },
+        },
+      };
+
+      await store.appendInbound(update);
+      expect(store.getVisibleMessages()[0].text).toBe("Explain the last 2 pages");
+    });
   });
 
   describe("appendLocal", () => {
@@ -206,6 +228,44 @@ describe("TelegramStore", () => {
       const botMessage = msgs[msgs.length - 1];
       expect(botMessage.source).toBe("obsidian");
       expect(botMessage.sender_type).toBe("bot");
+    });
+  });
+
+  describe("updateMessagePromptState", () => {
+    beforeEach(async () => {
+      setupEmptyVault();
+      await store.initialize();
+      store.setAllowedChatIds([111]);
+    });
+
+    it("stores processed prompt state on an existing thread message", async () => {
+      const stored = await store.appendInbound(makeUpdate(1, 111));
+      expect(stored).not.toBeNull();
+
+      await store.updateMessagePromptState(
+        {
+          chat_id: 111,
+          local_id: stored!.local_id,
+          update_id: stored!.update_id,
+          message_id: stored!.message_id,
+        },
+        {
+          processedText: "hello\n\n[Attached file: lecture_03.pdf]\nPage text",
+          contextEnvelope: {
+            version: 1,
+            conversationId: null,
+            messageId: null,
+            layers: [],
+            serializedText: "hello\n\n[Attached file: lecture_03.pdf]\nPage text",
+            layerHashes: {} as any,
+            combinedHash: "",
+          },
+        }
+      );
+
+      const updated = store.getVisibleMessages()[0];
+      expect(updated.processedText).toContain("Page text");
+      expect(updated.contextEnvelope?.serializedText).toContain("Page text");
     });
   });
 

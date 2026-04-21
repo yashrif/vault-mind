@@ -12,6 +12,19 @@ jest.mock("@/utils", () => ({
   formatDateTime: jest.fn().mockReturnValue("2024-01-01 00:00:00"),
 }));
 
+const mockArrayBufferToBase64 = jest.fn().mockReturnValue("base64-image");
+const mockExtractFileContent = jest.fn();
+const mockIsImageFile = jest.fn();
+
+jest.mock("@/utils/base64", () => ({
+  arrayBufferToBase64: (...args: unknown[]) => mockArrayBufferToBase64(...args),
+}));
+
+jest.mock("@/utils/fileContentExtractor", () => ({
+  extractFileContent: (...args: unknown[]) => mockExtractFileContent(...args),
+  isImageFile: (...args: unknown[]) => mockIsImageFile(...args),
+}));
+
 // ─── Mock TelegramClient ───────────────────────────────────────────────────
 
 const mockSendMessage = jest.fn();
@@ -26,11 +39,13 @@ jest.mock("../TelegramClient", () => ({
 
 const mockGetVisibleMessages = jest.fn();
 const mockAppendBotMessage = jest.fn();
+const mockUpdateMessagePromptState = jest.fn();
 
 jest.mock("../TelegramStore", () => ({
   TelegramStore: jest.fn().mockImplementation(() => ({
     getVisibleMessages: mockGetVisibleMessages,
     appendBotMessage: mockAppendBotMessage,
+    updateMessagePromptState: mockUpdateMessagePromptState,
   })),
 }));
 
@@ -74,7 +89,7 @@ function makeUserMsg(overrides: Partial<TelegramStoredMessage> = {}): TelegramSt
  */
 async function flushQueue(): Promise<void> {
   // Multiple rounds ensure deeply nested promise chains resolve
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 20; i++) {
     await Promise.resolve();
   }
 }
@@ -84,6 +99,8 @@ async function flushQueue(): Promise<void> {
 describe("TelegramAgent", () => {
   let client: InstanceType<typeof TelegramClient>;
   let store: InstanceType<typeof TelegramStore>;
+  let originalApp: any;
+  let originalFile: typeof File | undefined;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -91,7 +108,38 @@ describe("TelegramAgent", () => {
     store = new TelegramStore();
     mockGetVisibleMessages.mockReturnValue([]);
     mockAppendBotMessage.mockResolvedValue(undefined);
+    mockUpdateMessagePromptState.mockResolvedValue(undefined);
     mockSendMessage.mockResolvedValue(undefined);
+    mockExtractFileContent.mockResolvedValue("Parsed attachment text");
+    mockIsImageFile.mockReturnValue(false);
+    originalApp = global.app;
+    originalFile = global.File;
+    class MockFile {
+      name: string;
+      type: string;
+
+      constructor(_parts: BlobPart[], name: string, options?: FilePropertyBag) {
+        this.name = name;
+        this.type = options?.type ?? "";
+      }
+
+      async arrayBuffer(): Promise<ArrayBuffer> {
+        return new ArrayBuffer(8);
+      }
+    }
+    global.File = MockFile as unknown as typeof File;
+    global.app = {
+      vault: {
+        adapter: {
+          readBinary: jest.fn().mockResolvedValue(new ArrayBuffer(8)),
+        },
+      },
+    } as any;
+  });
+
+  afterEach(() => {
+    global.app = originalApp;
+    global.File = originalFile as typeof File;
   });
 
   // ── 1. Ignores bot-source messages ────────────────────────────────────────
@@ -220,6 +268,7 @@ describe("TelegramAgent", () => {
     const p2 = agent.enqueueReply(msg2);
     await p1;
     await p2;
+    await flushQueue();
 
     // At this point msg1 is blocked; msg2 has not started
     expect(order).toContain("chain-1-start");
@@ -331,5 +380,95 @@ describe("TelegramAgent", () => {
     // History should contain the previous message but not the current one
     expect(historyArg).toHaveLength(1);
     expect(historyArg[0].message).toBe("earlier msg");
+  });
+
+  it("hydrates previous document turns into memory history and persists the resolved prompt state", async () => {
+    const previousMsg = makeUserMsg({
+      local_id: "prev-doc",
+      update_id: 10,
+      stored_at: 500,
+      text: "[document]",
+      mediaPath: ".copilot/telegram-state/media/10_lecture_03.pdf",
+      mediaType: "application/pdf",
+      mediaName: "lecture_03.pdf",
+    });
+    const currentMsg = makeUserMsg({
+      local_id: "current-follow-up",
+      update_id: 99,
+      stored_at: 1000,
+      text: "Explain the last 2 pages",
+    });
+
+    mockGetVisibleMessages.mockReturnValue([previousMsg, currentMsg]);
+
+    const runChain = jest
+      .fn()
+      .mockImplementation(
+        async (
+          _userMsg: unknown,
+          _abort: unknown,
+          _onPartial: unknown,
+          addMessage: (m: { message: string }) => void
+        ) => {
+          addMessage({ message: "ok" });
+        }
+      );
+
+    const agent = new TelegramAgent(client, store, makeChainManager(runChain) as any);
+    await agent.enqueueReply(currentMsg);
+    await flushQueue();
+
+    const [historyArg] = (updateChatMemory as jest.Mock).mock.calls[0];
+    expect(historyArg).toHaveLength(1);
+    expect(historyArg[0].message).toContain("[Attached file: lecture_03.pdf]");
+    expect(historyArg[0].message).toContain("Parsed attachment text");
+    expect(mockUpdateMessagePromptState).toHaveBeenCalledWith(
+      expect.objectContaining({ local_id: "prev-doc" }),
+      expect.objectContaining({
+        processedText: expect.stringContaining("Parsed attachment text"),
+        contextEnvelope: expect.objectContaining({
+          serializedText: expect.stringContaining("Parsed attachment text"),
+        }),
+      })
+    );
+  });
+
+  it("persists resolved prompt state for the current inbound document turn", async () => {
+    const mediaMsg = makeUserMsg({
+      local_id: "current-doc",
+      text: "[document]",
+      mediaPath: ".copilot/telegram-state/media/11_lecture_03.pdf",
+      mediaType: "application/pdf",
+      mediaName: "lecture_03.pdf",
+    });
+
+    const runChain = jest
+      .fn()
+      .mockImplementation(
+        async (
+          userMsg: { message: string; originalMessage?: string },
+          _abort: unknown,
+          _onPartial: unknown,
+          addMessage: (m: { message: string }) => void
+        ) => {
+          expect(userMsg.message).toContain("Parsed attachment text");
+          expect(userMsg.originalMessage).toBe("[document]");
+          addMessage({ message: "ok" });
+        }
+      );
+
+    const agent = new TelegramAgent(client, store, makeChainManager(runChain) as any);
+    await agent.enqueueReply(mediaMsg);
+    await flushQueue();
+
+    expect(mockUpdateMessagePromptState).toHaveBeenCalledWith(
+      expect.objectContaining({ local_id: "current-doc" }),
+      expect.objectContaining({
+        processedText: expect.stringContaining("Parsed attachment text"),
+        contextEnvelope: expect.objectContaining({
+          serializedText: expect.stringContaining("Parsed attachment text"),
+        }),
+      })
+    );
   });
 });

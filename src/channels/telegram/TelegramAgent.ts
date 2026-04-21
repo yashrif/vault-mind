@@ -13,6 +13,13 @@ import { TelegramClient } from "./TelegramClient";
 import { TelegramStore } from "./TelegramStore";
 import type { TelegramStoredMessage } from "./TelegramTypes";
 
+interface PreparedTelegramPromptState {
+  messageText: string;
+  processedText: string;
+  contextEnvelope: PromptContextEnvelope;
+  content?: ChatMessage["content"];
+}
+
 /**
  * Orchestrates AI auto-replies for the Telegram channel.
  *
@@ -70,37 +77,27 @@ export class TelegramAgent {
       .filter((m) => {
         if (m.local_id && msg.local_id) return m.local_id !== msg.local_id;
         return m.update_id !== msg.update_id;
-      })
-      .map((m) => this.toChainMessage(m));
+      });
+
+    const chainHistory = await Promise.all(history.map((message) => this.toChainMessage(message)));
 
     // Rehydrate the isolated Telegram MemoryManager with thread context
-    await updateChatMemory(history, this.telegramMemory);
+    await updateChatMemory(chainHistory, this.telegramMemory);
 
-    const messageText = msg.processedText || msg.contextEnvelope?.serializedText || msg.text;
-
-    // Process saved media file: images → multimodal content; documents → extracted text context
-    let content: ChatMessage["content"] | undefined;
-    let extraContext = "";
-    if (msg.mediaPath) {
-      const { content: resolvedContent, context: resolvedContext } =
-        await this.resolveMediaForLLM(msg.mediaPath, msg.mediaType, msg.mediaName);
-      content = resolvedContent;
-      extraContext = resolvedContext;
-    }
-
-    // Merge any extracted file text into the envelope so the LLM sees it as context
-    const effectiveText = extraContext
-      ? `${messageText}\n\n${extraContext}`
-      : messageText;
+    const preparedMessage = await this.prepareMessageForLLM(msg, {
+      includeRichContent: true,
+      persistResolvedPromptState: true,
+    });
 
     // Build the user ChatMessage for the chain
     const userChatMessage: ChatMessage = {
-      message: effectiveText,
+      message: preparedMessage.messageText,
+      originalMessage: msg.text,
       sender: USER_SENDER,
       isVisible: true,
       timestamp: formatDateTime(new Date(msg.stored_at)),
-      contextEnvelope: msg.contextEnvelope || this.buildMinimalEnvelope(effectiveText),
-      content,
+      contextEnvelope: preparedMessage.contextEnvelope,
+      content: preparedMessage.content,
     };
 
     // Run chain pinned to TELEGRAM_CHAIN so UI chain-type changes don't affect it.
@@ -187,7 +184,7 @@ export class TelegramAgent {
           content: [
             { type: "image_url", image_url: { url: `data:${mediaType};base64,${base64}` } },
           ],
-          context: "",
+          context: `[Attached image: ${mediaName}]`,
         };
       }
 
@@ -205,12 +202,145 @@ export class TelegramAgent {
   /**
    * Convert a TelegramStoredMessage to a ChatMessage suitable for updateChatMemory.
    */
-  private toChainMessage(m: TelegramStoredMessage): ChatMessage {
+  private async toChainMessage(m: TelegramStoredMessage): Promise<ChatMessage> {
+    const preparedMessage = await this.prepareMessageForLLM(m, {
+      includeRichContent: false,
+      persistResolvedPromptState: true,
+    });
+
     return {
-      message: m.text,
+      message: preparedMessage.processedText,
+      originalMessage: m.text,
       sender: m.sender_type === "bot" ? AI_SENDER : USER_SENDER,
       isVisible: true,
       timestamp: formatDateTime(new Date(m.stored_at)),
+    };
+  }
+
+  /**
+   * Resolve the prompt-visible state for a Telegram message, including any
+   * lazy media parsing needed for future follow-up turns.
+   */
+  private async prepareMessageForLLM(
+    msg: TelegramStoredMessage,
+    options: {
+      includeRichContent: boolean;
+      persistResolvedPromptState: boolean;
+    }
+  ): Promise<PreparedTelegramPromptState> {
+    const persistedText = msg.processedText || msg.contextEnvelope?.serializedText || msg.text;
+    const persistedEnvelope = msg.contextEnvelope || this.buildMinimalEnvelope(persistedText);
+    const hasResolvedPromptState = !!(msg.processedText || msg.contextEnvelope);
+
+    if (!msg.mediaPath) {
+      return {
+        messageText: persistedText,
+        processedText: persistedText,
+        contextEnvelope: persistedEnvelope,
+      };
+    }
+
+    const needsMediaRead = options.includeRichContent || !hasResolvedPromptState;
+    let resolvedContent: ChatMessage["content"] | undefined;
+    let attachmentContext = "";
+
+    if (needsMediaRead) {
+      const resolvedMedia = await this.resolveMediaForLLM(msg.mediaPath, msg.mediaType, msg.mediaName);
+      resolvedContent = options.includeRichContent ? resolvedMedia.content : undefined;
+      attachmentContext = resolvedMedia.context;
+    }
+
+    if (hasResolvedPromptState) {
+      return {
+        messageText: persistedText,
+        processedText: persistedText,
+        contextEnvelope: persistedEnvelope,
+        content: resolvedContent,
+      };
+    }
+
+    const processedText = this.mergeMessageWithAttachmentContext(msg.text, attachmentContext);
+    const contextEnvelope = attachmentContext
+      ? this.buildMediaEnvelope(msg.text, attachmentContext, msg.mediaName)
+      : this.buildMinimalEnvelope(processedText);
+
+    if (options.persistResolvedPromptState) {
+      await this.store.updateMessagePromptState(msg, {
+        contextEnvelope,
+        processedText,
+      });
+    }
+
+    return {
+      messageText: processedText,
+      processedText,
+      contextEnvelope,
+      content: resolvedContent,
+    };
+  }
+
+  /**
+   * Combine the message text with any extracted attachment context, avoiding
+   * duplicate insertion when a message has already been upgraded.
+   */
+  private mergeMessageWithAttachmentContext(messageText: string, attachmentContext: string): string {
+    if (!attachmentContext) {
+      return messageText;
+    }
+
+    if (messageText.includes(attachmentContext)) {
+      return messageText;
+    }
+
+    return `${messageText}\n\n${attachmentContext}`;
+  }
+
+  /**
+   * Build a lightweight envelope that keeps attachment context in L3 and the
+   * original Telegram text or caption in L5.
+   */
+  private buildMediaEnvelope(
+    userText: string,
+    attachmentContext: string,
+    mediaName = "attachment"
+  ): PromptContextEnvelope {
+    return {
+      version: 1,
+      conversationId: null,
+      messageId: null,
+      serializedText: `${attachmentContext}\n\n${userText}`,
+      combinedHash: "",
+      layerHashes: {} as Record<string, string>,
+      layers: [
+        {
+          id: "L3_TURN",
+          label: "Current Turn Context",
+          text: attachmentContext,
+          stable: true,
+          segments: [
+            {
+              id: `telegram-media-${mediaName}`,
+              content: attachmentContext,
+              stable: true,
+            },
+          ],
+          hash: "",
+        },
+        {
+          id: "L5_USER",
+          label: "User message",
+          text: userText,
+          stable: true,
+          segments: [
+            {
+              id: "telegram-user-message",
+              content: userText,
+              stable: true,
+            },
+          ],
+          hash: "",
+        },
+      ],
     };
   }
 

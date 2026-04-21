@@ -109,6 +109,7 @@ export interface TelegramMessage {
   chat: TelegramChat;
   date: number;
   text?: string;
+  caption?: string;
   photo?: TelegramPhotoSize[];
   sticker?: unknown;
   document?: TelegramDocument;
