@@ -10,6 +10,12 @@ jest.mock("@/chatUtils", () => ({
 
 jest.mock("@/utils", () => ({
   formatDateTime: jest.fn().mockReturnValue("2024-01-01 00:00:00"),
+  cleanMessageForCopy: jest.fn().mockImplementation((message: string) =>
+    message
+      .replace(/<!--AGENT_REASONING:\w+:\d+:.*-->/g, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+  ),
 }));
 
 const mockArrayBufferToBase64 = jest.fn().mockReturnValue("base64-image");
@@ -297,8 +303,13 @@ describe("TelegramAgent", () => {
           addMessage: (m: { message: string }) => void
         ) => {
           callOrder.push("runChain");
-          onPartial("I am the AI");
-          addMessage({ message: "I am the AI reply" });
+          onPartial("**Partial**");
+          addMessage({
+            message: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+# Reply
+
+- I am the **AI** reply`,
+          });
         }
       );
 
@@ -319,12 +330,17 @@ describe("TelegramAgent", () => {
     expect(runChain).toHaveBeenCalledTimes(1);
     expect(mockSendChatAction).toHaveBeenCalledWith(42, "typing");
     expect(mockUpdateReplyState).toHaveBeenCalledWith("stream-42", {
-      partialText: "I am the AI",
+      partialText: "**Partial**",
     });
-    expect(mockSendMessage).toHaveBeenCalledWith(42, "I am the AI reply");
-    expect(mockAppendBotMessage).toHaveBeenCalledWith("I am the AI reply", 42, "telegram", {
-      localId: "stream-42",
-    });
+    expect(mockSendMessage).toHaveBeenCalledWith(42, "Reply\n\n• I am the AI reply");
+    expect(mockAppendBotMessage).toHaveBeenCalledWith(
+      "Reply\n\n• I am the AI reply",
+      42,
+      "telegram",
+      {
+        localId: "stream-42",
+      }
+    );
     expect(mockClearReplyState).toHaveBeenCalledWith("stream-42");
     expect(callOrder).toEqual(["runChain", "sendMessage", "appendBotMessage"]);
   });
