@@ -4,7 +4,9 @@ import {
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_SETTINGS,
   SEND_SHORTCUT,
+  BUILTIN_AUDIO_STT_MODELS,
 } from "@/constants";
+import { getModelKeyFromModel } from "@/settings/model";
 import { sanitizeQaExclusions, sanitizeSettings } from "@/settings/model";
 import { getEffectiveUserPrompt, getSystemPrompt } from "@/system-prompts/systemPromptBuilder";
 import * as systemPromptsState from "@/system-prompts/state";
@@ -14,6 +16,7 @@ import * as settingsModel from "@/settings/model";
 jest.mock("@/system-prompts/state", () => ({
   getEffectiveSystemPromptContent: jest.fn(() => ""),
   getDisableBuiltinSystemPrompt: jest.fn(() => false),
+  getDisableBuiltinSystemPromptForTarget: jest.fn(() => false),
 }));
 
 // Mock settings/model getSettings for legacy fallback tests
@@ -175,46 +178,40 @@ describe("sanitizeSettings - autoAddSelectionToContext migration", () => {
   });
 });
 
+describe("sanitizeSettings - telegramSystemPromptTitle", () => {
+  it("defaults telegramSystemPromptTitle when persisted value is invalid", () => {
+    const settingsWithInvalidTelegramPrompt = {
+      ...DEFAULT_SETTINGS,
+      telegramSystemPromptTitle: 42 as any,
+    };
+
+    const sanitized = sanitizeSettings(settingsWithInvalidTelegramPrompt);
+
+    expect(sanitized.telegramSystemPromptTitle).toBe(DEFAULT_SETTINGS.telegramSystemPromptTitle);
+  });
+});
+
 describe("sanitizeSettings - legacy Miyo settings cleanup", () => {
-  it("migrates legacy Miyo settings and strips obsolete remote vault path state", () => {
+  it("strips obsolete Miyo keys from persisted settings", () => {
     const legacySettings = {
       ...DEFAULT_SETTINGS,
-      enableMiyo: undefined as any,
+      enableMiyo: true,
       enableMiyoSearch: true,
+      miyoSearchAll: true,
       miyoServerUrl: "http://127.0.0.1:8742",
       miyoRemoteVaultPath: "\\\\Mac\\Home\\Downloads\\graham-essays-main",
+      miyoVaultName: "old-vault",
     };
 
     const sanitized = sanitizeSettings(legacySettings as any);
-
-    expect(sanitized.enableMiyo).toBe(true);
-    expect(sanitized.miyoServerUrl).toBe("http://127.0.0.1:8742");
     const sanitizedRecord = sanitized as unknown as Record<string, unknown>;
 
-    expect("miyoRemoteVaultPath" in sanitizedRecord).toBe(false);
+    expect("enableMiyo" in sanitizedRecord).toBe(false);
     expect("enableMiyoSearch" in sanitizedRecord).toBe(false);
-  });
-
-  it("preserves embedding provider migrations while stripping obsolete Miyo keys", () => {
-    const legacySettings = {
-      ...DEFAULT_SETTINGS,
-      userId: "",
-      activeEmbeddingModels: [
-        {
-          name: "legacy-embedding",
-          provider: "azure_openai",
-          enabled: true,
-        },
-      ],
-      miyoRemoteVaultPath: "\\\\Mac\\Home\\Downloads\\graham-essays-main",
-    };
-
-    const sanitized = sanitizeSettings(legacySettings as any);
-    const sanitizedRecord = sanitized as unknown as Record<string, unknown>;
-
-    expect(sanitized.userId).toBeTruthy();
-    expect(sanitized.activeEmbeddingModels[0].provider).not.toBe("azure_openai");
+    expect("miyoSearchAll" in sanitizedRecord).toBe(false);
+    expect("miyoServerUrl" in sanitizedRecord).toBe(false);
     expect("miyoRemoteVaultPath" in sanitizedRecord).toBe(false);
+    expect("miyoVaultName" in sanitizedRecord).toBe(false);
   });
 });
 
@@ -225,7 +222,7 @@ describe("getSystemPrompt", () => {
 
   it("returns only builtin prompt when no user prompt and builtin not disabled", () => {
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue("");
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(false);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(false);
 
     const result = getSystemPrompt();
 
@@ -235,7 +232,7 @@ describe("getSystemPrompt", () => {
   it("returns builtin prompt with user custom instructions when user prompt exists", () => {
     const userPrompt = "Always be concise and helpful.";
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue(userPrompt);
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(false);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(false);
 
     const result = getSystemPrompt();
 
@@ -248,7 +245,7 @@ ${userPrompt}
   it("returns only user prompt when builtin is disabled", () => {
     const userPrompt = "Custom system prompt only.";
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue(userPrompt);
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(true);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(true);
 
     const result = getSystemPrompt();
 
@@ -258,7 +255,7 @@ ${userPrompt}
 
   it("returns empty string when builtin is disabled and no user prompt", () => {
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue("");
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(true);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(true);
 
     const result = getSystemPrompt();
 
@@ -268,7 +265,7 @@ ${userPrompt}
   it("wraps user prompt in user_custom_instructions tags", () => {
     const userPrompt = "Be professional.";
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue(userPrompt);
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(false);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(false);
 
     const result = getSystemPrompt();
 
@@ -280,7 +277,7 @@ ${userPrompt}
   it("preserves multiline user prompts", () => {
     const userPrompt = "Line 1\nLine 2\nLine 3";
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue(userPrompt);
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(false);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(false);
 
     const result = getSystemPrompt();
 
@@ -294,10 +291,10 @@ ${userPrompt}
     expect(systemPromptsState.getEffectiveSystemPromptContent).toHaveBeenCalled();
   });
 
-  it("calls getDisableBuiltinSystemPrompt to check builtin status", () => {
+  it("calls getDisableBuiltinSystemPromptForTarget to check builtin status", () => {
     getSystemPrompt();
 
-    expect(systemPromptsState.getDisableBuiltinSystemPrompt).toHaveBeenCalled();
+    expect(systemPromptsState.getDisableBuiltinSystemPromptForTarget).toHaveBeenCalled();
   });
 
   it("respects priority: session > global default > empty", () => {
@@ -307,7 +304,7 @@ ${userPrompt}
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue(
       sessionPrompt
     );
-    (systemPromptsState.getDisableBuiltinSystemPrompt as jest.Mock).mockReturnValue(false);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(false);
 
     const result = getSystemPrompt();
 
@@ -380,5 +377,84 @@ describe("getEffectiveUserPrompt - legacy fallback", () => {
     const result = getEffectiveUserPrompt();
 
     expect(result).toBe("");
+  });
+});
+
+describe("sanitizeSettings - STT model migration", () => {
+  it("initializes activeAudioSTTModels from builtins when missing", () => {
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      activeAudioSTTModels: undefined as any,
+    };
+
+    const sanitized = sanitizeSettings(settings);
+
+    expect(sanitized.activeAudioSTTModels).toBeDefined();
+    expect(sanitized.activeAudioSTTModels.length).toBeGreaterThan(0);
+    expect(sanitized.activeAudioSTTModels[0].name).toBe(BUILTIN_AUDIO_STT_MODELS[0].name);
+  });
+
+  it("preserves audioSTTModelKey through sanitize (key resolution happens in setSettings)", () => {
+    const validKey = getModelKeyFromModel(BUILTIN_AUDIO_STT_MODELS[0]);
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      audioSTTModelKey: validKey,
+    };
+
+    const sanitized = sanitizeSettings(settings);
+
+    expect(sanitized.audioSTTModelKey).toBe(validKey);
+  });
+
+  it("populates modelType on legacy embedding models missing the field", () => {
+    const legacyEmbeddingModel = {
+      name: "text-embedding-ada-002",
+      provider: "openai",
+      enabled: true,
+      isEmbeddingModel: true,
+      // no modelType field
+    };
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      activeEmbeddingModels: [legacyEmbeddingModel] as any,
+    };
+
+    const sanitized = sanitizeSettings(settings);
+
+    const migratedModel = sanitized.activeEmbeddingModels.find(
+      (m) => m.name === "text-embedding-ada-002"
+    );
+    expect(migratedModel?.modelType).toBe("embedding");
+  });
+
+  it("populates modelType on legacy chat models missing the field", () => {
+    const legacyChatModel = {
+      name: "gpt-4o",
+      provider: "openai",
+      enabled: true,
+      // no modelType, no isEmbeddingModel
+    };
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      activeModels: [...DEFAULT_SETTINGS.activeModels, legacyChatModel] as any,
+    };
+
+    const sanitized = sanitizeSettings(settings);
+
+    const migratedModel = sanitized.activeModels.find((m) => m.name === "gpt-4o");
+    expect(migratedModel?.modelType).toBe("chat");
+  });
+
+  it("ensures all activeAudioSTTModels have modelType stt after sanitize", () => {
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      activeAudioSTTModels: [{ name: "whisper-large-v3", provider: "groq", enabled: true }] as any,
+    };
+
+    const sanitized = sanitizeSettings(settings);
+
+    for (const model of sanitized.activeAudioSTTModels) {
+      expect(model.modelType).toBe("stt");
+    }
   });
 });

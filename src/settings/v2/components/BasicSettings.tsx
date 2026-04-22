@@ -1,15 +1,14 @@
 import { ChainType } from "@/chainFactory";
+import { DEFAULT_OPEN_AREA, SEND_SHORTCUT } from "@/constants";
 import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import { Input } from "@/components/ui/input";
 import { getModelDisplayWithIcons } from "@/components/ui/model-display";
 import { SettingItem } from "@/components/ui/setting-item";
-import { DEFAULT_OPEN_AREA, PLUS_UTM_MEDIUMS, SEND_SHORTCUT } from "@/constants";
+
 import { useTab } from "@/contexts/TabContext";
 import { cn } from "@/lib/utils";
-import { createPlusPageUrl } from "@/plusUtils";
 import { getModelKeyFromModel, updateSetting, useSettingsValue } from "@/settings/model";
-import { PlusSettings } from "@/settings/v2/components/PlusSettings";
 import { checkModelApiKey, formatDateTime } from "@/utils";
 import { isSortStrategy } from "@/utils/recentUsageManager";
 import { Key, Loader2 } from "lucide-react";
@@ -20,8 +19,9 @@ import { ApiKeyDialog } from "./ApiKeyDialog";
 const ChainType2Label: Record<ChainType, string> = {
   [ChainType.LLM_CHAIN]: "Chat",
   [ChainType.VAULT_QA_CHAIN]: "Vault QA (Basic)",
-  [ChainType.COPILOT_PLUS_CHAIN]: "Copilot Plus",
+  [ChainType.TOOL_CHAIN]: "Agentic Copilot",
   [ChainType.PROJECT_CHAIN]: "Projects (alpha)",
+  [ChainType.TELEGRAM_CHAIN]: "Telegram",
 };
 
 export const BasicSettings: React.FC = () => {
@@ -91,8 +91,6 @@ export const BasicSettings: React.FC = () => {
 
   return (
     <div className="tw-space-y-4">
-      <PlusSettings />
-
       {/* General Section */}
       <section>
         <div className="tw-mb-3 tw-text-xl tw-font-bold">General</div>
@@ -197,18 +195,9 @@ export const BasicSettings: React.FC = () => {
                           with semantic search. <i>Free to use with your own API key.</i>
                         </li>
                         <li>
-                          <strong>Copilot Plus:</strong> Covers all features of the 2 free modes,
-                          plus advanced paid features including chat context menu, advanced search,
-                          AI agents, and more. Check out{" "}
-                          <a
-                            href={createPlusPageUrl(PLUS_UTM_MEDIUMS.MODE_SELECT_TOOLTIP)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="tw-text-accent hover:tw-text-accent-hover"
-                          >
-                            obsidiancopilot.com
-                          </a>{" "}
-                          for more details.
+                          <strong>Agentic Copilot:</strong> Covers all features of the 2 free modes,
+                          plus advanced features including chat context menu, advanced search, AI
+                          agents, and more.
                         </li>
                       </ul>
                     </div>

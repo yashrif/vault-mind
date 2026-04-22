@@ -23,7 +23,6 @@ import { YoutubeTranscriptModal } from "@/components/modals/YoutubeTranscriptMod
 import { checkIsPlusUser } from "@/plusUtils";
 // Debug modals removed with search v3
 import CopilotPlugin from "@/main";
-import { shouldUseMiyo } from "@/miyo/miyoUtils";
 import { getAllQAMarkdownContent } from "@/search/searchUtils";
 import { CopilotSettings } from "@/settings/model";
 import { NoteSelectedTextContext, WebSelectedTextContext } from "@/types/message";
@@ -179,15 +178,6 @@ export function registerCommands(
   });
 
   addCommand(plugin, COMMAND_IDS.CLEAR_LOCAL_COPILOT_INDEX, async () => {
-    const { getSettings } = await import("@/settings/model");
-    const settings = getSettings();
-    const isMiyoEnabled = shouldUseMiyo(settings);
-    if (isMiyoEnabled) {
-      new Notice(
-        "Miyo folders are managed in Miyo. Remove the folder there if you want to clear it."
-      );
-      return;
-    }
     const clearMessage =
       "This will permanently delete all document indexes in Copilot. This action cannot be undone.\n\nAre you sure you want to proceed?";
     const confirmed = await new Promise<boolean>((resolve) => {
@@ -214,13 +204,6 @@ export function registerCommands(
 
   addCommand(plugin, COMMAND_IDS.GARBAGE_COLLECT_COPILOT_INDEX, async () => {
     try {
-      const { getSettings } = await import("@/settings/model");
-      if (shouldUseMiyo(getSettings())) {
-        new Notice(
-          "Miyo manages file cleanup automatically. Run Index (refresh) vault to trigger a scan if needed."
-        );
-        return;
-      }
       const VectorStoreManager = (await import("@/search/vectorStoreManager")).default;
       const removedCount = await VectorStoreManager.getInstance().garbageCollectVectorStore();
       new Notice(`Garbage collection completed. Removed ${removedCount} stale documents.`);
@@ -243,11 +226,7 @@ export function registerCommands(
         const count = await VectorStoreManager.getInstance().indexVaultToVectorStore(false, {
           userInitiated: true,
         });
-        if (shouldUseMiyo(settings)) {
-          new Notice("Miyo folder index refresh started. Open the Miyo app to check details.");
-        } else {
-          new Notice(`Semantic search index refreshed with ${count} documents.`);
-        }
+        new Notice(`Semantic search index refreshed with ${count} documents.`);
       } else {
         // V3 search builds indexes on demand
         new Notice("Lexical search builds indexes on demand. No manual indexing required.");
@@ -281,11 +260,7 @@ export function registerCommands(
         const count = await VectorStoreManager.getInstance().indexVaultToVectorStore(true, {
           userInitiated: true,
         });
-        if (shouldUseMiyo(settings)) {
-          new Notice("Miyo folder index refresh started. Open the Miyo app to check details.");
-        } else {
-          new Notice(`Semantic search index rebuilt with ${count} documents.`);
-        }
+        new Notice(`Semantic search index rebuilt with ${count} documents.`);
       } else {
         // V3 search builds indexes on demand
         new Notice("Lexical search builds indexes on demand. No manual indexing required.");

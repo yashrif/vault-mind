@@ -10,7 +10,6 @@ import { useNoteDrag } from "@/hooks/useNoteDrag";
 import { cn } from "@/lib/utils";
 import { logWarn } from "@/logger";
 import { SemanticSearchToggleModal } from "@/components/modals/SemanticSearchToggleModal";
-import { shouldUseMiyo } from "@/miyo/miyoUtils";
 import {
   findRelevantNotes,
   getSimilarityCategory,
@@ -67,16 +66,6 @@ function useHasIndex(notePath: string, refresher: number) {
     async function fetchHasIndex() {
       try {
         const VectorStoreManager = (await import("@/search/vectorStoreManager")).default;
-        const { getSettings } = await import("@/settings/model");
-        const settings = getSettings();
-        const useMiyo = shouldUseMiyo(settings);
-
-        if (useMiyo) {
-          const isEmpty = await VectorStoreManager.getInstance().isIndexEmpty();
-          setHasIndex(!isEmpty);
-          return;
-        }
-
         const has = await VectorStoreManager.getInstance().hasIndex(notePath);
         setHasIndex(has);
       } catch {

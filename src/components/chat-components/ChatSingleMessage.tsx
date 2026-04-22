@@ -1,7 +1,11 @@
-import { ChatButtons } from "@/components/chat-components/ChatButtons";
+import {
+  ChatActionCapabilities,
+  ChatButtons,
+} from "@/components/chat-components/ChatButtons";
 import { SourcesModal } from "@/components/modals/SourcesModal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
+  ContextAttachedFileBadge,
   ContextFolderBadge,
   ContextNoteBadge,
   ContextSelectedTextBadge,
@@ -38,6 +42,7 @@ import { preprocessAIResponse } from "@/utils/markdownPreprocess";
 import { App, Component, MarkdownRenderer, MarkdownView, TFile } from "obsidian";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSettingsValue } from "@/settings/model";
+import { FileText, Mic, Music, Video } from "lucide-react";
 import {
   buildCopilotCollapsibleDomId,
   captureCopilotCollapsibleOpenStates,
@@ -47,6 +52,17 @@ import {
 } from "@/components/chat-components/collapsibleStateUtils";
 
 const FOOTNOTE_SUFFIX_PATTERN = /^\d+-\d+$/;
+
+/** Maps Telegram media placeholder text to a display label + icon. */
+const TELEGRAM_MEDIA_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
+  "[voice]": { label: "Voice message", icon: <Mic className="tw-size-3.5" /> },
+  "[audio]": { label: "Audio", icon: <Music className="tw-size-3.5" /> },
+  "[video]": { label: "Video", icon: <Video className="tw-size-3.5" /> },
+  "[document]": { label: "Document", icon: <FileText className="tw-size-3.5" /> },
+  "[sticker]": { label: "Sticker", icon: <FileText className="tw-size-3.5" /> },
+  "[photo]": { label: "Photo", icon: <FileText className="tw-size-3.5" /> },
+  "[unsupported message type]": { label: "Unsupported message", icon: <FileText className="tw-size-3.5" /> },
+};
 
 /**
  * Normalizes rendered markdown footnotes to align with inline citation UX.
@@ -201,13 +217,24 @@ function MessageContext({ context }: { context: ChatMessage["context"] }) {
       !context.webTabs?.length &&
       !context.tags?.length &&
       !context.folders?.length &&
-      !context.selectedTextContexts?.length)
+      !context.selectedTextContexts?.length &&
+      !context.attachedFileContents?.length)
   ) {
     return null;
   }
 
   return (
     <div className="tw-flex tw-flex-wrap tw-gap-2">
+      {context.attachedFileContents?.map((file, index) => (
+        <Tooltip key={`file-${index}-${file.name}`}>
+          <TooltipTrigger asChild>
+            <div>
+              <ContextAttachedFileBadge file={file} />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="tw-max-w-sm tw-break-words">{file.name}</TooltipContent>
+        </Tooltip>
+      ))}
       {context.notes.map((note, index) => (
         <Tooltip key={`note-${index}-${note.path}`}>
           <TooltipTrigger asChild>
@@ -290,6 +317,7 @@ interface ChatSingleMessageProps {
   onRegenerate?: () => void;
   onEdit?: (newMessage: string) => void;
   onDelete: () => void;
+  actionCapabilities?: ChatActionCapabilities;
 }
 
 const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
@@ -299,6 +327,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
   onRegenerate,
   onEdit,
   onDelete,
+  actionCapabilities,
 }) => {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -931,13 +960,23 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
     }
 
     // Fallback for messages without content array
-    return message.sender === USER_SENDER ? (
-      <div className="tw-whitespace-pre-wrap tw-break-words tw-text-[calc(var(--font-text-size)_-_2px)] tw-font-normal">
-        {message.message}
-      </div>
-    ) : (
-      <div ref={contentRef} className={message.isErrorMessage ? "tw-text-error" : ""}></div>
-    );
+    if (message.sender === USER_SENDER) {
+      const mediaLabel = TELEGRAM_MEDIA_LABELS[message.message];
+      if (mediaLabel) {
+        return (
+          <span className="tw-flex tw-items-center tw-gap-1.5 tw-text-xs tw-italic tw-text-muted">
+            {mediaLabel.icon}
+            <span>{mediaLabel.label}</span>
+          </span>
+        );
+      }
+      return (
+        <div className="tw-whitespace-pre-wrap tw-break-words tw-text-[calc(var(--font-text-size)_-_2px)] tw-font-normal">
+          {message.message}
+        </div>
+      );
+    }
+    return <div ref={contentRef} className={message.isErrorMessage ? "tw-text-error" : ""}></div>;
   };
 
   // If editing a user message, replace the entire message container with the inline editor
@@ -1000,6 +1039,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
                 onDelete={onDelete}
                 onShowSources={handleShowSources}
                 hasSources={message.sources && message.sources.length > 0 ? true : false}
+                actionCapabilities={actionCapabilities}
               />
             </div>
           )}

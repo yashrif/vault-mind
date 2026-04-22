@@ -31,7 +31,7 @@ The agent activates automatically when you're in **Copilot Plus** mode. You don'
 The agent works in iteration cycles (think → use a tool → think → use a tool → answer). You can control the maximum number of iterations before the agent stops:
 
 - **Default**: 4 iterations
-- **Maximum**: 16 iterations
+- **Maximum**: 64 iterations
 - **Setting**: **Settings → Copilot → Plus → Autonomous Agent Max Iterations**
 
 The agent also has a maximum runtime of 5 minutes per response, regardless of iteration count.

@@ -102,6 +102,33 @@ If you change embedding models, you must rebuild the vault index because the old
 
 ---
 
+## Audio STT Models
+
+Audio STT (Speech-to-Text) models transcribe voice notes and audio files so you can attach them as context in chat or projects.
+
+### Built-In Audio STT Models
+
+| Model | Provider |
+| --- | --- |
+| whisper-large-v3 | Groq |
+
+### Selecting an Audio STT Model
+
+Go to **Settings → Copilot → Models → Audio STT Models** to enable or configure your STT model.
+
+### Supported Audio Formats
+
+MP3, MP4, MPEG, MPGA, M4A, WAV, WebM.
+
+### Limits and Notes
+
+- **Groq file size limit**: 25 MB per audio file. Files larger than this will show an error message.
+- The Groq STT model reuses your existing **Groq API key** from Settings → Copilot → LLM Providers.
+- Transcription results are cached — attaching the same file again is instant.
+- The transcript is injected as text context and sent to the chat model, not directly to the STT model.
+
+---
+
 ## Model Parameters
 
 These settings control how the AI responds. Global defaults live in Settings → Copilot → Model. You can override them per-session using the gear icon in the chat panel.

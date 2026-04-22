@@ -2,7 +2,6 @@ import { ChainType, Document } from "@/chainFactory";
 import {
   ALLOWED_NOTE_CONTEXT_EXTENSIONS,
   ChatModelProviders,
-  EmbeddingModelProviders,
   NOMIC_EMBED_TEXT,
   Provider,
   ProviderInfo,
@@ -260,7 +259,7 @@ export const stringToChainType = (chain: string): ChainType => {
     case "vault_qa":
       return ChainType.VAULT_QA_CHAIN;
     case "copilot_plus":
-      return ChainType.COPILOT_PLUS_CHAIN;
+      return ChainType.TOOL_CHAIN;
     default:
       throw new Error(`Unknown chain type: ${chain}`);
   }
@@ -410,26 +409,19 @@ export function isAllowedFileForNoteContext(file: TFile | null): boolean {
  * @returns true if this is a Plus mode chain, false otherwise
  */
 export function isPlusChain(chainType: ChainType): boolean {
-  return chainType === ChainType.COPILOT_PLUS_CHAIN || chainType === ChainType.PROJECT_CHAIN;
+  return chainType === ChainType.TOOL_CHAIN || chainType === ChainType.PROJECT_CHAIN;
 }
 
 /**
- * Checks if a file extension is allowed for context based on the chain type.
- * All chains support text-readable files (md, canvas, base).
- * Plus chains additionally support PDF, EPUB, PPT, DOCX, etc.
+ * Checks if a file is allowed for context. All file types are supported now —
+ * markdown/canvas/base are read directly; PDFs, Office docs, EPUBs, and spreadsheets
+ * are parsed locally by FileParserManager; unsupported formats surface a clear
+ * "not yet supported" message in chat context.
  * @param file The file to check
- * @param chainType The current chain type
- * @returns true if the file is allowed for this chain type, false otherwise
+ * @returns true if the file is a valid TFile, false otherwise
  */
-export function isAllowedFileForChainContext(file: TFile | null, chainType: ChainType): boolean {
-  if (!file) return false;
-
-  if (isTextReadableFile(file)) {
-    return true;
-  }
-
-  // Plus chains support all other file types (PDF, EPUB, PPT, DOCX, etc.)
-  return isPlusChain(chainType);
+export function isAllowedFileForChainContext(file: TFile | null, _chainType: ChainType): boolean {
+  return !!file;
 }
 
 export async function getAllNotesContent(vault: Vault): Promise<string> {
@@ -967,7 +959,7 @@ export function getProviderInfo(provider: string): ProviderMetadata {
 
 export function getProviderLabel(provider: string, model?: CustomModel): string {
   const baseLabel = ProviderInfo[provider as Provider]?.label || provider;
-  return baseLabel + (model?.believerExclusive && baseLabel === "Copilot Plus" ? "(Believer)" : "");
+  return baseLabel;
 }
 
 export function getProviderHost(provider: string): string {
@@ -1223,8 +1215,6 @@ export function getNeedSetKeyProvider(): Provider[] {
     ChatModelProviders.LM_STUDIO,
     ChatModelProviders.AZURE_OPENAI,
     ChatModelProviders.GITHUB_COPILOT,
-    EmbeddingModelProviders.COPILOT_PLUS,
-    EmbeddingModelProviders.COPILOT_PLUS_JINA,
   ];
 
   return (Object.keys(ProviderInfo) as Provider[]).filter((key) => !excludeProviders.includes(key));

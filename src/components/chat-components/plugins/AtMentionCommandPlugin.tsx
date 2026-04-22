@@ -4,6 +4,7 @@ import { TFile, App } from "obsidian";
 import { TypeaheadMenuPortal } from "../TypeaheadMenuPortal";
 import { useTypeaheadPlugin } from "../hooks/useTypeaheadPlugin";
 import { $replaceTriggeredTextWithPill, PillData } from "../utils/lexicalTextUtils";
+import { NON_PREVIEWABLE_EXTENSIONS } from "@/constants";
 import {
   useAtMentionCategories,
   AtMentionCategory,
@@ -41,8 +42,8 @@ export function AtMentionCommandPlugin({
   // Load note content for preview using shared utilities
   const loadNoteContentForPreview = useCallback(async (file: TFile) => {
     try {
-      // Handle PDF and canvas files - treat as empty content (no preview)
-      if (file.extension === "pdf" || file.extension === "canvas") {
+      // Treat heavy/binary/canvas files as empty content (no preview)
+      if (NON_PREVIEWABLE_EXTENSIONS.includes(file.extension)) {
         setCurrentPreviewContent("");
         return;
       }

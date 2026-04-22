@@ -14,7 +14,7 @@ import {
   MessageContent,
 } from "@/imageProcessing/imageProcessor";
 import { logInfo, logWarn } from "@/logger";
-import { checkIsPlusUser } from "@/plusUtils";
+
 import { getSettings } from "@/settings/model";
 import { getSystemPromptWithMemory } from "@/system-prompts/systemPromptBuilder";
 import { writeFileTool } from "@/tools/ComposerTools";
@@ -72,7 +72,7 @@ type ToolCallWithExecutor = {
   args: any;
 };
 
-export class CopilotPlusChainRunner extends BaseChainRunner {
+export class ToolChainRunner extends BaseChainRunner {
   /**
    * Get available tools for Copilot Plus chain.
    * Uses a minimal set of utility tools: time tools and file tree.
@@ -248,7 +248,8 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
   private async processAtCommands(
     userMessage: string,
     existingToolCalls: ToolCallWithExecutor[],
-    context: { salientTerms: string[]; timeRange?: any }
+    context: { salientTerms: string[]; timeRange?: any },
+    memoryOverride?: import("@/LLMProviders/memoryManager").default
   ): Promise<ToolCallWithExecutor[]> {
     const message = userMessage.toLowerCase();
     const cleanQuery = this.removeAtCommands(userMessage);
@@ -274,7 +275,9 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
     if (message.includes("@websearch") || message.includes("@web")) {
       const hasWebSearch = toolCalls.some((tc) => tc.tool.name === "webSearch");
       if (!hasWebSearch) {
-        const memory = ProjectManager.instance.getCurrentChainManager().memoryManager.getMemory();
+        const memory = (
+          memoryOverride ?? ProjectManager.instance.getCurrentChainManager().memoryManager
+        ).getMemory();
         const memoryVariables = await memory.loadMemoryVariables({});
         const chatHistory = extractChatHistory(memoryVariables);
 
@@ -574,10 +577,11 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
     abortController: AbortController,
     thinkStreamer: ThinkBlockStreamer,
     originalUserQuestion: string,
-    updateLoadingMessage?: (message: string) => void
+    updateLoadingMessage?: (message: string) => void,
+    memoryOverride?: import("@/LLMProviders/memoryManager").default
   ): Promise<void> {
     // Get memory for chat history loading
-    const memory = this.chainManager.memoryManager.getMemory();
+    const memory = (memoryOverride ?? this.chainManager.memoryManager).getMemory();
 
     // Get chat model
     const chatModel = this.chainManager.chatModelManager.getChatModel();
@@ -729,9 +733,12 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
       updateLoadingMessage?: (message: string) => void;
+      memoryManager?: import("@/LLMProviders/memoryManager").default;
+      runtimePolicy?: import("@/runtime/RuntimeChainPolicy").RuntimeChainPolicy;
     }
   ): Promise<string> {
     const { updateLoadingMessage } = options;
+    const effectiveMemory = this.resolveMemory(options);
 
     // Check if the current model has reasoning capability
     const chatModel = this.chainManager.chatModelManager.getChatModel();
@@ -740,26 +747,6 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
 
     const thinkStreamer = new ThinkBlockStreamer(updateCurrentAiMessage, excludeThinking);
     let sources: { title: string; path: string; score: number; explanation?: any }[] = [];
-
-    const isPlusUser = await checkIsPlusUser({
-      isCopilotPlus: true,
-    });
-    if (!isPlusUser) {
-      await this.handleError(
-        new Error("Invalid license key"),
-        thinkStreamer.processErrorChunk.bind(thinkStreamer)
-      );
-      const errorResponse = thinkStreamer.close().content;
-
-      return this.handleResponse(
-        errorResponse,
-        userMessage,
-        abortController,
-        addMessage,
-        updateCurrentAiMessage,
-        undefined // no sources
-      );
-    }
 
     try {
       logInfo("==== Step 1: Planning tools ====");
@@ -834,17 +821,23 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
 
         // Process @commands - this may add localSearch, webSearch, or updateMemory
         // Pass timeRange in context so @vault commands can use them
-        toolCalls = await this.processAtCommands(messageForAnalysis, filteredToolCalls, {
-          salientTerms: planningResult.salientTerms,
-          timeRange,
-        });
+        toolCalls = await this.processAtCommands(
+          messageForAnalysis,
+          filteredToolCalls,
+          { salientTerms: planningResult.salientTerms, timeRange },
+          effectiveMemory
+        );
       } catch (error: any) {
         return this.handleResponse(
           getApiErrorMessage(error),
           userMessage,
           abortController,
           addMessage,
-          updateCurrentAiMessage
+          updateCurrentAiMessage,
+          undefined,
+          undefined,
+          undefined,
+          effectiveMemory
         );
       }
 
@@ -884,7 +877,8 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
         abortController,
         thinkStreamer,
         cleanedUserMessage,
-        updateLoadingMessage
+        updateLoadingMessage,
+        effectiveMemory
       );
     } catch (error: any) {
       // Reset loading message to default
@@ -936,7 +930,8 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
       updateCurrentAiMessage,
       sources,
       undefined,
-      responseMetadata
+      responseMetadata,
+      effectiveMemory
     );
 
     return fullAIResponse;

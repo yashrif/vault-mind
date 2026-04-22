@@ -29,6 +29,8 @@ Semantic search finds notes that are conceptually related, even if they don't sh
 - **Cost**: Requires embedding API calls (costs money for paid embedding models)
 - **Enable**: **Settings → Copilot → QA → Enable Semantic Search** — turn this on to activate semantic search
 
+**Note on audio files**: Audio transcription (for MP3, M4A, WAV, etc.) is handled separately from the embedding index. Attaching an audio file transcribes it on the fly for chat context, but the transcript is not stored in or searched via the vault index.
+
 ---
 
 ## Index Management

@@ -1,4 +1,4 @@
-import { getModelKey } from "@/aiParams";
+import { CustomModel, ModelType, getModelKey } from "@/aiParams";
 import { Button } from "@/components/ui/button";
 import { getModelKeyFromModel, getSettings, updateSetting } from "@/settings/model";
 import { ModelEditModal } from "@/settings/v2/components/ModelEditDialog";
@@ -30,13 +30,17 @@ export const TokenLimitWarning: React.FC<TokenLimitWarningProps> = ({ message, a
     }
 
     // Create update handler
-    const handleModelUpdate = (isEmbedding: boolean, original: any, updated: any) => {
+    const handleModelUpdate = (
+      _modelType: ModelType,
+      original: CustomModel,
+      updated: CustomModel
+    ) => {
       const updatedModels = settings.activeModels.map((m) => (m === original ? updated : m));
       updateSetting("activeModels", updatedModels);
     };
 
     // Open the model edit modal
-    const modal = new ModelEditModal(app, model, false, handleModelUpdate);
+    const modal = new ModelEditModal(app, model, "chat", handleModelUpdate);
     modal.open();
   };
 

@@ -10,12 +10,13 @@ import { BUILTIN_CHAT_MODELS, USER_SENDER } from "@/constants";
 import {
   AutonomousAgentChainRunner,
   ChainRunner,
-  CopilotPlusChainRunner,
+  ToolChainRunner,
   LLMChainRunner,
   ProjectChainRunner,
   VaultQAChainRunner,
 } from "@/LLMProviders/chainRunner/index";
 import { logError, logInfo } from "@/logger";
+import { resolveRuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { getSettings, subscribeToSettingsChange } from "@/settings/model";
 import { getSystemPrompt } from "@/system-prompts/systemPromptBuilder";
 import { ChatMessage } from "@/types/message";
@@ -251,7 +252,7 @@ export default class ChainManager {
         break;
       }
 
-      case ChainType.COPILOT_PLUS_CHAIN: {
+      case ChainType.TOOL_CHAIN: {
         // For initial load of the plugin
         await this.initializeQAChain(options);
         this.chain = ChainFactory.createNewLLMChain({
@@ -261,7 +262,7 @@ export default class ChainManager {
           abortController: options.abortController,
         }) as RunnableSequence;
 
-        setChainType(ChainType.COPILOT_PLUS_CHAIN);
+        setChainType(ChainType.TOOL_CHAIN);
         break;
       }
 
@@ -284,8 +285,8 @@ export default class ChainManager {
     }
   }
 
-  private getChainRunner(): ChainRunner {
-    const chainType = getChainType();
+  private getChainRunner(chainTypeOverride?: ChainType): ChainRunner {
+    const chainType = chainTypeOverride ?? getChainType();
     const settings = getSettings();
 
     switch (chainType) {
@@ -293,14 +294,19 @@ export default class ChainManager {
         return new LLMChainRunner(this);
       case ChainType.VAULT_QA_CHAIN:
         return new VaultQAChainRunner(this);
-      case ChainType.COPILOT_PLUS_CHAIN:
+      case ChainType.TOOL_CHAIN:
         // Use AutonomousAgentChainRunner if the setting is enabled
         if (settings.enableAutonomousAgent) {
           return new AutonomousAgentChainRunner(this);
         }
-        return new CopilotPlusChainRunner(this);
+        return new ToolChainRunner(this);
       case ChainType.PROJECT_CHAIN:
         return new ProjectChainRunner(this);
+      case ChainType.TELEGRAM_CHAIN:
+        if (settings.enableAutonomousAgent) {
+          return new AutonomousAgentChainRunner(this);
+        }
+        return new ToolChainRunner(this);
       default:
         throw new Error(`Unsupported chain type: ${chainType}`);
     }
@@ -328,9 +334,17 @@ export default class ChainManager {
       debug?: boolean;
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
+      /** Pin a specific chain type, bypassing the mutable UI chain-type atom. */
+      chainType?: ChainType;
+      /** Request-scoped MemoryManager override — use instead of the shared singleton. */
+      memoryManager?: import("@/LLMProviders/memoryManager").default;
+      /** Request-scoped runtime policy override. */
+      runtimePolicy?: import("@/runtime/RuntimeChainPolicy").RuntimeChainPolicy;
     } = {}
   ) {
     const { ignoreSystemMessage = false } = options;
+    const resolvedChainType = options.chainType ?? getChainType();
+    const runtimePolicy = options.runtimePolicy ?? resolveRuntimeChainPolicy(resolvedChainType);
 
     const l5Text = userMessage.contextEnvelope?.layers.find((l) => l.id === "L5_USER")?.text;
     logInfo(
@@ -354,7 +368,7 @@ export default class ChainManager {
       // https://github.com/langchain-ai/langchain/issues/28895
       if (isOSeriesModel(chatModel)) {
         effectivePrompt = ChatPromptTemplate.fromMessages([
-          [USER_SENDER, getSystemPrompt() || ""],
+          [USER_SENDER, getSystemPrompt(runtimePolicy.promptTarget) || ""],
           effectivePrompt,
         ]);
       }
@@ -365,13 +379,10 @@ export default class ChainManager {
       });*/
     }
 
-    const chainRunner = this.getChainRunner();
-    return await chainRunner.run(
-      userMessage,
-      abortController,
-      updateCurrentAiMessage,
-      addMessage,
-      options
-    );
+    const chainRunner = this.getChainRunner(resolvedChainType);
+    return await chainRunner.run(userMessage, abortController, updateCurrentAiMessage, addMessage, {
+      ...options,
+      runtimePolicy,
+    });
   }
 }

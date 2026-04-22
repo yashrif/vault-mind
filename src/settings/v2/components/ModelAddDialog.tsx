@@ -24,16 +24,17 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ChatModelProviders,
-  EmbeddingModelProviders,
   MODEL_CAPABILITIES,
   ModelCapability,
   ProviderMetadata,
   SettingKeyProviders,
 } from "@/constants";
+import { MODEL_CATEGORIES } from "@/settings/v2/modelCategoryConfig";
+import { ModelType } from "@/aiParams";
 import { useTab } from "@/contexts/TabContext";
 import { logError } from "@/logger";
 import { getSettings } from "@/settings/model";
-import { err2String, getProviderInfo, getProviderLabel, omit } from "@/utils";
+import { err2String, getProviderInfo, getProviderLabel } from "@/utils";
 import { buildCurlCommandForModel } from "@/utils/curlCommand";
 import { CheckCircle2, ChevronDown, Loader2, XCircle } from "lucide-react";
 import { getApiKeyForProvider } from "@/utils/modelUtils";
@@ -55,7 +56,8 @@ interface ModelAddDialogProps {
   onOpenChange: (open: boolean) => void;
   onAdd: (model: CustomModel) => void;
   ping: (model: CustomModel) => Promise<boolean>;
-  isEmbeddingModel?: boolean;
+  /** Which model family this dialog creates. Defaults to "chat". */
+  modelType?: ModelType;
 }
 
 export const ModelAddDialog: React.FC<ModelAddDialogProps> = ({
@@ -63,13 +65,13 @@ export const ModelAddDialog: React.FC<ModelAddDialogProps> = ({
   onOpenChange,
   onAdd,
   ping,
-  isEmbeddingModel = false,
+  modelType = "chat",
 }) => {
   const { modalContainer } = useTab();
   const settings = getSettings();
-  const defaultProvider = isEmbeddingModel
-    ? EmbeddingModelProviders.OPENAI
-    : ChatModelProviders.OPENROUTERAI;
+  const isEmbeddingModel = modelType === "embedding";
+  const categoryConfig = MODEL_CATEGORIES[modelType];
+  const defaultProvider = categoryConfig.defaultProvider;
 
   // 判断 Provider 是否有必填的额外设置
   const hasRequiredExtraSettings = (provider: string) => {
@@ -149,7 +151,7 @@ export const ModelAddDialog: React.FC<ModelAddDialogProps> = ({
   };
 
   const getInitialModel = (provider = defaultProvider): CustomModel => {
-    const baseModel = {
+    const baseModel: CustomModel = {
       name: "",
       provider,
       enabled: true,
@@ -157,10 +159,11 @@ export const ModelAddDialog: React.FC<ModelAddDialogProps> = ({
       baseUrl: "",
       apiKey: getApiKeyForProvider(provider as SettingKeyProviders),
       isEmbeddingModel,
+      modelType,
       capabilities: [],
     };
 
-    if (!isEmbeddingModel) {
+    if (modelType === "chat") {
       const chatModel = {
         ...baseModel,
         stream: true,
@@ -595,11 +598,7 @@ export const ModelAddDialog: React.FC<ModelAddDialogProps> = ({
                 <SelectValue placeholder="Select provider" />
               </SelectTrigger>
               <SelectContent container={dialogElement}>
-                {Object.values(
-                  isEmbeddingModel
-                    ? omit(EmbeddingModelProviders, ["COPILOT_PLUS", "COPILOT_PLUS_JINA"])
-                    : omit(ChatModelProviders, ["COPILOT_PLUS"])
-                ).map((provider) => (
+                {categoryConfig.providerValues.map((provider) => (
                   <SelectItem key={provider} value={provider}>
                     {getProviderLabel(provider)}
                   </SelectItem>
@@ -632,7 +631,7 @@ export const ModelAddDialog: React.FC<ModelAddDialogProps> = ({
             )}
           </FormField>
 
-          {!isEmbeddingModel && (
+          {categoryConfig.supportsCapabilities && (
             <FormField
               label={
                 <div className="tw-flex tw-items-center tw-gap-1.5">

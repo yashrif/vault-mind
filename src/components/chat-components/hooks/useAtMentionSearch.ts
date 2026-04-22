@@ -26,7 +26,7 @@ export function useAtMentionSearch(
   currentActiveFile: TFile | null = null
 ): (CategoryOption | AtMentionOption)[] {
   // Get raw data without pre-filtering
-  const allNotes = useAllNotes(isCopilotPlus);
+  const allNotes = useAllNotes();
   const allFolders = useAllFolders();
 
   // Only enable web tab polling when actually needed:

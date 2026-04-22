@@ -6,6 +6,7 @@ import { type ChainType } from "@/chainFactory";
 import { type SortStrategy, isSortStrategy } from "@/utils/recentUsageManager";
 import {
   AGENT_MAX_ITERATIONS_LIMIT,
+  BUILTIN_AUDIO_STT_MODELS,
   BUILTIN_CHAT_MODELS,
   BUILTIN_EMBEDDING_MODELS,
   COPILOT_FOLDER_ROOT,
@@ -47,7 +48,6 @@ export interface LegacyCommandSettings {
 
 export interface CopilotSettings {
   userId: string;
-  plusLicenseKey: string;
   openAIApiKey: string;
   openAIOrgId: string;
   huggingfaceApiKey: string;
@@ -105,6 +105,8 @@ export interface CopilotSettings {
   groqApiKey: string;
   activeModels: Array<CustomModel>;
   activeEmbeddingModels: Array<CustomModel>;
+  activeAudioSTTModels: Array<CustomModel>;
+  audioSTTModelKey: string;
   promptUsageTimestamps: Record<string, number>;
   promptSortStrategy: string;
   chatHistorySortStrategy: SortStrategy;
@@ -118,8 +120,6 @@ export interface CopilotSettings {
   showRelevantNotes: boolean;
   numPartitions: number;
   defaultConversationNoteName: string;
-  // undefined means never checked
-  isPlusUser: boolean | undefined;
   inlineEditCommands: LegacyCommandSettings[] | undefined;
   projectList: Array<ProjectConfig>;
   passMarkdownImages: boolean;
@@ -127,13 +127,9 @@ export interface CopilotSettings {
   enableCustomPromptTemplating: boolean;
   /** Enable semantic search using Orama for meaning-based document retrieval */
   enableSemanticSearchV3: boolean;
-  /** Enable self-host mode (e.g., Miyo) - uses self-hosted services for search, LLMs, OCR, etc. */
+  /** Enable self-host mode — uses user-configured backends for search, YouTube transcripts, etc. */
   enableSelfHostMode: boolean;
-  /** Enable Miyo-backed indexing and semantic search when self-host mode is active */
-  enableMiyo: boolean;
-  /** When true, omit folder_name from Miyo search requests so all indexed content is searched */
-  miyoSearchAll: boolean;
-  /** Timestamp of last successful Believer validation for self-host mode (null if never validated) */
+  /** Timestamp of last successful validation for self-host mode (null if never validated) */
   selfHostModeValidatedAt: number | null;
   /** Count of successful periodic validations (3 = permanently valid) */
   selfHostValidationCount: number;
@@ -141,8 +137,6 @@ export interface CopilotSettings {
   selfHostUrl: string;
   /** API key for the self-host mode backend (if required) */
   selfHostApiKey: string;
-  /** Custom Miyo server URL, e.g. "http://192.168.1.10:8742" (empty = use local service discovery) */
-  miyoServerUrl: string;
   /** Which provider to use for self-host web search */
   selfHostSearchProvider: "firecrawl" | "perplexity";
   /** Firecrawl API key for self-host web search */
@@ -195,10 +189,21 @@ export interface CopilotSettings {
    * Empty string means no custom system prompt (use builtin)
    */
   defaultSystemPromptTitle: string;
+  /**
+   * Telegram-specific persistent system prompt title.
+   * Empty string means Telegram falls back to the shared default prompt.
+   */
+  telegramSystemPromptTitle: string;
   /** Token threshold for auto-compacting large context (range: 64k-1M tokens, default: 128000) */
   autoCompactThreshold: number;
   /** Folder where converted document markdown files are saved */
   convertedDocOutputFolder: string;
+  /** Enable Telegram channel integration (desktop only) */
+  telegramEnabled: boolean;
+  /** Telegram bot API token (auto-encrypted when enableEncryption is on) */
+  telegramBotApiKey: string;
+  /** Comma-separated Telegram chat IDs allowed to bind and receive replies */
+  telegramAllowedChatIds: string;
 }
 
 export const settingsStore = createStore();
@@ -222,12 +227,25 @@ function resolveEmbeddingModelKey(settings: CopilotSettings): string {
   return DEFAULT_SETTINGS.embeddingModelKey;
 }
 
+function resolveAudioSTTModelKey(settings: CopilotSettings): string {
+  const activeSTTModels = settings.activeAudioSTTModels || [];
+  const activeSTTKeys = new Set(activeSTTModels.map((m) => getModelKeyFromModel(m)));
+
+  if (settings.audioSTTModelKey && activeSTTKeys.has(settings.audioSTTModelKey)) {
+    return settings.audioSTTModelKey;
+  }
+
+  const firstEnabled = activeSTTModels.find((m) => m.enabled);
+  return firstEnabled ? getModelKeyFromModel(firstEnabled) : DEFAULT_SETTINGS.audioSTTModelKey;
+}
+
 /**
  * Sets the settings in the atom.
  */
 export function setSettings(settings: Partial<CopilotSettings>) {
   const newSettings = mergeAllActiveModelsWithCoreModels({ ...getSettings(), ...settings });
   newSettings.embeddingModelKey = resolveEmbeddingModelKey(newSettings);
+  newSettings.audioSTTModelKey = resolveAudioSTTModelKey(newSettings);
   settingsStore.set(settingsAtom, newSettings);
 }
 
@@ -291,6 +309,7 @@ export function resetSettings(): void {
     ...DEFAULT_SETTINGS,
     activeModels: BUILTIN_CHAT_MODELS.map((model) => ({ ...model, enabled: true })),
     activeEmbeddingModels: BUILTIN_EMBEDDING_MODELS.map((model) => ({ ...model, enabled: true })),
+    activeAudioSTTModels: BUILTIN_AUDIO_STT_MODELS.map((model) => ({ ...model, enabled: true })),
   };
   setSettings(defaultSettingsWithBuiltIns);
 }
@@ -331,7 +350,6 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
     enableSelfHostedSearch: legacyEnableSelfHostedSearch,
     selfHostedSearchUrl: legacySelfHostedSearchUrl,
     selfHostedSearchApiKey: legacySelfHostedSearchApiKey,
-    enableMiyoSearch: legacyEnableMiyoSearch,
   } = rawSettings;
 
   if (!settingsToSanitize.userId) {
@@ -354,11 +372,47 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
     });
   }
 
+  // Initialize STT models for installs that predate this feature.
+  if (!settingsToSanitize.activeAudioSTTModels) {
+    settingsToSanitize.activeAudioSTTModels = BUILTIN_AUDIO_STT_MODELS.map((model) => ({
+      ...model,
+      enabled: true,
+    }));
+  }
+
+  // Migration: populate modelType from the containing array when missing.
+  const migrateModelType = (
+    models: CustomModel[],
+    type: "chat" | "embedding" | "stt"
+  ): CustomModel[] =>
+    models.map((m) => {
+      if (m.modelType) return m;
+      return {
+        ...m,
+        modelType: type,
+        // keep isEmbeddingModel in sync for any code still reading the old flag
+        isEmbeddingModel: type === "embedding" ? true : m.isEmbeddingModel,
+      };
+    });
+
+  settingsToSanitize.activeModels = migrateModelType(settingsToSanitize.activeModels || [], "chat");
+  settingsToSanitize.activeEmbeddingModels = migrateModelType(
+    settingsToSanitize.activeEmbeddingModels,
+    "embedding"
+  );
+  settingsToSanitize.activeAudioSTTModels = migrateModelType(
+    settingsToSanitize.activeAudioSTTModels,
+    "stt"
+  );
+
   const sanitizedSettings: CopilotSettings = { ...settingsToSanitize };
   const sanitizedSettingsRecord = sanitizedSettings as unknown as Record<string, unknown>;
   delete sanitizedSettingsRecord.miyoRemoteVaultPath;
   delete sanitizedSettingsRecord.miyoVaultName;
   delete sanitizedSettingsRecord.enableMiyoSearch;
+  delete sanitizedSettingsRecord.enableMiyo;
+  delete sanitizedSettingsRecord.miyoSearchAll;
+  delete sanitizedSettingsRecord.miyoServerUrl;
 
   // Migration: Rename self-hosted search settings to self-host mode (v3.2.0+)
   if (
@@ -372,11 +426,6 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
   }
   if (legacySelfHostedSearchApiKey !== undefined && !sanitizedSettings.selfHostApiKey) {
     sanitizedSettings.selfHostApiKey = legacySelfHostedSearchApiKey as string;
-  }
-
-  // Migration: Rename legacy enableMiyoSearch to enableMiyo.
-  if (legacyEnableMiyoSearch !== undefined && sanitizedSettings.enableMiyo === undefined) {
-    sanitizedSettings.enableMiyo = legacyEnableMiyoSearch as boolean;
   }
 
   // Stuff in settings are string even when the interface has number type!
@@ -426,21 +475,6 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
   // Ensure generateAIChatTitleOnSave has a default value
   if (typeof sanitizedSettings.generateAIChatTitleOnSave !== "boolean") {
     sanitizedSettings.generateAIChatTitleOnSave = DEFAULT_SETTINGS.generateAIChatTitleOnSave;
-  }
-
-  // Ensure enableMiyo has a default value
-  if (typeof sanitizedSettings.enableMiyo !== "boolean") {
-    sanitizedSettings.enableMiyo = DEFAULT_SETTINGS.enableMiyo;
-  }
-
-  // Ensure miyoSearchAll has a default value
-  if (typeof sanitizedSettings.miyoSearchAll !== "boolean") {
-    sanitizedSettings.miyoSearchAll = DEFAULT_SETTINGS.miyoSearchAll;
-  }
-
-  // Ensure miyoServerUrl has a default value
-  if (typeof sanitizedSettings.miyoServerUrl !== "string") {
-    sanitizedSettings.miyoServerUrl = DEFAULT_SETTINGS.miyoServerUrl;
   }
 
   // Ensure selfHostSearchProvider is a valid value
@@ -582,6 +616,10 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
   sanitizedSettings.customPromptsFolder =
     promptsFolder.length > 0 ? promptsFolder : DEFAULT_SETTINGS.customPromptsFolder;
 
+  if (typeof sanitizedSettings.telegramSystemPromptTitle !== "string") {
+    sanitizedSettings.telegramSystemPromptTitle = DEFAULT_SETTINGS.telegramSystemPromptTitle;
+  }
+
   // Ensure chatHistorySortStrategy has a valid value (exclude "manual" which is only for custom commands)
   if (
     !isSortStrategy(sanitizedSettings.chatHistorySortStrategy) ||
@@ -610,10 +648,19 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
 }
 
 function mergeAllActiveModelsWithCoreModels(settings: CopilotSettings): CopilotSettings {
-  settings.activeModels = mergeActiveModels(settings.activeModels, BUILTIN_CHAT_MODELS);
-  settings.activeEmbeddingModels = filterUnsupportedEmbeddingModels(
-    mergeActiveModels(settings.activeEmbeddingModels, BUILTIN_EMBEDDING_MODELS)
-  );
+  const categories = [
+    { field: "activeModels" as const, builtIns: BUILTIN_CHAT_MODELS },
+    { field: "activeEmbeddingModels" as const, builtIns: BUILTIN_EMBEDDING_MODELS },
+    { field: "activeAudioSTTModels" as const, builtIns: BUILTIN_AUDIO_STT_MODELS },
+  ];
+
+  for (const { field, builtIns } of categories) {
+    settings[field] = mergeActiveModels(settings[field] || [], builtIns) as CustomModel[];
+  }
+
+  // Embedding-specific: remove providers that are no longer supported.
+  settings.activeEmbeddingModels = filterUnsupportedEmbeddingModels(settings.activeEmbeddingModels);
+
   return settings;
 }
 
@@ -652,7 +699,6 @@ function mergeActiveModels(
           ...builtInModel,
           ...model,
           isBuiltIn: true,
-          believerExclusive: builtInModel.believerExclusive,
         });
       } else {
         modelMap.set(key, {

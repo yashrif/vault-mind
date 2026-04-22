@@ -107,13 +107,28 @@ Use the command palette: **Add web selection to chat context**
 
 Works similarly but captures selected text from the Web Viewer. Available on desktop only.
 
-### Adding a PDF as Context (Copilot Plus)
+### Adding Files as Context
 
-Click the **+ Add context** button above the chat input to attach a PDF file. The PDF is converted to text and included as context for your message.
+Click the **attach button** in the bottom-right corner of the chat input to add files as context.
+
+- **Images** are sent as vision input (for models that support Vision).
+- **Supported non-image files** from your vault are added as note context, including markdown/text files, PDF, Canvas, DOC/DOCX, XLS/XLSX/CSV, and audio formats.
+- Non-image files must resolve to files inside your current vault.
 
 ### Adding an Image as Context
 
-Drag an image directly into the chat input box, or click the **image button** in the bottom-right corner of the chat input. The image is sent to the AI if your selected model supports **Vision** capability.
+Drag an image directly into the chat input box, or click the **attach button** in the bottom-right corner of the chat input. The image is sent to the AI if your selected model supports **Vision** capability.
+
+### Adding Audio as Context
+
+Drag an audio file (MP3, MP4, MPEG, MPGA, M4A, WAV, or WebM) into the chat input box, use the **attach button**, or use **@ mention** to attach a file from your vault. Copilot transcribes the audio via the configured Audio STT model and injects the transcript as text context for the AI.
+
+- Transcription happens automatically on attach and results are cached — re-attaching the same file is instant.
+- Files larger than 25 MB cannot be transcribed by Groq. Split or compress the file if you hit this limit.
+- The transcript counts toward the context window of your chat model, not a separate quota.
+- Audio transcription works in both Chat mode and Projects mode.
+
+To set up audio transcription, configure an Audio STT model in **Settings → Copilot → Models → Audio STT Models**. See [Models and Parameters](models-and-parameters.md#audio-stt-models) for details.
 
 ---
 

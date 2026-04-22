@@ -4,8 +4,6 @@ import { v4 as uuidv4 } from "uuid";
 import { ChainType } from "./chainFactory";
 import { PromptSortStrategy } from "./types";
 
-export const BREVILABS_API_BASE_URL = "https://api.brevilabs.com/v1";
-export const BREVILABS_MODELS_BASE_URL = "https://models.brevilabs.com/v1";
 export const CHAT_VIEWTYPE = "copilot-chat-view";
 export const USER_SENDER = "user";
 export const AI_SENDER = "ai";
@@ -124,7 +122,7 @@ export const MAX_CHARS_FOR_LOCAL_SEARCH_CONTEXT = 448000;
 export const LLM_TIMEOUT_MS = 30000; // 30 seconds timeout for LLM operations
 export const DEFAULT_MAX_SOURCE_CHUNKS = 30; // Default max chunks for search results (with diverse top-K)
 export const AGENT_LOOP_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes timeout for agent loop
-export const AGENT_MAX_ITERATIONS_LIMIT = 16; // Maximum allowed value for agent iterations setting
+export const AGENT_MAX_ITERATIONS_LIMIT = 64; // Maximum allowed value for agent iterations setting
 export const LOADING_MESSAGES = {
   DEFAULT: "",
   READING_FILES: "Reading files",
@@ -132,13 +130,6 @@ export const LOADING_MESSAGES = {
   READING_FILE_TREE: "Reading file tree",
   COMPACTING: "Compacting",
 };
-export const PLUS_UTM_MEDIUMS = {
-  SETTINGS: "settings",
-  EXPIRED_MODAL: "expired_modal",
-  CHAT_MODE_SELECT: "chat_mode_select",
-  MODE_SELECT_TOOLTIP: "mode_select_tooltip",
-};
-export type PlusUtmMedium = (typeof PLUS_UTM_MEDIUMS)[keyof typeof PLUS_UTM_MEDIUMS];
 
 /**
  * Reasoning effort levels for OpenAI reasoning models
@@ -172,7 +163,6 @@ export const DEFAULT_MODEL_SETTING = {
 export const DEFAULT_OLLAMA_NUM_CTX = 131072;
 
 export enum ChatModels {
-  COPILOT_PLUS_FLASH = "copilot-plus-flash",
   GPT_5_4 = "gpt-5.4",
   GPT_5_mini = "gpt-5-mini",
   GPT_5_nano = "gpt-5-nano",
@@ -202,6 +192,7 @@ export enum ChatModels {
   OPENROUTER_GROK_4_1_FAST = "x-ai/grok-4.1-fast",
   SILICONFLOW_DEEPSEEK_V3 = "deepseek-ai/DeepSeek-V3",
   SILICONFLOW_DEEPSEEK_R1 = "deepseek-ai/DeepSeek-R1",
+  OPENROUTER_FREE = "openrouter/free",
 }
 
 // Model Providers
@@ -217,7 +208,6 @@ export enum ChatModelProviders {
   GROQ = "groq",
   OLLAMA = "ollama",
   LM_STUDIO = "lm-studio",
-  COPILOT_PLUS = "copilot-plus",
   MISTRAL = "mistralai",
   DEEPSEEK = "deepseek",
   COHEREAI = "cohereai",
@@ -229,13 +219,27 @@ export enum ModelCapability {
   REASONING = "reasoning",
   VISION = "vision",
   WEB_SEARCH = "websearch",
+  AUDIO_TRANSCRIPTION = "audio-transcription",
 }
 
 export const MODEL_CAPABILITIES: Record<ModelCapability, string> = {
   reasoning: "This model supports general reasoning tasks.",
   vision: "This model supports image inputs.",
   websearch: "This model can access the internet.",
+  "audio-transcription": "This model can transcribe audio files.",
 };
+
+export const BUILTIN_AUDIO_STT_MODELS: CustomModel[] = [
+  {
+    name: "whisper-large-v3",
+    provider: ChatModelProviders.GROQ,
+    enabled: true,
+    isBuiltIn: true,
+    core: true,
+    modelType: "stt",
+    capabilities: [ModelCapability.AUDIO_TRANSCRIPTION],
+  },
+];
 
 export const BUILTIN_CHAT_MODELS: CustomModel[] = [
   // Enabled models first
@@ -432,6 +436,15 @@ export const BUILTIN_CHAT_MODELS: CustomModel[] = [
   //   baseUrl: "https://api.siliconflow.com/v1",
   //   capabilities: [ModelCapability.REASONING],
   // },
+  {
+    name: ChatModels.OPENROUTER_FREE,
+    provider: ChatModelProviders.OPENROUTERAI,
+    enabled: true,
+    isBuiltIn: true,
+    core: false,
+    projectEnabled: true,
+    capabilities: [ModelCapability.VISION, ModelCapability.REASONING],
+  },
 ];
 
 export enum EmbeddingModelProviders {
@@ -443,8 +456,6 @@ export enum EmbeddingModelProviders {
   OLLAMA = "ollama",
   LM_STUDIO = "lm-studio",
   OPENAI_FORMAT = "3rd party (openai-format)",
-  COPILOT_PLUS = "copilot-plus",
-  COPILOT_PLUS_JINA = "copilot-plus-jina",
   SILICONFLOW = "siliconflow",
 }
 
@@ -457,9 +468,6 @@ export enum EmbeddingModels {
   GOOGLE_ENG = "text-embedding-004",
   GOOGLE_GEMINI_EMBEDDING = "gemini-embedding-001",
   GOOGLE_GEMINI_EMBEDDING_2_PREVIEW = "gemini-embedding-2-preview",
-  COPILOT_PLUS_SMALL = "copilot-plus-small",
-  COPILOT_PLUS_LARGE = "copilot-plus-large",
-  COPILOT_PLUS_MULTILINGUAL = "copilot-plus-multilingual",
   SILICONFLOW_QWEN3_EMBEDDING_0_6B = "Qwen/Qwen3-Embedding-0.6B",
   OPENROUTER_OPENAI_EMBEDDING_SMALL = "openai/text-embedding-3-small",
 }
@@ -711,20 +719,6 @@ export const ProviderInfo: Record<Provider, ProviderMetadata> = {
     keyManagementURL: "https://console.aws.amazon.com/iam/home#/security_credentials",
     listModelURL: "",
   },
-  [EmbeddingModelProviders.COPILOT_PLUS]: {
-    label: "Copilot Plus",
-    host: BREVILABS_MODELS_BASE_URL,
-    curlBaseURL: BREVILABS_MODELS_BASE_URL,
-    keyManagementURL: "",
-    listModelURL: "",
-  },
-  [EmbeddingModelProviders.COPILOT_PLUS_JINA]: {
-    label: "Copilot Plus",
-    host: BREVILABS_MODELS_BASE_URL,
-    curlBaseURL: BREVILABS_MODELS_BASE_URL,
-    keyManagementURL: "",
-    listModelURL: "",
-  },
   [ChatModelProviders.GITHUB_COPILOT]: {
     label: "GitHub Copilot",
     host: "https://api.githubcopilot.com",
@@ -744,7 +738,6 @@ export const ProviderSettingsKeyMap: Record<SettingKeyProviders, keyof CopilotSe
   openrouterai: "openRouterAiApiKey",
   cohereai: "cohereApiKey",
   xai: "xaiApiKey",
-  "copilot-plus": "plusLicenseKey",
   mistralai: "mistralApiKey",
   deepseek: "deepseekApiKey",
   "amazon-bedrock": "amazonBedrockApiKey",
@@ -865,28 +858,64 @@ export const COMMAND_ICONS: Partial<Record<CommandId, string>> = {
  * These files can be read directly via `vault.read()` and don't require special parsers.
  * Add new text-based extensions here to enable them everywhere (active note, context, chain).
  */
-export const TEXT_READABLE_EXTENSIONS = ["md", "canvas", "base"];
+export const TEXT_READABLE_EXTENSIONS = [
+  "md",
+  "base",
+  "txt",
+  "xml",
+  "json",
+  "log",
+  "htm",
+  "html",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "py",
+  "css",
+  "yaml",
+  "yml",
+  "java",
+];
 
 /**
- * Valid file extensions for note context.
- * Includes text-readable files plus Plus-only formats like PDF.
- * This does NOT include images - images are handled separately in the UI.
+ * Audio file extensions supported for STT transcription.
+ * Also imported by FileParserManager to register AudioParser.
  */
-export const ALLOWED_NOTE_CONTEXT_EXTENSIONS = [...TEXT_READABLE_EXTENSIONS, "pdf"];
+export const AUDIO_EXTENSIONS = ["mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm"];
+
+/**
+ * Binary, heavy, or non-textual formats that require specialized parsers
+ * and should NEVER be previewed directly in the UI.
+ */
+export const NON_PREVIEWABLE_EXTENSIONS = [
+  "pdf",
+  "canvas",
+  // Word Docs
+  "doc",
+  "docx",
+  // Spreadsheets
+  "xls",
+  "xlsx",
+  "xlsm",
+  "xlsb",
+  "csv",
+  // Audio (transcribed via STT — not previewable as binary)
+  ...AUDIO_EXTENSIONS,
+];
+
+export const ALLOWED_NOTE_CONTEXT_EXTENSIONS = [
+  ...TEXT_READABLE_EXTENSIONS,
+  ...NON_PREVIEWABLE_EXTENSIONS,
+];
 
 export const RESTRICTION_MESSAGES = {
-  NON_MARKDOWN_FILES_RESTRICTED:
-    "Non-markdown files are only available in Copilot Plus mode. Please upgrade to access this file type.",
-  URL_PROCESSING_RESTRICTED:
-    "URL processing is only available in Copilot Plus mode. URLs will not be processed for context.",
   UNSUPPORTED_FILE_TYPE: (extension: string) =>
     `${extension.toUpperCase()} files are not supported in the current mode.`,
 } as const;
 
 export const DEFAULT_SETTINGS: CopilotSettings = {
   userId: uuidv4(),
-  isPlusUser: false,
-  plusLicenseKey: "",
   openAIApiKey: "",
   openAIOrgId: "",
   huggingfaceApiKey: "",
@@ -962,13 +991,10 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   enableCustomPromptTemplating: true,
   enableSemanticSearchV3: false,
   enableSelfHostMode: false,
-  enableMiyo: false,
-  miyoSearchAll: false,
   selfHostModeValidatedAt: null,
   selfHostValidationCount: 0,
   selfHostUrl: "",
   selfHostApiKey: "",
-  miyoServerUrl: "",
   selfHostSearchProvider: "firecrawl",
   firecrawlApiKey: "",
   perplexityApiKey: "",
@@ -1000,8 +1026,14 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   diffViewMode: "split",
   userSystemPromptsFolder: DEFAULT_SYSTEM_PROMPTS_FOLDER,
   defaultSystemPromptTitle: "",
+  telegramSystemPromptTitle: "",
   autoCompactThreshold: 128000,
   convertedDocOutputFolder: DEFAULT_CONVERTED_DOC_OUTPUT_FOLDER,
+  activeAudioSTTModels: BUILTIN_AUDIO_STT_MODELS,
+  audioSTTModelKey: "whisper-large-v3" + "|" + ChatModelProviders.GROQ,
+  telegramEnabled: false,
+  telegramBotApiKey: "",
+  telegramAllowedChatIds: "",
 };
 
 export const EVENT_NAMES = {

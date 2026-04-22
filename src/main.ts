@@ -1,3 +1,8 @@
+import {
+  parseTelegramAllowedChatIds,
+  TelegramChannelService,
+} from "@/channels/telegram/TelegramChannelService";
+import { TelegramAgent } from "@/channels/telegram/TelegramAgent";
 import { BrevilabsClient } from "@/LLMProviders/brevilabsClient";
 import ProjectManager from "@/LLMProviders/projectManager";
 import {
@@ -83,6 +88,7 @@ export default class CopilotPlugin extends Plugin {
   systemPromptRegister: SystemPromptRegister;
   settingsUnsubscriber?: () => void;
   chatUIState: ChatUIState;
+  telegramChannelService?: TelegramChannelService;
   userMemoryManager: UserMemoryManager;
   quickAskController: QuickAskController;
   chatSelectionHighlightController: ChatSelectionHighlightController;
@@ -101,6 +107,46 @@ export default class CopilotPlugin extends Plugin {
         await this.saveData(next);
       }
       registerCommands(this, prev, next);
+
+      // Restart Telegram service when token or enabled state changes (desktop only)
+      if (Platform.isDesktopApp) {
+        const tokenChanged = prev.telegramBotApiKey !== next.telegramBotApiKey;
+        const enabledChanged = prev.telegramEnabled !== next.telegramEnabled;
+        const allowlistChanged = prev.telegramAllowedChatIds !== next.telegramAllowedChatIds;
+        if (tokenChanged || enabledChanged || allowlistChanged) {
+          if (next.telegramEnabled && next.telegramBotApiKey) {
+            const { getDecryptedKey } = await import("@/encryptionService");
+            const rawToken = await getDecryptedKey(next.telegramBotApiKey);
+            const allowedChatIds = parseTelegramAllowedChatIds(next.telegramAllowedChatIds);
+            if (this.telegramChannelService) {
+              this.telegramChannelService.setAllowedChatIds(allowedChatIds);
+              if (tokenChanged || enabledChanged) {
+                await this.telegramChannelService.restart(rawToken);
+              }
+              // Re-wire agent after restart so it uses the new TelegramClient
+              const restartedAgent = new TelegramAgent(
+                this.telegramChannelService.client,
+                this.telegramChannelService.store,
+                this.projectManager.getCurrentChainManager()
+              );
+              this.telegramChannelService.setAgent(restartedAgent);
+            } else {
+              this.telegramChannelService = new TelegramChannelService(rawToken, {
+                allowedChatIds,
+              });
+              await this.telegramChannelService.start();
+              const telegramAgent = new TelegramAgent(
+                this.telegramChannelService.client,
+                this.telegramChannelService.store,
+                this.projectManager.getCurrentChainManager()
+              );
+              this.telegramChannelService.setAgent(telegramAgent);
+            }
+          } else {
+            this.telegramChannelService?.stop();
+          }
+        }
+      }
     });
     this.addSettingTab(new CopilotSettingTab(this.app, this));
 
@@ -127,13 +173,32 @@ export default class CopilotPlugin extends Plugin {
     vaultDataManager.initialize();
 
     // Initialize FileParserManager early with other core services
-    this.fileParserManager = new FileParserManager(this.brevilabsClient, this.app.vault);
+    this.fileParserManager = new FileParserManager(this.app.vault);
 
     // Initialize ChatUIState with new architecture
     const messageRepo = new MessageRepository();
     const chainManager = this.projectManager.getCurrentChainManager();
     const chatManager = new ChatManager(messageRepo, chainManager, this.fileParserManager, this);
     this.chatUIState = new ChatUIState(chatManager);
+
+    // Initialize Telegram channel service (desktop only)
+    if (Platform.isDesktopApp) {
+      const settings = getSettings();
+      if (settings.telegramEnabled && settings.telegramBotApiKey) {
+        const { getDecryptedKey } = await import("@/encryptionService");
+        const rawToken = await getDecryptedKey(settings.telegramBotApiKey);
+        this.telegramChannelService = new TelegramChannelService(rawToken, {
+          allowedChatIds: parseTelegramAllowedChatIds(settings.telegramAllowedChatIds),
+        });
+        await this.telegramChannelService.start();
+        const telegramAgent = new TelegramAgent(
+          this.telegramChannelService.client,
+          this.telegramChannelService.store,
+          this.projectManager.getCurrentChainManager()
+        );
+        this.telegramChannelService.setAgent(telegramAgent);
+      }
+    }
 
     // Initialize UserMemoryManager
     this.userMemoryManager = new UserMemoryManager(this.app);
@@ -170,7 +235,7 @@ export default class CopilotPlugin extends Plugin {
 
     registerCommands(this, undefined, getSettings());
 
-    // Tool initialization is now handled automatically in CopilotPlusChainRunner and AutonomousAgentChainRunner
+    // Tool initialization is now handled automatically in ToolChainRunner and AutonomousAgentChainRunner
 
     this.registerEvent(
       this.app.workspace.on("editor-menu", (menu: Menu) => {
@@ -222,6 +287,9 @@ export default class CopilotPlugin extends Plugin {
   }
 
   async onunload() {
+    // Stop Telegram channel service if running
+    this.telegramChannelService?.stop();
+
     // Clear all persistent selection highlights before unload
     // This prevents "stuck" highlights after hot reload (dev environment)
     this.clearAllPersistentSelectionHighlights();

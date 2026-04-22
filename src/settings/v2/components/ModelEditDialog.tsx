@@ -9,12 +9,13 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import {
   ChatModelProviders,
-  EmbeddingModelProviders,
   MODEL_CAPABILITIES,
   ModelCapability,
   ProviderMetadata,
   SettingKeyProviders,
 } from "@/constants";
+import { ModelType } from "@/aiParams";
+import { MODEL_CATEGORIES } from "@/settings/v2/modelCategoryConfig";
 import { getSettings } from "@/settings/model";
 import { debounce, getProviderInfo, getProviderLabel } from "@/utils";
 import { getApiKeyForProvider } from "@/utils/modelUtils";
@@ -25,19 +26,15 @@ import { ModelParametersEditor } from "@/components/ui/ModelParametersEditor";
 
 interface ModelEditModalContentProps {
   model: CustomModel;
-  isEmbeddingModel: boolean;
-  onUpdate: (
-    isEmbeddingModel: boolean,
-    originalModel: CustomModel,
-    updatedModel: CustomModel
-  ) => void;
+  modelType: ModelType;
+  onUpdate: (modelType: ModelType, originalModel: CustomModel, updatedModel: CustomModel) => void;
   onCancel: () => void;
 }
 
 export const ModelEditModalContent: React.FC<ModelEditModalContentProps> = ({
   model,
   onUpdate,
-  isEmbeddingModel,
+  modelType,
   onCancel,
 }) => {
   const [localModel, setLocalModel] = useState<CustomModel>(model);
@@ -58,9 +55,9 @@ export const ModelEditModalContent: React.FC<ModelEditModalContentProps> = ({
   const debouncedOnUpdate = useMemo(
     () =>
       debounce((currentOriginalModel: CustomModel, updatedModel: CustomModel) => {
-        onUpdate(isEmbeddingModel, currentOriginalModel, updatedModel);
+        onUpdate(modelType, currentOriginalModel, updatedModel);
       }, 500),
-    [isEmbeddingModel, onUpdate]
+    [modelType, onUpdate]
   );
 
   // Function to update local state immediately
@@ -119,8 +116,7 @@ export const ModelEditModalContent: React.FC<ModelEditModalContentProps> = ({
     localModel.provider as SettingKeyProviders,
     localModel
   );
-  const showOtherParameters =
-    !isEmbeddingModel && localModel.provider !== EmbeddingModelProviders.COPILOT_PLUS_JINA;
+  const showOtherParameters = MODEL_CATEGORIES[modelType].supportsCapabilities;
 
   return (
     <div className="tw-space-y-3 tw-p-4">
@@ -349,9 +345,9 @@ export class ModelEditModal extends Modal {
   constructor(
     app: App,
     private model: CustomModel,
-    private isEmbeddingModel: boolean,
+    private modelType: ModelType,
     private onUpdate: (
-      isEmbeddingModel: boolean,
+      modelType: ModelType,
       originalModel: CustomModel,
       updatedModel: CustomModel
     ) => void
@@ -370,11 +366,11 @@ export class ModelEditModal extends Modal {
     this.root = createRoot(contentEl);
 
     const handleUpdate = (
-      isEmbeddingModel: boolean,
+      modelType: ModelType,
       originalModel: CustomModel,
       updatedModel: CustomModel
     ) => {
-      this.onUpdate(isEmbeddingModel, originalModel, updatedModel);
+      this.onUpdate(modelType, originalModel, updatedModel);
     };
 
     const handleCancel = () => {
@@ -384,7 +380,7 @@ export class ModelEditModal extends Modal {
     this.root.render(
       <ModelEditModalContent
         model={this.model}
-        isEmbeddingModel={this.isEmbeddingModel}
+        modelType={this.modelType}
         onUpdate={handleUpdate}
         onCancel={handleCancel}
       />

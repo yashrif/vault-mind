@@ -197,6 +197,19 @@ export class SystemPromptRegister {
       );
     }
 
+    if (
+      settings.telegramSystemPromptTitle &&
+      !availableTitles.has(settings.telegramSystemPromptTitle)
+    ) {
+      updateSetting("telegramSystemPromptTitle", "");
+      logInfo(
+        `Cleared telegramSystemPromptTitle (not found in new folder): ${settings.telegramSystemPromptTitle}`
+      );
+      new Notice(
+        `Telegram system prompt "${settings.telegramSystemPromptTitle}" not found in new folder. Cleared Telegram selection.`
+      );
+    }
+
     // Check selectedPromptTitle (session-level)
     if (selectedTitle && !availableTitles.has(selectedTitle)) {
       setSelectedPromptTitle("");
@@ -266,6 +279,10 @@ export class SystemPromptRegister {
         updateSetting("defaultSystemPromptTitle", "");
       }
 
+      if (settings.telegramSystemPromptTitle === file.basename) {
+        updateSetting("telegramSystemPromptTitle", "");
+      }
+
       // Sync session-level selection to avoid silent fallback to empty prompt
       if (getSelectedPromptTitle() === file.basename) {
         setSelectedPromptTitle("");
@@ -317,6 +334,14 @@ export class SystemPromptRegister {
             } else {
               // Move out of folder: clear the setting
               updateSetting("defaultSystemPromptTitle", "");
+            }
+          }
+
+          if (settings.telegramSystemPromptTitle === oldFilename) {
+            if (promptFile) {
+              updateSetting("telegramSystemPromptTitle", promptFile.basename);
+            } else {
+              updateSetting("telegramSystemPromptTitle", "");
             }
           }
 

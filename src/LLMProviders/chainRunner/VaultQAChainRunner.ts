@@ -39,6 +39,8 @@ export class VaultQAChainRunner extends BaseChainRunner {
       debug?: boolean;
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
+      memoryManager?: import("@/LLMProviders/memoryManager").default;
+      runtimePolicy?: import("@/runtime/RuntimeChainPolicy").RuntimeChainPolicy;
     }
   ): Promise<string> {
     // Check if the current model has reasoning capability
@@ -81,7 +83,7 @@ export class VaultQAChainRunner extends BaseChainRunner {
       logInfo("[VaultQA] Extracted tags before condensing:", tags);
 
       // Step 3: Get chat history from memory (L4)
-      const memory = this.chainManager.memoryManager.getMemory();
+      const memory = this.resolveMemory(options).getMemory();
       const memoryVariables = await memory.loadMemoryVariables({});
       const chatHistory = extractChatHistory(memoryVariables);
 
@@ -107,20 +109,13 @@ export class VaultQAChainRunner extends BaseChainRunner {
       const filterDocs = await filterRetriever.getRelevantDocuments(standaloneQuestion);
 
       // Step 5b: Create main retriever using factory (handles priority: Self-hosted > Semantic > Lexical)
-      // Miyo is only relevant to Plus/agent chains — bypass it for VaultQA.
-      // When Miyo is active, Orama isn't initialized either, so also skip semantic → use lexical.
-      const miyoActive = RetrieverFactory.isMiyoActive();
-      const retrieverResult = await RetrieverFactory.createRetriever(
-        app,
-        {
-          minSimilarityScore: 0.01,
-          maxK: settings.maxSourceChunks,
-          salientTerms: hasTagTerms ? [...tags] : [],
-          tagTerms: tags,
-          returnAll: hasTagTerms,
-        },
-        miyoActive ? { enableMiyo: false, enableSemanticSearchV3: false } : {}
-      );
+      const retrieverResult = await RetrieverFactory.createRetriever(app, {
+        minSimilarityScore: 0.01,
+        maxK: settings.maxSourceChunks,
+        salientTerms: hasTagTerms ? [...tags] : [],
+        tagTerms: tags,
+        returnAll: hasTagTerms,
+      });
       const retriever = retrieverResult.retriever;
       logInfo(`VaultQA: Using ${retrieverResult.type} retriever - ${retrieverResult.reason}`);
 
@@ -281,7 +276,8 @@ export class VaultQAChainRunner extends BaseChainRunner {
       updateCurrentAiMessage,
       undefined,
       undefined,
-      responseMetadata
+      responseMetadata,
+      this.resolveMemory(options)
     );
 
     return fullAIResponse;
