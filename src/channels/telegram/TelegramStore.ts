@@ -1,6 +1,11 @@
 import { logError, logInfo, logWarn } from "@/logger";
 import type { PromptContextEnvelope } from "@/context/PromptContextTypes";
-import type { TelegramMeta, TelegramStoredMessage, TelegramUpdate } from "./TelegramTypes";
+import type {
+  TelegramMeta,
+  TelegramReplyState,
+  TelegramStoredMessage,
+  TelegramUpdate,
+} from "./TelegramTypes";
 
 /** Generate a unique local ID that works in Electron, browser, and Jest environments. */
 function genLocalId(): string {
@@ -41,6 +46,7 @@ export class TelegramStore {
   private onLocalMessageHandler: ((msg: TelegramStoredMessage) => void) | null = null;
   private allowedChatIds: Set<number> = new Set();
   private writeQueue: Promise<void> = Promise.resolve();
+  private activeReplyState: TelegramReplyState | null = null;
 
   /**
    * Set chat IDs allowed to bind and receive replies.
@@ -119,6 +125,13 @@ export class TelegramStore {
 
   getMeta(): Readonly<TelegramMeta> {
     return this.meta;
+  }
+
+  /**
+   * Return the transient reply state currently driving the Telegram chat UI, if any.
+   */
+  getActiveReplyState(): TelegramReplyState | null {
+    return this.activeReplyState;
   }
 
   /**
@@ -242,6 +255,65 @@ export class TelegramStore {
   }
 
   /**
+   * Start a transient AI reply state for the given chat so the UI can render
+   * a streaming placeholder before the final bot row is persisted.
+   */
+  beginReply(
+    chatId: number,
+    payload?: {
+      loadingMessage?: string;
+    }
+  ): TelegramReplyState {
+    const replyState: TelegramReplyState = {
+      chatId,
+      streamingMessageId: genLocalId(),
+      partialText: "",
+      loadingMessage: payload?.loadingMessage ?? "",
+      startedAt: Date.now(),
+    };
+
+    this.activeReplyState = replyState;
+    this.notify();
+    return replyState;
+  }
+
+  /**
+   * Update the visible transient reply state as new partial text arrives.
+   * Stale updates are ignored by matching on the streaming message ID.
+   */
+  updateReplyState(
+    streamingMessageId: string,
+    payload: {
+      partialText?: string;
+      loadingMessage?: string;
+    }
+  ): void {
+    if (!this.activeReplyState || this.activeReplyState.streamingMessageId !== streamingMessageId) {
+      return;
+    }
+
+    this.activeReplyState = {
+      ...this.activeReplyState,
+      partialText: payload.partialText ?? this.activeReplyState.partialText,
+      loadingMessage: payload.loadingMessage ?? this.activeReplyState.loadingMessage,
+    };
+    this.notify();
+  }
+
+  /**
+   * Clear the transient reply state once a generation has finished or failed.
+   * Stale clear requests are ignored by matching on the streaming message ID.
+   */
+  clearReplyState(streamingMessageId: string): void {
+    if (!this.activeReplyState || this.activeReplyState.streamingMessageId !== streamingMessageId) {
+      return;
+    }
+
+    this.activeReplyState = null;
+    this.notify();
+  }
+
+  /**
    * Append a message typed in the Obsidian input.
    * Always appends to thread.json (no dedup needed).
    */
@@ -288,7 +360,10 @@ export class TelegramStore {
   async appendBotMessage(
     text: string,
     chatId?: number,
-    source: TelegramStoredMessage["source"] = "telegram"
+    source: TelegramStoredMessage["source"] = "telegram",
+    payload?: {
+      localId?: string;
+    }
   ): Promise<TelegramStoredMessage> {
     return this.withWriteLock(async () => {
       const resolvedChatId = chatId ?? this.meta.primary_chat_id;
@@ -297,7 +372,7 @@ export class TelegramStore {
       }
 
       const stored: TelegramStoredMessage = {
-        local_id: genLocalId(),
+        local_id: payload?.localId ?? genLocalId(),
         chat_id: resolvedChatId,
         sender_name: "Bot",
         sender_type: "bot",
@@ -309,6 +384,9 @@ export class TelegramStore {
 
       this.thread.push(stored);
       await this.writeThread(this.thread);
+      if (payload?.localId && this.activeReplyState?.streamingMessageId === payload.localId) {
+        this.activeReplyState = null;
+      }
       this.notify();
       return stored;
     });

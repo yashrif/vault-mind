@@ -2,6 +2,8 @@ import { logInfo, logWarn } from "@/logger";
 import { requestUrl } from "obsidian";
 import type { TelegramBotInfo, TelegramUpdate } from "./TelegramTypes";
 
+type TelegramChatAction = "typing";
+
 /** Token-redacted string used in all log/error messages. */
 function redactToken(token: string): string {
   if (!token || token.length < 8) return "[REDACTED]";
@@ -188,6 +190,37 @@ export class TelegramClient {
           this.redactedId
         );
       }
+    }
+  }
+
+  /**
+   * Sends a transient chat action to Telegram, such as "typing".
+   * Telegram clears these indicators automatically after a short period, so
+   * callers should heartbeat them while long generations are in progress.
+   * @param chatId - Telegram chat ID to update.
+   * @param action - Bot API chat action identifier.
+   */
+  async sendChatAction(chatId: number, action: TelegramChatAction): Promise<void> {
+    const url = `${this.baseUrl}/sendChatAction`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action }),
+    });
+    if (resp.status === 401) {
+      throw new TelegramUnauthorizedError(this.redactedId);
+    }
+    if (resp.status === 429) {
+      const retryAfter = Number(resp.headers.get("Retry-After") ?? 5);
+      throw new TelegramRateLimitError(retryAfter);
+    }
+    const data = await resp.json();
+    if (!data.ok) {
+      throw new TelegramApiError(
+        data.error_code ?? 0,
+        data.description ?? "sendChatAction failed",
+        this.redactedId
+      );
     }
   }
 }

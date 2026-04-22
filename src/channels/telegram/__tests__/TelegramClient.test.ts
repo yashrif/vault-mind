@@ -166,4 +166,37 @@ describe("TelegramClient", () => {
       );
     });
   });
+
+  describe("sendChatAction", () => {
+    it("posts typing status successfully", async () => {
+      mockFetch.mockResolvedValueOnce(makeResponse({ ok: true, result: true }));
+
+      await expect(client.sendChatAction(42, "typing")).resolves.toBeUndefined();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `https://api.telegram.org/bot${TOKEN}/sendChatAction`,
+        expect.objectContaining({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: 42, action: "typing" }),
+        })
+      );
+    });
+
+    it("throws TelegramRateLimitError on 429", async () => {
+      mockFetch.mockResolvedValueOnce(makeResponse({}, 429, { "Retry-After": "7" }));
+
+      await expect(client.sendChatAction(42, "typing")).rejects.toBeInstanceOf(
+        TelegramRateLimitError
+      );
+    });
+
+    it("throws TelegramUnauthorizedError on 401", async () => {
+      mockFetch.mockResolvedValueOnce(makeResponse({}, 401));
+
+      await expect(client.sendChatAction(42, "typing")).rejects.toBeInstanceOf(
+        TelegramUnauthorizedError
+      );
+    });
+  });
 });

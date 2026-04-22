@@ -36,22 +36,30 @@ jest.mock("@/core/MessagePreparationService", () => ({
 // ─── Mock TelegramClient ───────────────────────────────────────────────────
 
 const mockSendMessage = jest.fn();
+const mockSendChatAction = jest.fn();
 
 jest.mock("../TelegramClient", () => ({
   TelegramClient: jest.fn().mockImplementation(() => ({
     sendMessage: mockSendMessage,
+    sendChatAction: mockSendChatAction,
   })),
 }));
 
 // ─── Mock TelegramStore ────────────────────────────────────────────────────
 
 const mockGetVisibleMessages = jest.fn();
+const mockBeginReply = jest.fn();
+const mockUpdateReplyState = jest.fn();
+const mockClearReplyState = jest.fn();
 const mockAppendBotMessage = jest.fn();
 const mockUpdateMessagePromptState = jest.fn();
 
 jest.mock("../TelegramStore", () => ({
   TelegramStore: jest.fn().mockImplementation(() => ({
     getVisibleMessages: mockGetVisibleMessages,
+    beginReply: mockBeginReply,
+    updateReplyState: mockUpdateReplyState,
+    clearReplyState: mockClearReplyState,
     appendBotMessage: mockAppendBotMessage,
     updateMessagePromptState: mockUpdateMessagePromptState,
   })),
@@ -115,9 +123,19 @@ describe("TelegramAgent", () => {
     client = new TelegramClient("token");
     store = new TelegramStore();
     mockGetVisibleMessages.mockReturnValue([]);
+    mockBeginReply.mockImplementation((chatId: number) => ({
+      chatId,
+      streamingMessageId: `stream-${chatId}`,
+      partialText: "",
+      loadingMessage: "",
+      startedAt: Date.now(),
+    }));
+    mockUpdateReplyState.mockReset();
+    mockClearReplyState.mockReset();
     mockAppendBotMessage.mockResolvedValue(undefined);
     mockUpdateMessagePromptState.mockResolvedValue(undefined);
     mockSendMessage.mockResolvedValue(undefined);
+    mockSendChatAction.mockResolvedValue(undefined);
     mockExtractFileContent.mockResolvedValue("Parsed attachment text");
     mockIsImageFile.mockReturnValue(false);
     originalApp = global.app;
@@ -257,7 +275,11 @@ describe("TelegramAgent", () => {
 
     expect(runChain).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).not.toHaveBeenCalled();
-    expect(mockAppendBotMessage).toHaveBeenCalledWith("local reply", 42, "obsidian");
+    expect(mockSendChatAction).not.toHaveBeenCalled();
+    expect(mockAppendBotMessage).toHaveBeenCalledWith("local reply", 42, "obsidian", {
+      localId: "stream-42",
+    });
+    expect(mockClearReplyState).toHaveBeenCalledWith("stream-42");
   });
 
   // ── 3. Happy path ─────────────────────────────────────────────────────────
@@ -271,10 +293,11 @@ describe("TelegramAgent", () => {
         async (
           _userMsg: unknown,
           _abort: unknown,
-          _onPartial: unknown,
+          onPartial: (text: string) => void,
           addMessage: (m: { message: string }) => void
         ) => {
           callOrder.push("runChain");
+          onPartial("I am the AI");
           addMessage({ message: "I am the AI reply" });
         }
       );
@@ -294,8 +317,15 @@ describe("TelegramAgent", () => {
     await flushQueue();
 
     expect(runChain).toHaveBeenCalledTimes(1);
+    expect(mockSendChatAction).toHaveBeenCalledWith(42, "typing");
+    expect(mockUpdateReplyState).toHaveBeenCalledWith("stream-42", {
+      partialText: "I am the AI",
+    });
     expect(mockSendMessage).toHaveBeenCalledWith(42, "I am the AI reply");
-    expect(mockAppendBotMessage).toHaveBeenCalledWith("I am the AI reply", 42, "telegram");
+    expect(mockAppendBotMessage).toHaveBeenCalledWith("I am the AI reply", 42, "telegram", {
+      localId: "stream-42",
+    });
+    expect(mockClearReplyState).toHaveBeenCalledWith("stream-42");
     expect(callOrder).toEqual(["runChain", "sendMessage", "appendBotMessage"]);
   });
 
@@ -378,8 +408,10 @@ describe("TelegramAgent", () => {
     expect(mockAppendBotMessage).toHaveBeenCalledWith(
       "Sorry, I couldn't respond right now.",
       42,
-      "telegram"
+      "telegram",
+      { localId: "stream-42" }
     );
+    expect(mockClearReplyState).toHaveBeenCalledWith("stream-42");
   });
 
   // ── 6. Chain error → fallback send fails; appendBotMessage is NOT called ──
@@ -395,6 +427,7 @@ describe("TelegramAgent", () => {
     await flushQueue();
 
     expect(mockAppendBotMessage).not.toHaveBeenCalled();
+    expect(mockClearReplyState).toHaveBeenCalledWith("stream-42");
   });
 
   // ── 7. Obsidian-source chain error → local fallback append; no Telegram send ──
@@ -409,11 +442,14 @@ describe("TelegramAgent", () => {
     await flushQueue();
 
     expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(mockSendChatAction).not.toHaveBeenCalled();
     expect(mockAppendBotMessage).toHaveBeenCalledWith(
       "Sorry, I couldn't respond right now.",
       42,
-      "obsidian"
+      "obsidian",
+      { localId: "stream-42" }
     );
+    expect(mockClearReplyState).toHaveBeenCalledWith("stream-42");
   });
 
   // ── 8. dispose() is idempotent ────────────────────────────────────────────

@@ -229,6 +229,74 @@ describe("TelegramStore", () => {
       expect(botMessage.source).toBe("obsidian");
       expect(botMessage.sender_type).toBe("bot");
     });
+
+    it("reuses the transient streaming ID and clears reply state in one notify cycle", async () => {
+      const listener = jest.fn();
+      store.subscribe(listener);
+      const replyState = store.beginReply(111);
+
+      listener.mockClear();
+      await store.appendBotMessage("streamed reply", 111, "telegram", {
+        localId: replyState.streamingMessageId,
+      });
+
+      const msgs = store.getVisibleMessages();
+      const botMessage = msgs[msgs.length - 1];
+      expect(botMessage.local_id).toBe(replyState.streamingMessageId);
+      expect(store.getActiveReplyState()).toBeNull();
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("transient reply state", () => {
+    beforeEach(async () => {
+      setupEmptyVault();
+      await store.initialize();
+    });
+
+    it("begins, updates, and clears in-memory reply state", () => {
+      const listener = jest.fn();
+      store.subscribe(listener);
+
+      const replyState = store.beginReply(111, { loadingMessage: "Reading files" });
+      expect(store.getActiveReplyState()).toEqual(
+        expect.objectContaining({
+          chatId: 111,
+          streamingMessageId: replyState.streamingMessageId,
+          partialText: "",
+          loadingMessage: "Reading files",
+        })
+      );
+
+      store.updateReplyState(replyState.streamingMessageId, { partialText: "Hello" });
+      expect(store.getActiveReplyState()).toEqual(
+        expect.objectContaining({
+          partialText: "Hello",
+        })
+      );
+
+      store.clearReplyState(replyState.streamingMessageId);
+      expect(store.getActiveReplyState()).toBeNull();
+      expect(listener).toHaveBeenCalledTimes(3);
+    });
+
+    it("ignores stale reply-state updates and clears", () => {
+      const replyState = store.beginReply(111);
+
+      store.updateReplyState("other-id", { partialText: "ignored" });
+      expect(store.getActiveReplyState()).toEqual(
+        expect.objectContaining({
+          partialText: "",
+        })
+      );
+
+      store.clearReplyState("other-id");
+      expect(store.getActiveReplyState()).toEqual(
+        expect.objectContaining({
+          streamingMessageId: replyState.streamingMessageId,
+        })
+      );
+    });
   });
 
   describe("updateMessagePromptState", () => {

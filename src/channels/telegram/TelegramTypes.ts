@@ -36,6 +36,23 @@ export interface TelegramStoredMessage {
   stored_at: number;
 }
 
+/**
+ * Transient in-memory state for a Telegram AI reply that is currently being generated.
+ * This is never persisted to disk; it only powers live UI updates and streaming bubbles.
+ */
+export interface TelegramReplyState {
+  /** Chat currently receiving the reply. */
+  chatId: number;
+  /** Stable ID shared by the temporary streaming row and the final persisted bot message. */
+  streamingMessageId: string;
+  /** Latest partial assistant text emitted by the chain. */
+  partialText: string;
+  /** Optional loader label shown before or alongside partial output. */
+  loadingMessage: string;
+  /** Date.now() when the transient reply state was created. */
+  startedAt: number;
+}
+
 /** Persisted meta.json shape. */
 export interface TelegramMeta {
   bot_id: number;

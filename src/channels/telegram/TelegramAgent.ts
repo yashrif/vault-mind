@@ -1,4 +1,4 @@
-import { AI_SENDER, USER_SENDER } from "@/constants";
+import { AI_SENDER, LOADING_MESSAGES, USER_SENDER } from "@/constants";
 import type ChainManager from "@/LLMProviders/chainManager";
 import MemoryManager from "@/LLMProviders/memoryManager";
 import { ChainType } from "@/chainFactory";
@@ -28,6 +28,8 @@ interface PreparedTelegramPromptState {
   content?: ChatMessage["content"];
   context?: MessageContext;
 }
+
+const TELEGRAM_TYPING_HEARTBEAT_MS = 4000;
 
 /**
  * Orchestrates AI auto-replies for the Telegram channel.
@@ -91,51 +93,61 @@ export class TelegramAgent {
   private async runReply(msg: TelegramStoredMessage): Promise<void> {
     logInfo(`[TelegramAgent] Generating reply for chat ${msg.chat_id}: "${msg.text.slice(0, 80)}"`);
     const shouldSendToTelegram = msg.source === "telegram";
-    const { repo, currentMessageId } = await this.buildTransientMessageRepo(msg);
-    const historyMessages = repo
-      .getLLMMessages()
-      .filter((message) => message.id !== currentMessageId);
-
-    await updateChatMemory(historyMessages, this.telegramMemory);
-
-    const currentMessage = repo.getMessage(currentMessageId);
-    if (!currentMessage) {
-      throw new Error(`Failed to materialize Telegram message ${currentMessageId}`);
-    }
-
-    const { preparedMessage, processedContent, contextEnvelope } =
-      await this.messagePreparationService.prepareMessage({
-        message: currentMessage,
-        messageRepo: repo,
-        chainType: ChainType.TELEGRAM_CHAIN,
-        vault: this.chainManager.app?.vault ?? app.vault,
-        runtimePolicy: this.runtimePolicy,
-        includeActiveNote: false,
-        activeNote: null,
-      });
-    if (!contextEnvelope) {
-      throw new Error("Telegram shared preparation did not produce a context envelope.");
-    }
-    repo.updateProcessedText(currentMessageId, processedContent, contextEnvelope);
-    await this.store.updateMessagePromptState(msg, {
-      processedText: processedContent,
-      contextEnvelope,
+    const replyState = this.store.beginReply(msg.chat_id, {
+      loadingMessage: LOADING_MESSAGES.DEFAULT,
     });
-
-    // Run chain pinned to TELEGRAM_CHAIN so UI chain-type changes don't affect it.
-    // Pass telegramMemory via options — no global mutation of chainManager.memoryManager.
-    const abortController = new AbortController();
-    let finalText = "";
-
+    const stopTypingHeartbeat = shouldSendToTelegram
+      ? this.startTypingHeartbeat(msg.chat_id)
+      : () => {};
     try {
+      const { repo, currentMessageId } = await this.buildTransientMessageRepo(msg);
+      const historyMessages = repo
+        .getLLMMessages()
+        .filter((message) => message.id !== currentMessageId);
+
+      await updateChatMemory(historyMessages, this.telegramMemory);
+
+      const currentMessage = repo.getMessage(currentMessageId);
+      if (!currentMessage) {
+        throw new Error(`Failed to materialize Telegram message ${currentMessageId}`);
+      }
+
+      const { preparedMessage, processedContent, contextEnvelope } =
+        await this.messagePreparationService.prepareMessage({
+          message: currentMessage,
+          messageRepo: repo,
+          chainType: ChainType.TELEGRAM_CHAIN,
+          vault: this.chainManager.app?.vault ?? app.vault,
+          runtimePolicy: this.runtimePolicy,
+          includeActiveNote: false,
+          activeNote: null,
+        });
+      if (!contextEnvelope) {
+        throw new Error("Telegram shared preparation did not produce a context envelope.");
+      }
+      repo.updateProcessedText(currentMessageId, processedContent, contextEnvelope);
+      await this.store.updateMessagePromptState(msg, {
+        processedText: processedContent,
+        contextEnvelope,
+      });
+
+      // Run chain pinned to TELEGRAM_CHAIN so UI chain-type changes don't affect it.
+      // Pass telegramMemory via options — no global mutation of chainManager.memoryManager.
+      const abortController = new AbortController();
+      let finalText = "";
+      let partialText = "";
+
       await this.chainManager.runChain(
         preparedMessage,
         abortController,
-        (_partial: string) => {
-          // Streaming partial — no-op; we only need the final text
+        (nextPartialText: string) => {
+          partialText = nextPartialText;
+          this.store.updateReplyState(replyState.streamingMessageId, {
+            partialText: nextPartialText,
+          });
         },
         (finalMessage: ChatMessage) => {
-          finalText = finalMessage.message ?? "";
+          finalText = finalMessage.message ?? partialText;
         },
         {
           debug: false,
@@ -144,6 +156,8 @@ export class TelegramAgent {
           runtimePolicy: this.runtimePolicy,
         }
       );
+
+      finalText = finalText || partialText;
 
       if (!finalText) {
         logError("[TelegramAgent] Chain returned empty response.");
@@ -160,7 +174,8 @@ export class TelegramAgent {
       await this.store.appendBotMessage(
         finalText,
         msg.chat_id,
-        shouldSendToTelegram ? "telegram" : "obsidian"
+        shouldSendToTelegram ? "telegram" : "obsidian",
+        { localId: replyState.streamingMessageId }
       );
 
       logInfo(`[TelegramAgent] Reply sent to chat ${msg.chat_id} (${finalText.length} chars).`);
@@ -171,24 +186,61 @@ export class TelegramAgent {
         try {
           await this.client.sendMessage(msg.chat_id, fallbackText);
           // Persist only when the fallback send succeeded — never store an unsent Telegram message.
-          await this.store.appendBotMessage(fallbackText, msg.chat_id, "telegram");
+          await this.store.appendBotMessage(fallbackText, msg.chat_id, "telegram", {
+            localId: replyState.streamingMessageId,
+          });
         } catch (sendErr) {
           logError("[TelegramAgent] Also failed to send error message:", sendErr);
         }
       } else {
         try {
           // Local-only fallback for messages authored in Obsidian.
-          await this.store.appendBotMessage(fallbackText, msg.chat_id, "obsidian");
+          await this.store.appendBotMessage(fallbackText, msg.chat_id, "obsidian", {
+            localId: replyState.streamingMessageId,
+          });
         } catch (storeErr) {
           logError("[TelegramAgent] Also failed to persist local fallback message:", storeErr);
         }
       }
+    } finally {
+      stopTypingHeartbeat();
+      this.store.clearReplyState(replyState.streamingMessageId);
     }
   }
 
   /** Release the settings-change subscription held by the isolated MemoryManager. */
   dispose(): void {
     this.telegramMemory.dispose();
+  }
+
+  /**
+   * Keep Telegram's native typing indicator alive while a long-running reply
+   * is being generated. Individual heartbeat failures are logged and ignored.
+   */
+  private startTypingHeartbeat(chatId: number): () => void {
+    let stopped = false;
+
+    const sendHeartbeat = async () => {
+      if (stopped) {
+        return;
+      }
+
+      try {
+        await this.client.sendChatAction(chatId, "typing");
+      } catch (err) {
+        logWarn("[TelegramAgent] Failed to send typing heartbeat:", err);
+      }
+    };
+
+    void sendHeartbeat();
+    const intervalId = setInterval(() => {
+      void sendHeartbeat();
+    }, TELEGRAM_TYPING_HEARTBEAT_MS);
+
+    return () => {
+      stopped = true;
+      clearInterval(intervalId);
+    };
   }
 
   /**

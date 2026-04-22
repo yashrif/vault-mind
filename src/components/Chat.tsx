@@ -18,7 +18,7 @@ import { logInfo, logError } from "@/logger";
 import type { WebTabContext } from "@/types/message";
 import { mapTelegramMessagesToChatMessages } from "@/channels/telegram/TelegramMessageAdapter";
 import type { TelegramStore } from "@/channels/telegram/TelegramStore";
-import type { TelegramStoredMessage } from "@/channels/telegram/TelegramTypes";
+import type { TelegramReplyState, TelegramStoredMessage } from "@/channels/telegram/TelegramTypes";
 import { ChatControls, reloadCurrentProject } from "@/components/chat-components/ChatControls";
 import ChatInput from "@/components/chat-components/ChatInput";
 import ChatMessages from "@/components/chat-components/ChatMessages";
@@ -231,6 +231,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   const [selectedChain, setSelectedChain] = useChainType();
   const telegramStore = (plugin as any).telegramChannelService?.store as TelegramStore | undefined;
   const [telegramMessages, setTelegramMessages] = useState<TelegramStoredMessage[]>([]);
+  const [telegramReplyState, setTelegramReplyState] = useState<TelegramReplyState | null>(null);
   const [telegramPrimaryChatId, setTelegramPrimaryChatId] = useState<number | null>(null);
   const [telegramAllowlistConfigured, setTelegramAllowlistConfigured] = useState(false);
 
@@ -255,6 +256,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   useEffect(() => {
     if (!telegramStore) {
       setTelegramMessages([]);
+      setTelegramReplyState(null);
       setTelegramPrimaryChatId(null);
       setTelegramAllowlistConfigured(false);
       return;
@@ -262,6 +264,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
     const refresh = () => {
       setTelegramMessages(telegramStore.getVisibleMessages());
+      setTelegramReplyState(telegramStore.getActiveReplyState());
       setTelegramPrimaryChatId(telegramStore.getMeta().primary_chat_id);
       setTelegramAllowlistConfigured(telegramStore.hasConfiguredAllowlist());
     };
@@ -930,10 +933,13 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
               latestTokenCount={null}
             />
 
-            {telegramChatHistory.length > 0 ? (
+            {telegramChatHistory.length > 0 || telegramReplyState ? (
               <ChatMessages
                 chatHistory={telegramChatHistory}
-                currentAiMessage=""
+                currentAiMessage={telegramReplyState?.partialText ?? ""}
+                streamingMessageId={telegramReplyState?.streamingMessageId}
+                loading={!!telegramReplyState}
+                loadingMessage={telegramReplyState?.loadingMessage}
                 app={app}
                 onRegenerate={() => {}}
                 onEdit={() => {}}
