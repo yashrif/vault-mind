@@ -167,6 +167,53 @@ describe("TelegramClient", () => {
     });
   });
 
+  describe("sendMessage", () => {
+    it("chunks plain text messages at the Bot API limit", async () => {
+      mockFetch.mockResolvedValue(makeResponse({ ok: true, result: { message_id: 1 } }));
+
+      await expect(client.sendMessage(42, "a".repeat(5000))).resolves.toBeUndefined();
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        `https://api.telegram.org/bot${TOKEN}/sendMessage`,
+        expect.objectContaining({
+          body: JSON.stringify({ chat_id: 42, text: "a".repeat(4096) }),
+        })
+      );
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        `https://api.telegram.org/bot${TOKEN}/sendMessage`,
+        expect.objectContaining({
+          body: JSON.stringify({ chat_id: 42, text: "a".repeat(904) }),
+        })
+      );
+    });
+
+    it("includes parse_mode for rich HTML messages", async () => {
+      mockFetch.mockResolvedValueOnce(makeResponse({ ok: true, result: { message_id: 1 } }));
+
+      await expect(
+        client.sendMessage(42, "<b>Hello</b>", { parseMode: "HTML" })
+      ).resolves.toBeUndefined();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `https://api.telegram.org/bot${TOKEN}/sendMessage`,
+        expect.objectContaining({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: 42, text: "<b>Hello</b>", parse_mode: "HTML" }),
+        })
+      );
+    });
+
+    it("rejects oversized formatted messages that were not pre-chunked", async () => {
+      await expect(client.sendMessage(42, "a".repeat(4097), { parseMode: "HTML" })).rejects.toThrow(
+        "pre-chunked"
+      );
+    });
+  });
+
   describe("sendChatAction", () => {
     it("posts typing status successfully", async () => {
       mockFetch.mockResolvedValueOnce(makeResponse({ ok: true, result: true }));

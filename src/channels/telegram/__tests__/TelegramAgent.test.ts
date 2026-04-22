@@ -332,9 +332,11 @@ describe("TelegramAgent", () => {
     expect(mockUpdateReplyState).toHaveBeenCalledWith("stream-42", {
       partialText: "**Partial**",
     });
-    expect(mockSendMessage).toHaveBeenCalledWith(42, "Reply\n\n• I am the AI reply");
+    expect(mockSendMessage).toHaveBeenCalledWith(42, "<b>Reply</b>\n\n• I am the <b>AI</b> reply", {
+      parseMode: "HTML",
+    });
     expect(mockAppendBotMessage).toHaveBeenCalledWith(
-      "Reply\n\n• I am the AI reply",
+      "# Reply\n\n- I am the **AI** reply",
       42,
       "telegram",
       {

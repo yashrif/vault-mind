@@ -13,7 +13,7 @@ import { arrayBufferToBase64 } from "@/utils/base64";
 import { extractFileContent, isImageFile } from "@/utils/fileContentExtractor";
 import { ChatMessage, MessageContext } from "@/types/message";
 import type { PromptContextEnvelope } from "@/context/PromptContextTypes";
-import { formatTelegramOutboundText } from "@/channels/telegram/telegramOutboundFormat";
+import { formatTelegramOutboundMessage } from "@/channels/telegram/telegramOutboundFormat";
 import {
   getTelegramStableMessageId,
   TelegramMessageRepositoryAdapter,
@@ -165,27 +165,32 @@ export class TelegramAgent {
         return;
       }
 
-      const outboundText = formatTelegramOutboundText(finalText);
-      if (!outboundText) {
+      const outboundPayload = formatTelegramOutboundMessage(finalText);
+      if (!outboundPayload.storageText || outboundPayload.transportMessages.length === 0) {
         logError("[TelegramAgent] Formatted Telegram response was empty.");
         return;
       }
 
       if (shouldSendToTelegram) {
-        // TelegramClient.sendMessage handles chunking at the Bot API 4096-char limit
-        await this.client.sendMessage(msg.chat_id, outboundText);
+        for (const transportMessage of outboundPayload.transportMessages) {
+          await this.client.sendMessage(msg.chat_id, transportMessage.text, {
+            parseMode: transportMessage.parseMode,
+          });
+        }
       }
 
       // Store the bot reply so TelegramChatView re-renders.
       // For obsidian-source turns, this is local-only and never sent to Telegram.
       await this.store.appendBotMessage(
-        outboundText,
+        outboundPayload.storageText,
         msg.chat_id,
         shouldSendToTelegram ? "telegram" : "obsidian",
         { localId: replyState.streamingMessageId }
       );
 
-      logInfo(`[TelegramAgent] Reply sent to chat ${msg.chat_id} (${outboundText.length} chars).`);
+      logInfo(
+        `[TelegramAgent] Reply sent to chat ${msg.chat_id} (${outboundPayload.storageText.length} chars).`
+      );
     } catch (err) {
       logError("[TelegramAgent] Failed to generate/send reply:", err);
       const fallbackText = "Sorry, I couldn't respond right now.";

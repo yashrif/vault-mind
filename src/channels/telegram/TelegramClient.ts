@@ -3,6 +3,11 @@ import { requestUrl } from "obsidian";
 import type { TelegramBotInfo, TelegramUpdate } from "./TelegramTypes";
 
 type TelegramChatAction = "typing";
+type TelegramParseMode = "HTML" | "MarkdownV2";
+
+interface TelegramSendMessageOptions {
+  parseMode?: TelegramParseMode;
+}
 
 /** Token-redacted string used in all log/error messages. */
 function redactToken(token: string): string {
@@ -158,22 +163,44 @@ export class TelegramClient {
 
   /**
    * Sends a text message to a Telegram chat.
-   * Automatically chunks text that exceeds the 4096-character Bot API limit.
+   * Plain-text sends are automatically chunked at the 4096-character Bot API limit.
+   * Rich formatted sends must already be pre-chunked so HTML/Markdown entities are
+   * never split across requests.
    * @param chatId - Telegram chat ID to send to.
    * @param text - The message text to send.
+   * @param options - Optional Telegram delivery options such as parse mode.
    */
-  async sendMessage(chatId: number, text: string): Promise<void> {
+  async sendMessage(
+    chatId: number,
+    text: string,
+    options?: TelegramSendMessageOptions
+  ): Promise<void> {
     const CHUNK_SIZE = 4096;
-    const chunks = [];
-    for (let i = 0; i < text.length; i += CHUNK_SIZE) {
-      chunks.push(text.slice(i, i + CHUNK_SIZE));
+    const chunks: string[] = [];
+
+    if (options?.parseMode) {
+      if (text.length > CHUNK_SIZE) {
+        throw new Error(
+          "Formatted Telegram messages must be pre-chunked before sendMessage is called."
+        );
+      }
+      chunks.push(text);
+    } else {
+      for (let i = 0; i < text.length; i += CHUNK_SIZE) {
+        chunks.push(text.slice(i, i + CHUNK_SIZE));
+      }
     }
+
     for (const chunk of chunks) {
       const url = `${this.baseUrl}/sendMessage`;
       const resp = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, text: chunk }),
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: chunk,
+          ...(options?.parseMode ? { parse_mode: options.parseMode } : {}),
+        }),
       });
       if (resp.status === 401) {
         throw new TelegramUnauthorizedError(this.redactedId);
