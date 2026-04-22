@@ -27,7 +27,7 @@ function MessageBubbleContent({ message }: { message: TelegramStoredMessage }) {
         {resourceUrl ? (
           <img src={resourceUrl} alt="Photo" className="tw-max-w-[260px] tw-rounded-md tw-object-cover" />
         ) : (
-          <span className="tw-italic tw-text-muted tw-text-xs">Photo (loading…)</span>
+          <span className="tw-text-xs tw-italic tw-text-muted">Photo (loading…)</span>
         )}
       </div>
     );
@@ -62,7 +62,7 @@ function MessageBubbleContent({ message }: { message: TelegramStoredMessage }) {
   const label = mediaLabel[message.text];
   if (label) {
     return (
-      <span className="tw-flex tw-items-center tw-gap-1.5 tw-italic tw-text-muted tw-text-xs">
+      <span className="tw-flex tw-items-center tw-gap-1.5 tw-text-xs tw-italic tw-text-muted">
         {label}
       </span>
     );

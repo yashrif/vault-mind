@@ -964,7 +964,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
       const mediaLabel = TELEGRAM_MEDIA_LABELS[message.message];
       if (mediaLabel) {
         return (
-          <span className="tw-flex tw-items-center tw-gap-1.5 tw-italic tw-text-muted tw-text-xs">
+          <span className="tw-flex tw-items-center tw-gap-1.5 tw-text-xs tw-italic tw-text-muted">
             {mediaLabel.icon}
             <span>{mediaLabel.label}</span>
           </span>
