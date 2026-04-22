@@ -102,8 +102,6 @@ jest.mock("@/commands/customCommandUtils", () => ({
   processPrompt: jest.fn(),
 }));
 
-jest.mock("./ContextCompactor", () => ({}));
-
 jest.mock("@/LLMProviders/chainRunner/utils/promptPayloadRecorder", () => ({
   recordPromptPayload: jest.fn(),
 }));
