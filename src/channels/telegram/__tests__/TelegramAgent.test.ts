@@ -283,6 +283,7 @@ describe("TelegramAgent", () => {
     expect(mockSendMessage).not.toHaveBeenCalled();
     expect(mockSendChatAction).not.toHaveBeenCalled();
     expect(mockAppendBotMessage).toHaveBeenCalledWith("local reply", 42, "obsidian", {
+      displayText: undefined,
       localId: "stream-42",
     });
     expect(mockClearReplyState).toHaveBeenCalledWith("stream-42");
@@ -340,6 +341,10 @@ describe("TelegramAgent", () => {
       42,
       "telegram",
       {
+        displayText: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+# Reply
+
+- I am the **AI** reply`,
         localId: "stream-42",
       }
     );
@@ -427,7 +432,7 @@ describe("TelegramAgent", () => {
       "Sorry, I couldn't respond right now.",
       42,
       "telegram",
-      { localId: "stream-42" }
+      { displayText: undefined, localId: "stream-42" }
     );
     expect(mockClearReplyState).toHaveBeenCalledWith("stream-42");
   });
@@ -465,7 +470,7 @@ describe("TelegramAgent", () => {
       "Sorry, I couldn't respond right now.",
       42,
       "obsidian",
-      { localId: "stream-42" }
+      { displayText: undefined, localId: "stream-42" }
     );
     expect(mockClearReplyState).toHaveBeenCalledWith("stream-42");
   });

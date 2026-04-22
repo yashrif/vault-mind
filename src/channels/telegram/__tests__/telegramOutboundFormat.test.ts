@@ -7,6 +7,7 @@ describe("formatTelegramOutboundMessage", () => {
 Hello!`;
 
     expect(formatTelegramOutboundMessage(input)).toEqual({
+      displayText: input,
       storageText: "Hello!",
       transportMessages: [{ parseMode: "HTML", text: "Hello!" }],
     });
@@ -21,6 +22,7 @@ Hello!`;
 - Check ~~old~~ updated notes`;
 
     expect(formatTelegramOutboundMessage(input)).toEqual({
+      displayText: input,
       storageText: input,
       transportMessages: [
         {
@@ -41,6 +43,7 @@ print("hi")
 \`\`\``;
 
     expect(formatTelegramOutboundMessage(input)).toEqual({
+      displayText: input,
       storageText: input,
       transportMessages: [
         {
@@ -55,8 +58,25 @@ print("hi")
     const input = "<|im_start|>assistant\nHello there!<|im_end|>";
 
     expect(formatTelegramOutboundMessage(input)).toEqual({
+      displayText: "assistant\nHello there!",
       storageText: "assistant\nHello there!",
       transportMessages: [{ parseMode: "HTML", text: "assistant\nHello there!" }],
+    });
+  });
+
+  it("preserves reasoning while still stripping tool markers from local display text", () => {
+    const input = `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+
+<!--TOOL_CALL_START:123:localSearch:Local Search:🔍::true-->Searching...<!--TOOL_CALL_END:123:Found 5 results-->
+
+Hello!`;
+
+    expect(formatTelegramOutboundMessage(input)).toEqual({
+      displayText: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+
+Hello!`,
+      storageText: "Hello!",
+      transportMessages: [{ parseMode: "HTML", text: "Hello!" }],
     });
   });
 });

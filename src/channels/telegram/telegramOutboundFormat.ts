@@ -24,6 +24,7 @@ export interface TelegramTransportMessage {
  * Final outbound payload for Telegram delivery plus local persistence.
  */
 export interface TelegramOutboundPayload {
+  displayText: string;
   storageText: string;
   transportMessages: TelegramTransportMessage[];
 }
@@ -58,6 +59,35 @@ const INLINE_PATTERNS: InlinePattern[] = [
   { kind: "italic", priority: 7, regex: /(^|[^\w])\*([^*\n]+)\*(?=[^\w]|$)/ },
   { kind: "italic", priority: 8, regex: /(^|[^\w])_([^_\n]+)_(?=[^\w]|$)/ },
 ];
+const REASONING_BLOCK_REGEX = /<!--AGENT_REASONING:\w+:\d+:.+?-->/g;
+const REASONING_PLACEHOLDER_PREFIX = "__TELEGRAM_REASONING_BLOCK_";
+
+/**
+ * Normalize raw model output into richer local display text while preserving
+ * reasoning blocks for the shared Obsidian chat UI.
+ *
+ * @param message - Raw assistant output.
+ * @returns Cleaned display text with reasoning preserved and other artifacts removed.
+ */
+function buildDisplayText(message: string): string {
+  const preservedReasoningBlocks: string[] = [];
+  const messageWithPlaceholders = stripSpecialTokens(message).replace(
+    REASONING_BLOCK_REGEX,
+    (reasoningBlock) => {
+      const reasoningIndex = preservedReasoningBlocks.push(reasoningBlock) - 1;
+      return `${REASONING_PLACEHOLDER_PREFIX}${reasoningIndex}__`;
+    }
+  );
+
+  return cleanMessageForCopy(messageWithPlaceholders)
+    .replace(
+      new RegExp(`${REASONING_PLACEHOLDER_PREFIX}(\\d+)__`, "g"),
+      (_match, indexText: string) => preservedReasoningBlocks[Number(indexText)] ?? ""
+    )
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 /**
  * Escape content for Telegram HTML parse mode.
@@ -731,12 +761,13 @@ function packTransportMessages(blocks: TelegramRenderBlock[]): TelegramTransport
  * @returns Rich Telegram transport chunks plus clean local storage text.
  */
 export function formatTelegramOutboundMessage(message: string): TelegramOutboundPayload {
+  const displayText = buildDisplayText(message);
   const storageText = buildStorageText(message);
   if (!storageText) {
-    return { storageText: "", transportMessages: [] };
+    return { displayText, storageText: "", transportMessages: [] };
   }
 
   const renderBlocks = buildTelegramRenderBlocks(storageText);
   const transportMessages = packTransportMessages(renderBlocks);
-  return { storageText, transportMessages };
+  return { displayText, storageText, transportMessages };
 }

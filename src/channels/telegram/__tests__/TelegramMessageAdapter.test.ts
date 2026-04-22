@@ -47,4 +47,27 @@ describe("TelegramMessageAdapter", () => {
     expect(mapped[0].id).toBe("telegram-55-99-0");
     expect(mapped[0].sender).toBe("user");
   });
+
+  it("prefers richer display text when present", () => {
+    const storedAt = 1_710_000_000_200;
+    const telegramMessage = {
+      local_id: "local-2",
+      chat_id: 123,
+      sender_name: "Bot",
+      sender_type: "bot" as const,
+      source: "telegram" as const,
+      text: "Hello from bot",
+      displayText: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+
+Hello from bot`,
+      date: Math.floor(storedAt / 1000),
+      stored_at: storedAt,
+    };
+
+    const chatMessage = mapTelegramMessageToChatMessage(telegramMessage, 0);
+
+    expect(chatMessage.message).toBe(`<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+
+Hello from bot`);
+  });
 });

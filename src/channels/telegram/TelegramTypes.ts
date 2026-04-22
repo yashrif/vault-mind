@@ -18,8 +18,14 @@ export interface TelegramStoredMessage {
    * - "obsidian": created locally in the plugin (including local-only bot replies)
    */
   source: "telegram" | "obsidian";
-  /** Plain text, or "[photo]" / "[document]" etc. for media messages. */
+  /** Plain text delivered to Telegram, or "[photo]" / "[document]" etc. for media messages. */
   text: string;
+  /**
+   * Optional richer local-only display text for plugin chat rendering.
+   * When present, the shared Obsidian chat UI prefers this over `text` so
+   * Telegram-safe transport text can coexist with local reasoning blocks.
+   */
+  displayText?: string;
   /** Vault-relative path to the saved media file (e.g. .copilot/telegram-state/media/…). */
   mediaPath?: string;
   /** MIME type of the media file (e.g. "image/jpeg", "application/pdf"). */

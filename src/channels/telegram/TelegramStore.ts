@@ -362,6 +362,7 @@ export class TelegramStore {
     chatId?: number,
     source: TelegramStoredMessage["source"] = "telegram",
     payload?: {
+      displayText?: string;
       localId?: string;
     }
   ): Promise<TelegramStoredMessage> {
@@ -378,6 +379,7 @@ export class TelegramStore {
         sender_type: "bot",
         source,
         text,
+        displayText: payload?.displayText,
         date: Math.floor(Date.now() / 1000),
         stored_at: Date.now(),
       };

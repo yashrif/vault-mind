@@ -35,6 +35,13 @@ function buildFallbackId(message: TelegramStoredMessage, index: number): string 
 }
 
 /**
+ * Resolve the text that should be shown in the shared Obsidian chat UI.
+ */
+export function getTelegramDisplayText(message: TelegramStoredMessage): string {
+  return message.displayText ?? message.text;
+}
+
+/**
  * Convert one Telegram stored message into the shared ChatMessage shape.
  * @param app - Obsidian App instance, used to resolve vault resource paths for images.
  */
@@ -52,7 +59,7 @@ export function mapTelegramMessageToChatMessage(
 
   return {
     id: message.local_id ?? buildFallbackId(message, index),
-    message: message.text,
+    message: getTelegramDisplayText(message),
     sender: mapSender(message.sender_type),
     timestamp: formatDateTime(getMessageTimestamp(message)),
     isVisible: true,

@@ -179,13 +179,21 @@ export class TelegramAgent {
         }
       }
 
+      const displayText =
+        outboundPayload.displayText !== outboundPayload.storageText
+          ? outboundPayload.displayText
+          : undefined;
+
       // Store the bot reply so TelegramChatView re-renders.
       // For obsidian-source turns, this is local-only and never sent to Telegram.
       await this.store.appendBotMessage(
         outboundPayload.storageText,
         msg.chat_id,
         shouldSendToTelegram ? "telegram" : "obsidian",
-        { localId: replyState.streamingMessageId }
+        {
+          displayText,
+          localId: replyState.streamingMessageId,
+        }
       );
 
       logInfo(

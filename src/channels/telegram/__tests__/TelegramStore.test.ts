@@ -230,6 +230,21 @@ describe("TelegramStore", () => {
       expect(botMessage.sender_type).toBe("bot");
     });
 
+    it("stores optional richer display text separately from the Telegram-safe text", async () => {
+      await store.appendBotMessage("Hello!", 111, "telegram", {
+        displayText: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+
+Hello!`,
+      });
+
+      const msgs = store.getVisibleMessages();
+      const botMessage = msgs[msgs.length - 1];
+      expect(botMessage.text).toBe("Hello!");
+      expect(botMessage.displayText).toBe(`<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+
+Hello!`);
+    });
+
     it("reuses the transient streaming ID and clears reply state in one notify cycle", async () => {
       const listener = jest.fn();
       store.subscribe(listener);
