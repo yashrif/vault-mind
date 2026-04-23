@@ -279,3 +279,10 @@ The TODO.md should be:
   - Non-project chats stored in default repository
   - Backwards compatible - loads existing messages from ProjectManager cache
   - Zero configuration required - works automatically
+
+<!-- SPECKIT START -->
+
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+
+<!-- SPECKIT END -->
