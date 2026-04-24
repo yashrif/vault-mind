@@ -5,7 +5,12 @@ import { TruncatedText } from "@/components/TruncatedText";
 import { getDomainFromUrl } from "@/utils";
 import { cn } from "@/lib/utils";
 import { ContextBadgeWrapper } from "./ContextBadgeWrapper";
-import { AttachedFileContent, SelectedTextContext, WebTabContext, isWebSelectedTextContext } from "@/types/message";
+import {
+  AttachedFileContent,
+  SelectedTextContext,
+  WebTabContext,
+  isWebSelectedTextContext,
+} from "@/types/message";
 
 interface BaseContextBadgeProps {
   onRemove?: () => void;

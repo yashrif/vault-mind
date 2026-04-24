@@ -1,5 +1,4 @@
 import { logInfo, logWarn } from "@/logger";
-import { isSelfHostModeValid } from "@/plusUtils";
 import { getSettings, CopilotSettings } from "@/settings/model";
 import { App } from "obsidian";
 import { SelfHostRetriever, VectorSearchBackend } from "./selfHostRetriever";
@@ -138,48 +137,19 @@ export class RetrieverFactory {
     // Normalize options with defaults
     const normalizedOptions = normalizeOptions(options);
 
-    // Self-host mode handling - requires valid validation (within grace period)
-    if (isSelfHostModeValid()) {
-      // If URL is configured, try to use self-host backend (API key is optional)
-      if (currentSettings.selfHostUrl) {
-        const backend = await RetrieverFactory.getSelfHostedBackend(currentSettings);
-        if (backend) {
-          const retriever = new SelfHostRetriever(app, backend, normalizedOptions);
-          logInfo("RetrieverFactory: Using self-host mode backend");
-          return {
-            retriever,
-            type: "self_hosted",
-            reason: "Self-host mode is enabled and backend is available",
-          };
-        }
-        logWarn("RetrieverFactory: Self-host mode backend unavailable, falling back");
-      } else {
-        logInfo("RetrieverFactory: Self-host mode enabled but URL not configured, falling back");
-      }
-
-      // Self-host mode fallback: use semantic if enabled, otherwise lexical
-      if (currentSettings.enableSemanticSearchV3) {
-        const retriever = new MergedSemanticRetriever(app, normalizedOptions);
-        logInfo(
-          "RetrieverFactory: Using MergedSemanticRetriever (semantic search fallback for self-host mode)"
-        );
+    // Self-host mode handling
+    if (currentSettings.selfHostUrl) {
+      const backend = await RetrieverFactory.getSelfHostedBackend(currentSettings);
+      if (backend) {
+        const retriever = new SelfHostRetriever(app, backend, normalizedOptions);
+        logInfo("RetrieverFactory: Using self-host mode backend");
         return {
           retriever,
-          type: "semantic",
-          reason: "Self-host mode fallback to semantic search",
+          type: "self_hosted",
+          reason: "Self-host mode is enabled and backend is available",
         };
       }
-
-      // Semantic search not enabled, fall back to lexical
-      const retriever = new TieredLexicalRetriever(app, normalizedOptions);
-      logInfo(
-        "RetrieverFactory: Using TieredLexicalRetriever (lexical search fallback for self-host mode)"
-      );
-      return {
-        retriever,
-        type: "lexical",
-        reason: "Self-host mode fallback to lexical search (semantic disabled)",
-      };
+      logWarn("RetrieverFactory: Self-host mode backend unavailable, falling back");
     }
 
     // Standard mode: check enableSemanticSearchV3 setting
@@ -269,17 +239,9 @@ export class RetrieverFactory {
   ): "self_hosted" | "semantic" | "lexical" {
     const currentSettings = settings ? { ...getSettings(), ...settings } : getSettings();
 
-    // Self-host mode handling - requires valid validation (within grace period)
-    if (isSelfHostModeValid()) {
-      // URL configured with backend available → self_hosted (API key is optional)
-      if (currentSettings.selfHostUrl && RetrieverFactory.selfHostedBackend) {
-        return "self_hosted";
-      }
-      // Self-host mode enabled but not ready → check semantic setting
-      if (currentSettings.enableSemanticSearchV3) {
-        return "semantic";
-      }
-      return "lexical";
+    // Self-host mode handling
+    if (currentSettings.selfHostUrl && RetrieverFactory.selfHostedBackend) {
+      return "self_hosted";
     }
 
     // Standard mode

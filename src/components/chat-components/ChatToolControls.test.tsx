@@ -105,12 +105,7 @@ describe("ChatToolControls autonomous behavior", () => {
   });
 
   it("does not render tool controls in Telegram chain", () => {
-    render(
-      <ChatToolControls
-        {...baseProps}
-        currentChain={ChainType.TELEGRAM_CHAIN}
-      />
-    );
+    render(<ChatToolControls {...baseProps} currentChain={ChainType.TELEGRAM_CHAIN} />);
 
     expect(screen.queryByTestId("brain-icon")).toBeNull();
     expect(setAutonomousAgentToggle).not.toHaveBeenCalled();

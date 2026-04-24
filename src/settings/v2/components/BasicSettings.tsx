@@ -194,11 +194,6 @@ export const BasicSettings: React.FC = () => {
                           <strong>Vault QA (Basic):</strong> Ask questions about your vault content
                           with semantic search. <i>Free to use with your own API key.</i>
                         </li>
-                        <li>
-                          <strong>Agentic Copilot:</strong> Covers all features of the 2 free modes,
-                          plus advanced features including chat context menu, advanced search, AI
-                          agents, and more.
-                        </li>
                       </ul>
                     </div>
                   }

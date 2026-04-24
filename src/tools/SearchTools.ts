@@ -3,7 +3,6 @@ import { TEXT_WEIGHT } from "@/constants";
 import { BrevilabsClient } from "@/LLMProviders/brevilabsClient";
 import { hasSelfHostSearchKey, selfHostWebSearch } from "@/LLMProviders/selfHostServices";
 import { logInfo } from "@/logger";
-import { isSelfHostModeValid } from "@/plusUtils";
 import { RetrieverFactory } from "@/search/RetrieverFactory";
 import { getSettings } from "@/settings/model";
 import { z } from "zod";
@@ -473,7 +472,7 @@ const webSearchTool = createLangChainTool({
       let webContent: string;
       let citations: string[];
 
-      if (isSelfHostModeValid() && hasSelfHostSearchKey()) {
+      if (hasSelfHostSearchKey()) {
         const result = await selfHostWebSearch(standaloneQuestion);
         webContent = result.content;
         citations = result.citations;

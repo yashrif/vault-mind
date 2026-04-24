@@ -25,7 +25,11 @@ function MessageBubbleContent({ message }: { message: TelegramStoredMessage }) {
     return (
       <div className="tw-flex tw-flex-col tw-gap-1">
         {resourceUrl ? (
-          <img src={resourceUrl} alt="Photo" className="tw-max-w-[260px] tw-rounded-md tw-object-cover" />
+          <img
+            src={resourceUrl}
+            alt="Photo"
+            className="tw-max-w-[260px] tw-rounded-md tw-object-cover"
+          />
         ) : (
           <span className="tw-text-xs tw-italic tw-text-muted">Photo (loading…)</span>
         )}
@@ -39,9 +43,9 @@ function MessageBubbleContent({ message }: { message: TelegramStoredMessage }) {
       "audio/": <Mic className="tw-size-3.5" />,
       "video/": <Video className="tw-size-3.5" />,
     };
-    const icon =
-      Object.entries(mediaIcon).find(([prefix]) => message.mediaType?.startsWith(prefix))?.[1] ??
-      <FileText className="tw-size-3.5" />;
+    const icon = Object.entries(mediaIcon).find(([prefix]) =>
+      message.mediaType?.startsWith(prefix)
+    )?.[1] ?? <FileText className="tw-size-3.5" />;
     return (
       <span className="tw-flex tw-items-center tw-gap-1.5 tw-text-xs">
         {icon}
@@ -52,12 +56,42 @@ function MessageBubbleContent({ message }: { message: TelegramStoredMessage }) {
 
   // Placeholder text for messages without downloaded media
   const mediaLabel: Record<string, React.ReactNode> = {
-    "[voice]": <><Mic className="tw-size-3.5" /><span>Voice message</span></>,
-    "[audio]": <><Music className="tw-size-3.5" /><span>Audio</span></>,
-    "[video]": <><Video className="tw-size-3.5" /><span>Video</span></>,
-    "[document]": <><FileText className="tw-size-3.5" /><span>Document</span></>,
-    "[sticker]": <><Sticker className="tw-size-3.5" /><span>Sticker</span></>,
-    "[photo]": <><FileText className="tw-size-3.5" /><span>Photo</span></>,
+    "[voice]": (
+      <>
+        <Mic className="tw-size-3.5" />
+        <span>Voice message</span>
+      </>
+    ),
+    "[audio]": (
+      <>
+        <Music className="tw-size-3.5" />
+        <span>Audio</span>
+      </>
+    ),
+    "[video]": (
+      <>
+        <Video className="tw-size-3.5" />
+        <span>Video</span>
+      </>
+    ),
+    "[document]": (
+      <>
+        <FileText className="tw-size-3.5" />
+        <span>Document</span>
+      </>
+    ),
+    "[sticker]": (
+      <>
+        <Sticker className="tw-size-3.5" />
+        <span>Sticker</span>
+      </>
+    ),
+    "[photo]": (
+      <>
+        <FileText className="tw-size-3.5" />
+        <span>Photo</span>
+      </>
+    ),
   };
   const label = mediaLabel[message.text];
   if (label) {
@@ -158,9 +192,13 @@ export const TelegramChatView: React.FC<TelegramChatViewProps> = ({ store, onRes
             <span className="tw-text-2xl">✈️</span>
             {!allowlistConfigured ? (
               <>
-                <p className="tw-text-sm tw-font-medium tw-text-normal">Get started with Telegram</p>
+                <p className="tw-text-sm tw-font-medium tw-text-normal">
+                  Get started with Telegram
+                </p>
                 <ol className="tw-list-none tw-space-y-1 tw-text-left tw-text-xs tw-text-muted">
-                  <li>1. Open <strong>Settings → Copilot → Telegram → Allowed Chat IDs</strong></li>
+                  <li>
+                    1. Open <strong>Settings → Copilot → Telegram → Allowed Chat IDs</strong>
+                  </li>
                   <li>2. Add your chat ID, then DM the bot from that chat to bind it</li>
                   <li>3. Once bound, the send field unlocks and you can chat</li>
                 </ol>
@@ -176,7 +214,10 @@ export const TelegramChatView: React.FC<TelegramChatViewProps> = ({ store, onRes
         ) : (
           <div className="tw-flex tw-flex-col tw-gap-2">
             {messages.map((m, i) => (
-              <MessageBubble key={m.local_id ?? m.update_id ?? `obs-${m.stored_at}-${i}`} message={m} />
+              <MessageBubble
+                key={m.local_id ?? m.update_id ?? `obs-${m.stored_at}-${i}`}
+                message={m}
+              />
             ))}
             <div ref={bottomRef} />
           </div>

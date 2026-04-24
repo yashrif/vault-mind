@@ -82,8 +82,18 @@ describe("TelegramChatView", () => {
       allowlistConfigured: true,
       primaryChatId: 42,
       messages: [
-        makeMessage({ local_id: "uuid-1", text: "Hello bot", sender_type: "user", sender_name: "Alice" }),
-        makeMessage({ local_id: "uuid-2", text: "Hello human", sender_type: "bot", sender_name: "Bot" }),
+        makeMessage({
+          local_id: "uuid-1",
+          text: "Hello bot",
+          sender_type: "user",
+          sender_name: "Alice",
+        }),
+        makeMessage({
+          local_id: "uuid-2",
+          text: "Hello human",
+          sender_type: "bot",
+          sender_name: "Bot",
+        }),
       ],
     });
     render(<TelegramChatView store={store} />);

@@ -127,18 +127,6 @@ export interface CopilotSettings {
   enableCustomPromptTemplating: boolean;
   /** Enable semantic search using Orama for meaning-based document retrieval */
   enableSemanticSearchV3: boolean;
-  /** Enable self-host mode — uses user-configured backends for search, YouTube transcripts, etc. */
-  enableSelfHostMode: boolean;
-  /** Timestamp of last successful validation for self-host mode (null if never validated) */
-  selfHostModeValidatedAt: number | null;
-  /** Count of successful periodic validations (3 = permanently valid) */
-  selfHostValidationCount: number;
-  /** URL endpoint for the self-host mode backend */
-  selfHostUrl: string;
-  /** API key for the self-host mode backend (if required) */
-  selfHostApiKey: string;
-  /** Which provider to use for self-host web search */
-  selfHostSearchProvider: "firecrawl" | "perplexity";
   /** Firecrawl API key for self-host web search */
   firecrawlApiKey: string;
   /** Perplexity API key for self-host web search via Sonar */
@@ -345,12 +333,6 @@ export function useSettingsValue(): Readonly<CopilotSettings> {
 export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
   // If settings is null/undefined, use DEFAULT_SETTINGS
   const settingsToSanitize = settings || DEFAULT_SETTINGS;
-  const rawSettings = settingsToSanitize as unknown as Record<string, unknown>;
-  const {
-    enableSelfHostedSearch: legacyEnableSelfHostedSearch,
-    selfHostedSearchUrl: legacySelfHostedSearchUrl,
-    selfHostedSearchApiKey: legacySelfHostedSearchApiKey,
-  } = rawSettings;
 
   if (!settingsToSanitize.userId) {
     settingsToSanitize.userId = uuidv4();

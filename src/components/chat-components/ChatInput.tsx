@@ -763,7 +763,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
               <button
                 className="remove-image-button"
                 onClick={() =>
-                  setSelectedFiles((prev: File[]) => prev.filter((_: File, i: number) => i !== index))
+                  setSelectedFiles((prev: File[]) =>
+                    prev.filter((_: File, i: number) => i !== index)
+                  )
                 }
                 title="Remove file"
               >
