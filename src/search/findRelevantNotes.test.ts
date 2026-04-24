@@ -69,8 +69,6 @@ describe("findRelevantNotes", () => {
     mockedGetSettings.mockReturnValue({
       debug: false,
       enableSemanticSearchV3: false,
-      selfHostModeValidatedAt: null,
-      selfHostValidationCount: 0,
     } as any);
     mockedGetLinkedNotes.mockReturnValue([]);
     mockedGetBacklinkedNotes.mockReturnValue([]);
