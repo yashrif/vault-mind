@@ -359,3 +359,10 @@ The TODO.md should be:
   - Backwards compatible - loads existing messages from ProjectManager cache
   - Zero configuration required - works automatically
 - Check @tailwind.config.js to understand what tailwind css classnames are available
+
+<!-- SPECKIT START -->
+
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+
+<!-- SPECKIT END -->
