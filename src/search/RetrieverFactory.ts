@@ -1,5 +1,5 @@
 import { logInfo, logWarn } from "@/logger";
-import { isSelfHostModeValid } from "@/plusUtils";
+import { isSelfHostModeValid } from "@/selfHostUtils";
 import { getSettings, CopilotSettings } from "@/settings/model";
 import { App } from "obsidian";
 import { SelfHostRetriever, VectorSearchBackend } from "./selfHostRetriever";

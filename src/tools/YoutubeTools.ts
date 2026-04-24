@@ -1,6 +1,6 @@
 import { BrevilabsClient } from "@/LLMProviders/brevilabsClient";
 import { selfHostYoutube4llm } from "@/LLMProviders/selfHostServices";
-import { isSelfHostModeValid } from "@/plusUtils";
+import { isSelfHostModeValid } from "@/selfHostUtils";
 import { getSettings } from "@/settings/model";
 import { extractAllYoutubeUrls } from "@/utils";
 import { z } from "zod";
