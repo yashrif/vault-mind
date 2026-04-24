@@ -58,15 +58,15 @@ export const CATEGORY_OPTIONS: CategoryOption[] = [
  * Returns the array of available category options directly.
  * Web Tabs category is only available on desktop (Web Viewer not supported on mobile).
  *
- * @param isCopilotPlus - Whether tools category is enabled
+ * @param isAgentMode - Whether tools category is enabled
  * @returns Array of CategoryOption objects
  */
-export function useAtMentionCategories(isCopilotPlus: boolean = false): CategoryOption[] {
+export function useAtMentionCategories(isAgentMode: boolean = false): CategoryOption[] {
   return useMemo(() => {
     return CATEGORY_OPTIONS.filter((cat) => {
-      // Tools require Copilot Plus
+      // Tools require agent mode
       if (cat.category === "tools") {
-        return isCopilotPlus;
+        return isAgentMode;
       }
       // Web Tabs only available on desktop (Web Viewer not supported on mobile)
       if (cat.category === "webTabs") {
@@ -74,5 +74,5 @@ export function useAtMentionCategories(isCopilotPlus: boolean = false): Category
       }
       return true;
     });
-  }, [isCopilotPlus]);
+  }, [isAgentMode]);
 }

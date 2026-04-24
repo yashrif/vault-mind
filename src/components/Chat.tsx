@@ -40,7 +40,7 @@ import { updateSetting, useSettingsValue } from "@/settings/model";
 import { ChatUIState } from "@/state/ChatUIState";
 import { FileParserManager } from "@/tools/FileParserManager";
 import { ChatMessage } from "@/types/message";
-import { err2String, isPlusChain } from "@/utils";
+import { err2String, isAgentChain } from "@/utils";
 import { arrayBufferToBase64 } from "@/utils/base64";
 import { extractFileContent, isImageFile } from "@/utils/fileContentExtractor";
 import { Notice, TFile } from "obsidian";
@@ -354,7 +354,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
       // Create message context - filter out URLs for non-Plus chains
       const context = {
         notes,
-        urls: isPlusChain(currentChain) ? urls || [] : [],
+        urls: isAgentChain(currentChain) ? urls || [] : [],
         tags: contextTags || [],
         folders: contextFolders || [],
         selectedTextContexts,

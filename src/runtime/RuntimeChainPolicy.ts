@@ -19,7 +19,7 @@ export const TELEGRAM_FORCED_MANUAL_TOOL_MARKERS = ["@vault", "@websearch", "@co
 
 /**
  * Resolve the runtime behavior policy for a chain.
- * UI helpers such as isPlusChain() remain presentation-only and should not be
+ * UI helpers such as isAgentChain() remain presentation-only and should not be
  * used to drive runtime context, prompt, or tool behavior.
  */
 export function resolveRuntimeChainPolicy(chainType: ChainType): RuntimeChainPolicy {
