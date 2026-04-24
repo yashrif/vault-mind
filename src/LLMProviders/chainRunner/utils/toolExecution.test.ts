@@ -28,7 +28,7 @@ describe("toolExecution", () => {
   });
 
   describe("executeSequentialToolCall", () => {
-    it("should execute tools without isPlusOnly flag", async () => {
+    it("should execute tools without subscription flag", async () => {
       const testTool = createLangChainTool({
         name: "testTool",
         description: "Test tool",
@@ -36,7 +36,7 @@ describe("toolExecution", () => {
         func: async ({ input }) => `Result: ${input}`,
       });
 
-      // Register tool without isPlusOnly
+      // Register tool without subscription flag
       ToolRegistry.getInstance().register({
         tool: testTool,
         metadata: {

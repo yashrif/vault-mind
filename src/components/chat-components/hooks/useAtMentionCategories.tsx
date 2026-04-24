@@ -54,11 +54,11 @@ export const CATEGORY_OPTIONS: CategoryOption[] = [
 ];
 
 /**
- * Hook that provides available @ mention categories based on Copilot Plus status.
+ * Hook that provides available @ mention categories.
  * Returns the array of available category options directly.
  * Web Tabs category is only available on desktop (Web Viewer not supported on mobile).
  *
- * @param isCopilotPlus - Whether Copilot Plus features are enabled
+ * @param isCopilotPlus - Whether tools category is enabled
  * @returns Array of CategoryOption objects
  */
 export function useAtMentionCategories(isCopilotPlus: boolean = false): CategoryOption[] {
