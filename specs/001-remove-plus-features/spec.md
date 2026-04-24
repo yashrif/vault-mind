@@ -97,4 +97,4 @@ Developers reviewing or contributing to the codebase find no remnants of premium
 - Any server-side or API-side plus checks (e.g., from Brevilabs or external services) are either not present or out of scope for this refactor; the goal is the client codebase only.
 - The existing test suite covers enough of the gated feature paths that passing tests after the refactor is a reliable signal of correctness.
 - Users' existing settings files may contain plus-related keys; these will be silently ignored (treated as if the user has full access) rather than migrated to a new schema.
-- No public changelog, documentation, or marketing copy update is in scope for this specification — only the plugin codebase itself.
+- Public marketing copy update is out of scope, but user documentation MUST be updated to reflect the removal of Plus tiers as per the constitution.
