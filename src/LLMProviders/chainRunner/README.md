@@ -17,7 +17,7 @@ chainRunner/
 ├── LLMChainRunner.ts                  # Basic LLM interaction (no tools)
 ├── VaultQAChainRunner.ts              # Vault-only Q&A with retrieval
 ├── ToolChainRunner.ts                 # Tool-augmented chain runner
-├── ProjectChainRunner.ts              # Project-aware extension of Plus
+├── ProjectChainRunner.ts              # Project-aware chain runner extension
 ├── AutonomousAgentChainRunner.ts   # Native tool calling with ReAct agent loop
 ├── index.ts                           # Main exports
 └── utils/
@@ -255,7 +255,6 @@ interface ToolMetadata {
   isAlwaysEnabled?: boolean;
   timeoutMs?: number;
   isBackground?: boolean;
-  isPlusOnly?: boolean;
 }
 ```
 
@@ -522,7 +521,7 @@ interface ToolCall {
 
 ### Available Tools in Agent Mode
 
-All tools from the Copilot Plus system plus autonomous decision-making:
+All tools plus autonomous decision-making:
 
 - **localSearch** - Vault content search with salient terms and query expansion
 - **webSearch** - Web search with chat history context
