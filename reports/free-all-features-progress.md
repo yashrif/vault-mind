@@ -36,6 +36,7 @@ All file parsing happens locally, in-process. Zero network calls, zero premium b
 - `constants.ts` — Removed `NON_MARKDOWN_FILES_RESTRICTED` and `URL_PROCESSING_RESTRICTED` from `RESTRICTION_MESSAGES`
 - `contextProcessor.ts` / `Chat.tsx` / `AddContextNoteModal.tsx` — Removed restriction-notice blocks; any file can be added to chat context.
 - `utils.ts` — Simplified `isAllowedFileForChainContext` to allow all files (no chain-based gating)
+
 ---
 
 ## Feature 3: YouTube Video Transcription ❌ Still Gated
@@ -54,7 +55,7 @@ Two active license gates remain.
 Works via self-host (Firecrawl/Perplexity). Brevilabs route no longer has auth.
 
 - `SearchTools.ts` — Routes to self-host search when `isSelfHostModeValid() && hasSelfHostSearchKey()`; falls back to `BrevilabsClient` (unauthenticated — will fail)
-- `Chat.tsx` — URL context previously restricted; `isPlusChain()` check still gates URL inclusion but is a chain-mode check, not a license check
+- `Chat.tsx` — URL context previously restricted; `isAgentChain()` check still gates URL inclusion but is a chain-mode check, not a license check
 
 **Remaining:** No hard license gates left. Users need a self-host search provider key configured. Consider removing the `BrevilabsClient` fallback path for search entirely.
 
@@ -64,7 +65,7 @@ Works via self-host (Firecrawl/Perplexity). Brevilabs route no longer has auth.
 
 - `AutonomousAgentChainRunner.ts` — License check removed; agent runs for all users
 - `toolExecution.ts` — `checkIsPlusUser()` now always returns `true`; the `isPlusOnly` check in `toolExecution.ts` passes, but YouTube tool still has `isPlusOnly: true` (see Feature 3)
-- `ChatToolControls.tsx` — Agent controls shown when in TOOL_CHAIN mode (`isPlusChain` is a chain-mode check, not a license check)
+- `ChatToolControls.tsx` — Agent controls shown when in TOOL_CHAIN mode (`isAgentChain` is a chain-mode check, not a license check)
 
 ---
 
@@ -92,14 +93,14 @@ Works via self-host (Firecrawl/Perplexity). Brevilabs route no longer has auth.
 
 ## Summary
 
-| Feature | Status |
-| --- | --- |
-| AI Models & Embeddings | ✅ Fully free |
-| Autonomous Agents | ✅ Fully free |
-| File Parsing (PDF/DOCX/XLSX) | ✅ Fully free (local parsing, zero network) |
-| Web Search | ⚠️ Self-host only |
-| YouTube Transcription | ❌ Still gated (2 remaining guards) |
-| Hybrid Search / Rerank | ⚠️ Local semantic works; Brevilabs rerank unauthenticated |
+| Feature                      | Status                                                    |
+| ---------------------------- | --------------------------------------------------------- |
+| AI Models & Embeddings       | ✅ Fully free                                             |
+| Autonomous Agents            | ✅ Fully free                                             |
+| File Parsing (PDF/DOCX/XLSX) | ✅ Fully free (local parsing, zero network)               |
+| Web Search                   | ⚠️ Self-host only                                         |
+| YouTube Transcription        | ❌ Still gated (2 remaining guards)                       |
+| Hybrid Search / Rerank       | ⚠️ Local semantic works; Brevilabs rerank unauthenticated |
 
 ### Next Steps (Phase 2)
 

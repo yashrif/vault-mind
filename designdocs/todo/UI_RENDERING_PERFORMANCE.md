@@ -178,7 +178,7 @@ The `useAllNotes` hook sorts all vault files by creation date inside `useMemo`, 
 ### Technical Details
 
 - **File**: `src/components/chat-components/hooks/useAllNotes.ts:36`
-- **Code**: `files.sort((a, b) => b.stat.ctime - a.stat.ctime)` runs inside `useMemo` with `[allNotes, isCopilotPlus]` deps.
+- **Code**: `files.sort((a, b) => b.stat.ctime - a.stat.ctime)` runs inside `useMemo` with `[allNotes, isAgentMode]` deps.
 - `allNotes` atom gets a new array reference on every debounced vault event (`VaultDataManager.refreshNotes` at `vaultDataAtoms.ts:214` always sets a new array).
 - For vaults with 5000+ files, this is O(N log N) on every file create/delete/rename.
 
