@@ -12,7 +12,6 @@ Copilot comes with a set of built-in models across many providers. Some are alwa
 
 | Model                         | Provider   | Capabilities      |
 | ----------------------------- | ---------- | ----------------- |
-| copilot-flash                 | Agent Mode | Vision            |
 | google/gemini-2.5-flash       | OpenRouter | Vision            |
 | google/gemini-2.5-pro         | OpenRouter | Vision            |
 | google/gemini-3-flash-preview | OpenRouter | Vision, Reasoning |
@@ -77,9 +76,6 @@ Embedding models convert text into numerical vectors, which powers semantic (mea
 
 | Model                         | Provider    |
 | ----------------------------- | ----------- |
-| copilot-small                 | Agent Mode  |
-| copilot-large                 | Agent Mode  |
-| copilot-multilingual          | Agent Mode  |
 | openai/text-embedding-3-small | OpenRouter  |
 | text-embedding-3-small        | OpenAI      |
 | text-embedding-3-large        | OpenAI      |

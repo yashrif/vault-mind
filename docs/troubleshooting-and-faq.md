@@ -298,6 +298,7 @@ Click the mode selector at the top of the chat panel. Available modes:
 - Vault QA (Basic)
 - Agent Mode
 - Projects (alpha)
+- Telegram (alpha)
 
 ### The AI keeps forgetting what we talked about earlier
 
