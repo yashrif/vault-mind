@@ -1,12 +1,12 @@
 # Chat Interface
 
-The Copilot chat panel is the main way you interact with AI in Obsidian. This guide covers everything about the chat UI: modes, message controls, history, settings, and advanced features like auto-compact.
+The Cortex chat panel is the main way you interact with AI in Obsidian. This guide covers everything about the chat UI: modes, message controls, history, settings, and advanced features like auto-compact.
 
 ---
 
 ## Chat Modes
 
-Copilot offers five modes. You can switch between them using the mode selector at the top of the chat panel.
+Cortex offers five modes. You can switch between them using the mode selector at the top of the chat panel.
 
 ### Chat
 
@@ -14,7 +14,7 @@ General-purpose conversation. Good for writing, brainstorming, summarizing, or a
 
 ### Vault QA (Basic)
 
-Ask questions about your vault content. Copilot uses lexical search (keyword matching) to find relevant notes and passes them as context to the AI. No indexing required. Good for quick questions about your notes.
+Ask questions about your vault content. Cortex uses lexical search (keyword matching) to find relevant notes and passes them as context to the AI. No indexing required. Good for quick questions about your notes.
 
 ### Agent Mode
 
@@ -31,11 +31,11 @@ Focused workspaces with their own context, model, system prompt, and isolated ch
 
 ### Telegram
 
-A bridge between Telegram and Copilot. Telegram mode shows one always-on read-only thread managed by Telegram channel state.
+A bridge between Telegram and Cortex. Telegram mode shows one always-on read-only thread managed by Telegram channel state.
 
 - Requires desktop app
 - Requires a Telegram bot token
-- Requires at least one allowlisted chat ID in **Settings → Copilot → Telegram → Allowed Chat IDs**
+- Requires at least one allowlisted chat ID in **Settings → Cortex → Telegram → Allowed Chat IDs**
 - The first inbound message from an allowlisted chat becomes the primary chat
 - Uses the same chat panel structure as other modes (mode bar, message list, and controls)
 - Obsidian composer input is disabled in Telegram mode (send messages from Telegram)
@@ -60,7 +60,7 @@ You can mention specific notes directly in your message using double-bracket syn
 [[Note Title]]
 ```
 
-Copilot adds the note's content to your message as context in the background. This is different from @-mentions — it's typed directly in your message text.
+Cortex adds the note's content to your message as context in the background. This is different from @-mentions — it's typed directly in your message text.
 
 ### User Message Buttons
 
@@ -86,7 +86,7 @@ Each AI response has action buttons:
 
 ### Autosave
 
-By default, Copilot automatically saves your conversations as markdown files in your vault. Each saved chat appears in the `copilot/copilot-conversations/` folder.
+By default, Cortex automatically saves your conversations as markdown files in your vault. Each saved chat appears in the `copilot/copilot-conversations/` folder.
 
 You can turn off autosave in Settings → Basic. When you start a new chat, any unsaved conversation is saved automatically.
 
@@ -108,7 +108,7 @@ All three variables are required. You can customize the format in Settings → B
 
 ### AI-Generated Titles
 
-When **Generate AI chat title on save** is enabled (default), Copilot asks the AI to generate a short, descriptive title for the conversation when saving. When disabled, the first 10 words of your first message are used instead.
+When **Generate AI chat title on save** is enabled (default), Cortex asks the AI to generate a short, descriptive title for the conversation when saving. When disabled, the first 10 words of your first message are used instead.
 
 ### Loading Previous Chats
 
@@ -134,7 +134,7 @@ Click the **gear icon** inside the chat panel to open per-session settings. Thes
 
 ## Token Counter
 
-Copilot shows a token count indicator at the bottom of the chat. This estimates how many tokens are being used by your current context. Useful for knowing when you're approaching context limits.
+Cortex shows a token count indicator at the bottom of the chat. This estimates how many tokens are being used by your current context. Useful for knowing when you're approaching context limits.
 
 ---
 
@@ -150,13 +150,13 @@ When auto-compact triggers, you'll see a "Compacting" indicator in the chat. The
 
 ## Suggested Prompts
 
-When starting a new chat, Copilot may show suggested prompts based on your active note or previous conversations. You can enable or disable this in Settings → Basic → **Show suggested prompts**.
+When starting a new chat, Cortex may show suggested prompts based on your active note or previous conversations. You can enable or disable this in Settings → Basic → **Show suggested prompts**.
 
 ## Relevant Notes
 
-Copilot can display a list of notes related to your currently active note in the chat panel. This helps surface notes you might want to reference without manually searching.
+Cortex can display a list of notes related to your currently active note in the chat panel. This helps surface notes you might want to reference without manually searching.
 
-Enable in **Settings → Copilot → Basic → Relevant Notes** (on by default).
+Enable in **Settings → Cortex → Basic → Relevant Notes** (on by default).
 
 ## Saving a Chat Manually
 
@@ -172,7 +172,7 @@ Click the **pencil/new chat icon** to start a fresh conversation. This:
 2. Clears the chat window
 3. Resets the context to your currently active note
 
-You can also use the command palette: **New Copilot Chat**.
+You can also use the command palette: **New Cortex Chat**.
 
 ---
 

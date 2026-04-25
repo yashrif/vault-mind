@@ -1,12 +1,12 @@
 # Agent Mode and Tools
 
-Copilot includes an **autonomous agent** that can reason step-by-step and decide which tools to use to answer your question. Instead of you specifying every step, the agent figures out what to do on its own.
+Cortex includes an **autonomous agent** that can reason step-by-step and decide which tools to use to answer your question. Instead of you specifying every step, the agent figures out what to do on its own.
 
 ---
 
 ## Overview
 
-When the autonomous agent is enabled, Copilot can:
+When the autonomous agent is enabled, Cortex can:
 
 1. Break down your request into sub-tasks
 2. Use tools to gather information (search your vault, search the web, read a note)
@@ -19,7 +19,7 @@ When the autonomous agent is enabled, Copilot can:
 
 ## Enabling Agent Mode
 
-1. Go to **Settings → Copilot → Agent**
+1. Go to **Settings → Cortex → Agent**
 2. Turn on **Enable Autonomous Agent**
 
 The agent activates automatically when you're in **Agent** mode. You don't need to do anything special — just ask your question.
@@ -30,7 +30,7 @@ The agent works in iteration cycles (think → use a tool → think → use a to
 
 - **Default**: 4 iterations
 - **Maximum**: 64 iterations
-- **Setting**: **Settings → Copilot → Agent → Autonomous Agent Max Iterations**
+- **Setting**: **Settings → Cortex → Agent → Autonomous Agent Max Iterations**
 
 The agent also has a maximum runtime of 5 minutes per response, regardless of iteration count.
 
@@ -38,7 +38,7 @@ The agent also has a maximum runtime of 5 minutes per response, regardless of it
 
 ## Available Tools
 
-Copilot has 13 built-in tools. Some are always active; others can be enabled or disabled.
+Cortex has 13 built-in tools. Some are always active; others can be enabled or disabled.
 
 ### Always-Enabled Tools
 
@@ -76,11 +76,11 @@ Lists all tags in your vault with usage statistics. Useful for tag reorganizatio
 
 Saves information to your memory when you explicitly ask the AI to remember something. See [Self-Host and Memory](self-host-and-memory.md#memory-system) for details.
 
-> **Requires**: **Settings → Copilot → Agent → Reference Saved Memories** must be enabled.
+> **Requires**: **Settings → Cortex → Agent → Reference Saved Memories** must be enabled.
 
 ### Configurable Tools
 
-These tools can be individually enabled or disabled in **Settings → Copilot → Agent → Tool Settings**:
+These tools can be individually enabled or disabled in **Settings → Cortex → Agent → Tool Settings**:
 
 #### Vault Search
 
@@ -102,7 +102,7 @@ Creates a new note or overwrites an existing one entirely.
 
 - **Trigger**: Automatically for "create a note" requests, or explicitly with `@composer` (available in both Agent and Projects mode)
 - **Behavior**: Shows a preview of the content before writing. You can review and accept or reject the change.
-- **Auto-accept**: Enable **Settings → Copilot → Agent → Auto-accept edits** to skip the preview
+- **Auto-accept**: Enable **Settings → Cortex → Agent → Auto-accept edits** to skip the preview
 
 #### Replace in File
 
@@ -124,7 +124,7 @@ Fetches the transcript of a YouTube video.
 
 ## Tool Settings
 
-Go to **Settings → Copilot → Agent → Tool Settings** to:
+Go to **Settings → Cortex → Agent → Tool Settings** to:
 
 - See all available tools
 - Enable or disable individual configurable tools
@@ -167,7 +167,7 @@ When the agent uses **Write to File** or **Replace in File**, it shows a preview
 - **Split view**: Before/after shown side by side
 - **Side-by-side view**: Changes highlighted inline
 
-You can choose your preferred diff view in **Settings → Copilot → Agent → Diff View Mode**.
+You can choose your preferred diff view in **Settings → Cortex → Agent → Diff View Mode**.
 
 Review the proposed change and click:
 
@@ -177,7 +177,7 @@ Review the proposed change and click:
 
 ### Auto-Accept Edits
 
-If you trust the agent and don't want to review every file change, enable **Auto-accept edits** in **Settings → Copilot → Agent**. File changes will be applied immediately without a confirmation step.
+If you trust the agent and don't want to review every file change, enable **Auto-accept edits** in **Settings → Cortex → Agent**. File changes will be applied immediately without a confirmation step.
 
 ---
 

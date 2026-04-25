@@ -1,6 +1,6 @@
 # Vault Search and Indexing
 
-Copilot can search your vault to find relevant notes and answer questions grounded in your own content. This guide explains the two types of search, how to manage the index, and how to configure what gets indexed.
+Cortex can search your vault to find relevant notes and answer questions grounded in your own content. This guide explains the two types of search, how to manage the index, and how to configure what gets indexed.
 
 ---
 
@@ -15,9 +15,9 @@ Lexical search finds notes that contain the exact words you used. It's fast, req
 - **Strengths**: Fast, precise, no embedding API calls needed
 - **Limitations**: Won't find notes that use different words to express the same idea
 
-**RAM Limit**: The lexical search index is held in memory. You can configure the memory limit in **Settings → Copilot → QA → Lexical Search RAM Limit** (default: 100 MB, range: 20–1,000 MB).
+**RAM Limit**: The lexical search index is held in memory. You can configure the memory limit in **Settings → Cortex → QA → Lexical Search RAM Limit** (default: 100 MB, range: 20–1,000 MB).
 
-**Lexical Boosts**: Copilot can boost search results from notes in the same folder as the current note, or from notes that link to each other. Enable in **Settings → Copilot → QA → Enable Lexical Boosts** (on by default).
+**Lexical Boosts**: Cortex can boost search results from notes in the same folder as the current note, or from notes that link to each other. Enable in **Settings → Cortex → QA → Enable Lexical Boosts** (on by default).
 
 ### Semantic Search (Meaning-Based)
 
@@ -27,7 +27,7 @@ Semantic search finds notes that are conceptually related, even if they don't sh
 - **How it works**: Converts your notes into numerical vectors (using an embedding model), then finds notes whose vectors are closest to your query
 - **Strengths**: Finds notes by concept and meaning, great for "fuzzy" recall
 - **Cost**: Requires embedding API calls (costs money for paid embedding models)
-- **Enable**: **Settings → Copilot → QA → Enable Semantic Search** — turn this on to activate semantic search
+- **Enable**: **Settings → Cortex → QA → Enable Semantic Search** — turn this on to activate semantic search
 
 **Note on audio files**: Audio transcription (for MP3, M4A, WAV, etc.) is handled separately from the embedding index. Attaching an audio file transcribes it on the fly for chat context, but the transcript is not stored in or searched via the vault index.
 
@@ -35,11 +35,11 @@ Semantic search finds notes that are conceptually related, even if they don't sh
 
 ## Index Management
 
-The semantic search index stores the vector embeddings of your notes. Manage it from **Settings → Copilot → QA**.
+The semantic search index stores the vector embeddings of your notes. Manage it from **Settings → Cortex → QA**.
 
 ### Auto-Index Strategy
 
-Controls when Copilot automatically updates the index:
+Controls when Cortex automatically updates the index:
 
 | Strategy           | When the index updates                                          |
 | ------------------ | --------------------------------------------------------------- |
@@ -69,13 +69,13 @@ Rebuilds the entire index from scratch. Use this if:
 
 ### Garbage Collection
 
-**Command palette → Garbage collect Copilot index (remove files that no longer exist in vault)**
+**Command palette → Garbage collect Cortex index (remove files that no longer exist in vault)**
 
 Removes entries from the index for notes that have been deleted from your vault. Keeps the index clean without a full reindex.
 
 ### Clear Index
 
-**Command palette → Clear local Copilot index**
+**Command palette → Clear local Cortex index**
 
 Deletes the entire index. You'll need to reindex before semantic search works again.
 
@@ -104,7 +104,7 @@ This shows the total token count across your vault, which you can use to estimat
 
 ### Exclusions
 
-**Settings → Copilot → QA → Exclusions**
+**Settings → Cortex → QA → Exclusions**
 
 Comma-separated list of patterns. Notes matching these patterns are excluded. Supports:
 
@@ -122,7 +122,7 @@ The `copilot` folder is always excluded automatically (it contains the plugin's 
 
 ### Inclusions
 
-**Settings → Copilot → QA → Inclusions**
+**Settings → Cortex → QA → Inclusions**
 
 Comma-separated list. If set, **only** notes matching these patterns are indexed. Useful for indexing a specific area of your vault.
 
@@ -132,7 +132,7 @@ Leave empty to include everything (except exclusions).
 
 ## Embedding Settings
 
-These settings appear in **Settings → Copilot → QA** when Semantic Search is enabled.
+These settings appear in **Settings → Cortex → QA** when Semantic Search is enabled.
 
 ### Requests per Minute
 
@@ -146,7 +146,7 @@ How many text chunks to send per API request. Default is 16. Larger batches are 
 
 ### Partitions
 
-The index is split into partitions to handle large vaults. You can control the number of partitions in **Settings → Copilot → QA → Number of Partitions**. If you have a large vault, increase this value to avoid index errors.
+The index is split into partitions to handle large vaults. You can control the number of partitions in **Settings → Cortex → QA → Number of Partitions**. If you have a large vault, increase this value to avoid index errors.
 
 > **If you hit a "RangeError: invalid string length" error**: This means your vault is too large for a single partition. Increase the number of partitions in QA settings. A good rule of thumb is that the first partition file (found in `.obsidian/`) should be under ~400 MB.
 
@@ -156,7 +156,7 @@ The index is split into partitions to handle large vaults. You can control the n
 
 When enabled, AI responses in Vault QA include footnote-style citations pointing to the source notes used in the answer.
 
-**Enable**: **Settings → Copilot → QA → Enable Inline Citations**
+**Enable**: **Settings → Cortex → QA → Enable Inline Citations**
 
 This is an experimental feature. Not all models handle it well.
 
@@ -164,7 +164,7 @@ This is an experimental feature. Not all models handle it well.
 
 ## Obsidian Sync
 
-If you use Obsidian Sync, the vector index can be synced across devices. Enable **Settings → Copilot → QA → Enable Index Sync**.
+If you use Obsidian Sync, the vector index can be synced across devices. Enable **Settings → Cortex → QA → Enable Index Sync**.
 
 > **Note**: The index can be large (hundreds of MB for big vaults). Keep this in mind for sync limits and mobile data usage.
 
@@ -172,7 +172,7 @@ If you use Obsidian Sync, the vector index can be synced across devices. Enable 
 
 ## Mobile Considerations
 
-By default, Copilot **disables indexing on mobile** to save battery and data. The setting is in **Settings → Copilot → QA → Disable index on mobile** (on by default).
+By default, Cortex **disables indexing on mobile** to save battery and data. The setting is in **Settings → Cortex → QA → Disable index on mobile** (on by default).
 
 On mobile, you can still use Vault QA with lexical search, but semantic search won't update automatically.
 

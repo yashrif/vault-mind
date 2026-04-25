@@ -8,7 +8,7 @@ This guide explains how to manage chat models, embedding models, and the paramet
 
 ### Built-In Models
 
-Copilot comes with a set of built-in models across many providers. Some are always included ("core" models); others can be enabled or disabled.
+Cortex comes with a set of built-in models across many providers. Some are always included ("core" models); others can be enabled or disabled.
 
 | Model                         | Provider   | Capabilities      |
 | ----------------------------- | ---------- | ----------------- |
@@ -41,7 +41,7 @@ Models may show capability badges:
 
 ### Managing Models
 
-Go to **Settings → Copilot → Model** to see the full model list.
+Go to **Settings → Cortex → Model** to see the full model list.
 
 - **Enable/disable** — Toggle individual models on or off to control what appears in the model selector
 - **Reorder** — Drag models to change their order in the dropdown
@@ -51,7 +51,7 @@ Go to **Settings → Copilot → Model** to see the full model list.
 
 If your provider offers a model that isn't in the built-in list, you can add it manually:
 
-1. Go to **Settings → Copilot → Model**
+1. Go to **Settings → Cortex → Model**
 2. Click **Add Model**
 3. Enter the model name exactly as the provider expects it (e.g., `gpt-4-turbo-preview`)
 4. Select the provider
@@ -62,9 +62,9 @@ If your provider offers a model that isn't in the built-in list, you can add it 
 
 You can automatically import the full list of available models from a provider:
 
-1. Go to **Settings → Copilot → Model**
+1. Go to **Settings → Cortex → Model**
 2. Find the **Import models** button for your provider
-3. Copilot will fetch the provider's model list and add new ones
+3. Cortex will fetch the provider's model list and add new ones
 
 ---
 
@@ -86,9 +86,9 @@ Embedding models convert text into numerical vectors, which powers semantic (mea
 
 ### Selecting an Embedding Model
 
-Go to **Settings → Copilot → QA** → **Embedding Model**.
+Go to **Settings → Cortex → QA** → **Embedding Model**.
 
-If you change embedding models, you must rebuild the vault index because the old vectors are incompatible with the new model. Copilot will prompt you to confirm before rebuilding.
+If you change embedding models, you must rebuild the vault index because the old vectors are incompatible with the new model. Cortex will prompt you to confirm before rebuilding.
 
 ### What Embeddings Affect
 
@@ -110,7 +110,7 @@ Audio STT (Speech-to-Text) models transcribe voice notes and audio files so you 
 
 ### Selecting an Audio STT Model
 
-Go to **Settings → Copilot → Models → Audio STT Models** to enable or configure your STT model.
+Go to **Settings → Cortex → Models → Audio STT Models** to enable or configure your STT model.
 
 ### Supported Audio Formats
 
@@ -119,7 +119,7 @@ MP3, MP4, MPEG, MPGA, M4A, WAV, WebM.
 ### Limits and Notes
 
 - **Groq file size limit**: 25 MB per audio file. Files larger than this will show an error message.
-- The Groq STT model reuses your existing **Groq API key** from Settings → Copilot → LLM Providers.
+- The Groq STT model reuses your existing **Groq API key** from Settings → Cortex → LLM Providers.
 - Transcription results are cached — attaching the same file again is instant.
 - The transcript is injected as text context and sent to the chat model, not directly to the STT model.
 
@@ -127,7 +127,7 @@ MP3, MP4, MPEG, MPGA, M4A, WAV, WebM.
 
 ## Model Parameters
 
-These settings control how the AI responds. Global defaults live in Settings → Copilot → Model. You can override them per-session using the gear icon in the chat panel.
+These settings control how the AI responds. Global defaults live in Settings → Cortex → Model. You can override them per-session using the gear icon in the chat panel.
 
 ### Temperature
 
@@ -188,8 +188,8 @@ Reduces the likelihood of the model repeating itself.
 
 ## Default Model Selection
 
-Your **default model** is the one Copilot uses when you open a new chat. Set it in:
-**Settings → Copilot → Basic → Default Chat Model**
+Your **default model** is the one Cortex uses when you open a new chat. Set it in:
+**Settings → Cortex → Basic → Default Chat Model**
 
 The default is **OpenRouter Gemini 2.5 Flash** (requires OpenRouter API key).
 

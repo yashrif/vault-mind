@@ -96,7 +96,7 @@ Each project maintains its own chat history, completely separate from other proj
 
 ### Context Loading
 
-When you open a project, Copilot loads the configured context (notes, URLs, etc.) automatically. For large projects with many notes, this may take a moment.
+When you open a project, Cortex loads the configured context (notes, URLs, etc.) automatically. For large projects with many notes, this may take a moment.
 
 ---
 
@@ -108,7 +108,7 @@ Go to the project selector to manage your projects:
 - **Edit**: Click the edit icon to change a project's settings
 - **Delete**: Remove the project entry from the list (saved conversation files in your vault are not deleted)
 
-Sort strategy: **Settings → Copilot → Basic → Project list sort strategy**
+Sort strategy: **Settings → Cortex → Basic → Project list sort strategy**
 
 ---
 

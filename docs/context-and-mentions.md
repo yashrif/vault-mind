@@ -1,6 +1,6 @@
 # Context and Mentions
 
-Copilot uses **context** to give the AI information about your notes, selected text, web content, and more. You can control exactly what context the AI sees using automatic context, @-mentions, and manual commands.
+Cortex uses **context** to give the AI information about your notes, selected text, web content, and more. You can control exactly what context the AI sees using automatic context, @-mentions, and manual commands.
 
 ---
 
@@ -14,23 +14,23 @@ By default, the content of your currently open note is automatically included in
 - "What are the action items here?"
 - "Add a conclusion section"
 
-To disable automatic note context: **Settings → Copilot → Basic → Auto-add active note to context** (toggle off).
+To disable automatic note context: **Settings → Cortex → Basic → Auto-add active note to context** (toggle off).
 
 ### Active Web Tab (Desktop Only)
 
-If you have the Copilot Web Viewer open alongside your notes, the content of the currently active web tab is automatically included as context (labeled `{activeWebTab}`). This lets you ask the AI to help you work with web content.
+If you have the Cortex Web Viewer open alongside your notes, the content of the currently active web tab is automatically included as context (labeled `{activeWebTab}`). This lets you ask the AI to help you work with web content.
 
 ### Selected Text
 
 If you highlight text in a note and then type in the chat, the selected text is automatically included as context. This is useful for asking about or transforming a specific part of a note.
 
-You can enable/disable automatic selection adding in **Settings → Copilot → Basic → Auto-add selection to context**.
+You can enable/disable automatic selection adding in **Settings → Cortex → Basic → Auto-add selection to context**.
 
 ### Images in Markdown
 
-If your note contains images (e.g., `![[screenshot.png]]`), and you're using a model with **Vision** capability, those images are automatically included in the context. Copilot will pass the image data to the AI so it can see and describe the image.
+If your note contains images (e.g., `![[screenshot.png]]`), and you're using a model with **Vision** capability, those images are automatically included in the context. Cortex will pass the image data to the AI so it can see and describe the image.
 
-To control this behavior: **Settings → Copilot → Basic → Pass markdown images to AI**.
+To control this behavior: **Settings → Cortex → Basic → Pass markdown images to AI**.
 
 ---
 
@@ -72,7 +72,7 @@ Paste a URL or type `@https://...` to fetch and include a web page's content:
 @https://example.com/article summarize this article
 ```
 
-URL processing allows you to include external content. YouTube URLs are handled specially — Copilot will fetch the video transcript automatically.
+URL processing allows you to include external content. YouTube URLs are handled specially — Cortex will fetch the video transcript automatically.
 
 ### Tool Mentions
 
@@ -122,20 +122,20 @@ Drag an image directly into the chat input box, or click the **attach button** i
 
 ### Adding Audio as Context
 
-Drag an audio file (MP3, MP4, MPEG, MPGA, M4A, WAV, or WebM) into the chat input box, use the **attach button**, or use **@ mention** to attach a file from your vault. Copilot transcribes the audio via the configured Audio STT model and injects the transcript as text context for the AI.
+Drag an audio file (MP3, MP4, MPEG, MPGA, M4A, WAV, or WebM) into the chat input box, use the **attach button**, or use **@ mention** to attach a file from your vault. Cortex transcribes the audio via the configured Audio STT model and injects the transcript as text context for the AI.
 
 - Transcription happens automatically on attach and results are cached — re-attaching the same file is instant.
 - Files larger than 25 MB cannot be transcribed by Groq. Split or compress the file if you hit this limit.
 - The transcript counts toward the context window of your chat model, not a separate quota.
 - Audio transcription works in both Chat mode and Projects mode.
 
-To set up audio transcription, configure an Audio STT model in **Settings → Copilot → Models → Audio STT Models**. See [Models and Parameters](models-and-parameters.md#audio-stt-models) for details.
+To set up audio transcription, configure an Audio STT model in **Settings → Cortex → Models → Audio STT Models**. See [Models and Parameters](models-and-parameters.md#audio-stt-models) for details.
 
 ---
 
 ## Context Indicators
 
-When context items are added to your message, Copilot shows small pills or badges in the chat input area showing what's included (e.g., the note name, a URL, a tag). This helps you confirm exactly what the AI will see.
+When context items are added to your message, Cortex shows small pills or badges in the chat input area showing what's included (e.g., the note name, a URL, a tag). This helps you confirm exactly what the AI will see.
 
 ---
 
