@@ -72,7 +72,7 @@ Run `obsidian help` for the full command list.
 
 2. **Chain Factory Pattern** (`src/chainFactory.ts`)
 
-   - Different chain types for various AI operations (chat, copilot, adhoc prompts)
+   - Different chain types for various AI operations (chat, agent, adhoc prompts)
    - LangChain integration for complex workflows
    - Memory management for conversation context
    - Tool integration (search, file operations, time queries)
