@@ -235,15 +235,232 @@ All four chain runners use the context envelope for LLM message construction. Ea
 
 ### Per-Runner Behavior
 
-| Runner              | Envelope Construction                                                      | Tool Results                           | User Message Source  |
-| ------------------- | -------------------------------------------------------------------------- | -------------------------------------- | -------------------- |
-| **LLMChainRunner**  | `LayerToMessagesConverter.convert()` → system (L1+L2), user (L3 refs + L5) | None                                   | Envelope only        |
-| **ToolChainRunner** | Same converter, then `ensureUserQueryLabel` adds `[User query]:` separator | Prepended to user message in CiC order | L5 text via envelope |
+| Runner                         | Envelope Construction                                                                 | Tool Results                                                  | User Message Source  |
+| ------------------------------ | ------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------- |
+| **LLMChainRunner**             | `LayerToMessagesConverter.convert()` → system (L1+L2), user (L3 refs + L5)            | None                                                          | Envelope only        |
+| **ToolChainRunner**            | Same converter, then `ensureUserQueryLabel` adds `[User query]:` separator            | Prepended to user message in CiC order                        | L5 text via envelope |
+| **AutonomousAgentChainRunner** | Same converter for initial messages; ReAct loop appends AI + ToolMessages iteratively | Native tool calling — each result is a separate `ToolMessage` | L5 text via envelope |
+| **VaultQAChainRunner**         | Same converter                                                                        | Retrieval results via hybrid/lexical retriever                | Envelope only        |
 
-### Tool Mode: Single-Shot Tool Flow
+### ToolChain: Single-Shot Tool Flow
 
-1. Initial message array built identically to ToolChain: `[system (L1+L2+tool guidelines)] → [L4 history] → [user (L3 refs + L5)]`.
+1. Planning phase analyzes L5 text to determine which `@commands` to execute.
+2. Tool results (localSearch, web fetch, etc.) are formatted and prepended to the user message using CiC ordering: `[tool results] → [L3 references + L5 with User query label]`.
+3. Single LLM call with the complete message array: `[system (L1+L2)] → [L4 history] → [user (tools + L3 + L5)]`.
 
+### Autonomous Agent: ReAct Loop Flow
+
+1. Initial message array built identically to Agent mode: `[system (L1+L2+tool guidelines)] → [L4 history] → [user (L3 refs + L5)]`.
+2. Model responds with native tool calls (e.g., `localSearch`, `readFile`).
+3. Each tool result becomes a `ToolMessage` appended to the growing messages array.
+4. `localSearch` results get CiC ordering: the user's question (from L5 `originalUserPrompt`) is appended after the search payload via `ensureCiCOrderingWithQuestion`.
+5. Loop repeats until model responds without tool calls (final answer).
+
+### Token Efficiency Audit
+
+**Verified efficient (no action needed):**
+
+- L1+L2 prefix is stable and cacheable across turns — tool results never enter the system message.
+- L3 uses smart references for artifacts already in L2 — no content duplication in the user message.
+- L4 contains only displayText (via L5 extraction in `handleResponse`) — no context XML leakage.
+- Chain runners extract L5 text from the envelope for `cleanedUserMessage` and `originalUserPrompt`, never using `processedText` (which contains L2+L3+L5 concatenated).
+
+**Known inefficiencies (accepted tradeoffs):**
+
+| Issue                                                                     | Severity | Tokens Wasted                                                   | Rationale                                                                                                                                                 |
+| ------------------------------------------------------------------------- | -------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CiC user-question repeated per `localSearch` tool call in agent loop      | LOW      | ~50 tokens x N searches                                         | Intentional — each `ToolMessage` is independent; the model needs the question for grounding across ReAct iterations                                       |
+| L2 content may overlap with `localSearch` results                         | MEDIUM   | Variable (L2 has compacted preview, search has relevant chunks) | Structural limitation — search doesn't know about L2. Overlap is partial since L2 is compacted to structure+preview while search returns precision chunks |
+| Legacy `processedText` stores L2+L3+L5 concatenation in MessageRepository | LOW      | 0 (not sent to LLM)                                             | Storage-only waste. Field is unused by envelope-based chain runners but persisted for backward compatibility                                              |
+
+---
+
+## Strengths
+
+1. Envelope-first prompt construction is now consistent across all active chain runners.
+2. L2 deduplication by artifact ID prevents linear repeated growth for repeated attachments.
+3. Segment parsing is centralized and registry-driven, avoiding ad-hoc per-chain parsing logic.
+4. Uniform tool placement removes previous cache-boundary ambiguity.
+5. Memory-side assistant compaction reduces L4 bloat from tool payloads.
+6. Regeneration path is now resilient to missing envelopes on loaded history.
+
+---
+
+## Known Gaps
+
+### P0: No Token Budget Enforcement on Full Payload
+
+- **No compaction mechanism checks the total assembled payload** (L1+L2+L3+L4+L5) against any budget. Each compactor guards only its own subset.
+- **L1 (project context) is never budgeted or compacted**: In Projects mode, all project files are concatenated verbatim into L1 with no size limit. This is often the largest single layer.
+- **Compaction threshold is blind to L1**: `ContextManager` checks L2+L3 against `autoCompactThreshold` (or hardcoded `PROJECT_COMPACT_THRESHOLD = 1M`), but L1 size is never subtracted. The threshold acts as if L2+L3 is the entire payload.
+- **L4 (chat history) has no remaining-budget awareness**: `loadAndAddChatHistory()` loads all history messages regardless of how much budget L1+L2+L3+L5 have already consumed.
+- **`contextTurns` is a crude count-based proxy**: `BufferWindowMemory.k = contextTurns * 2` limits by message count, not token size, providing no actual overflow protection.
+- See [TOKEN_BUDGET_ENFORCEMENT.md](./TOKEN_BUDGET_ENFORCEMENT.md) for detailed analysis and fix plan.
+
+### P0: Persistence Parity Is Still Incomplete
+
+- Loaded chats do not rehydrate historical envelopes.
+- Result: follow-up turns after load do not benefit from historical L2 library unless messages are individually reprocessed.
+
+### P0: Non-Deterministic Fallback Segment IDs
+
+- `appendParsedSegments()` uses `unparsed-${Date.now()}` when parsing fails.
+- This breaks deterministic envelope identity and degrades cache behavior in edge cases.
+
+### P1: Parser Still Depends on Regex Over Rendered XML
+
+- `parseContextIntoSegments()` is significantly better than earlier local regex logic, but it still parses serialized XML strings rather than typed artifacts.
+- Malformed/nested edge cases can still create parse misses and fallback behavior.
+
+### P1: Compaction Semantics Need Stronger Invariants
+
+- Two compaction modes exist (LLM summarization vs deterministic L2 preview compaction), but explicit invariants on what must remain verbatim are not enforced centrally.
+- Non-recoverable context (e.g., selected text) needs stricter protection policies under heavy compaction.
+
+### P1: L2 Mutation Tradeoff Not Formalized
+
+- Current policy is ID-dedup + content overwrite.
+- This is token-efficient, but mutable artifacts can invalidate long cached prefixes when content changes.
+- The system needs an explicit "freshness vs cache stability" policy.
+
+### P2: Envelope Metadata Is Underused
+
+- `conversationId` is currently `null`.
+- Missing stable conversation-level identity weakens observability and future caching strategies.
+
+### P2: Documentation Drift Risk
+
+- Prior docs contained stale statements (e.g., fallback-to-processedText behavior, on-load envelope reconstruction).
+- This doc now reflects current code; future changes should keep this aligned.
+
+---
+
+## Improvement Roadmap
+
+### Phase 1: Correctness and Determinism
+
+1. Replace timestamp fallback IDs with deterministic IDs:
+   - `unparsed:${sha256(content)}` (plus optional short prefix by source type).
+2. Add envelope invariants checker (debug + tests):
+   - no duplicate segment IDs inside a layer,
+   - no L3 full-content block when ID exists in L2 unless explicitly marked override,
+   - stable layer ordering and hash consistency.
+3. Add robust parse-failure telemetry:
+   - count parse misses,
+   - log failing tag/source metadata,
+   - capture hash-only samples in debug mode.
+
+### Phase 2: Persistence Parity
+
+1. Add lazy historical envelope reconstruction on first post-load send:
+   - reprocess only prior user messages that have context references and missing envelopes,
+   - skip URL/web-tab refetch by policy where needed.
+2. Optional long-term path:
+   - persist compact envelope metadata (or typed artifact snapshots) alongside markdown history for deterministic restoration.
+
+### Phase 3: Compaction Safety and Policy
+
+1. Define explicit compaction classes:
+   - recoverable artifacts: can be summarized with re-fetch instructions,
+   - non-recoverable artifacts: preserve verbatim or bounded extractive compaction only.
+2. Add post-compaction validation:
+   - each compacted artifact must retain deterministic source identity and recoverability hints.
+3. Make compaction strategy configurable by chain type and context source type.
+
+### Phase 4: Cache Optimization
+
+1. Split L1 into stable and mutable subsections (for example:
+   - static system contract,
+   - user memory and project overlays) to reduce unnecessary prefix invalidation.
+2. Introduce provider-aware cache hooks (opt-in):
+   - Anthropic `cache_control`,
+   - Gemini explicit cache primitives,
+   - keep model-agnostic baseline unchanged.
+3. Add per-turn prefix hash diff reporting:
+   - `L1 hash`, `L2 hash`, combined prefix hash,
+   - classify why prefix changed (settings, context attach, file change, memory update).
+
+### Phase 5: Typed Artifact Pipeline (Strategic)
+
+Move from "render XML then parse XML" to a typed artifact graph:
+
+- `ContextProcessor` emits typed artifacts directly (`artifactKey`, `sourceType`, `recoverable`, `payload`, `contentHash`).
+- Envelope stores typed segments as canonical source-of-truth.
+- XML remains a rendering format, not parsing substrate.
+
+This is the highest-leverage change for long-term reproducibility and parser robustness.
+
+### Phase 6: Context Envelope Integration Test Suite
+
+Build a comprehensive test suite that validates multi-turn envelope behavior without requiring manual UI testing:
+
+1. **Multi-turn envelope simulation tests**:
+
+   - Simulate 3+ turn conversations with various artifact combinations (notes, URLs, YouTube, PDFs, selected text).
+   - Assert correct L2 promotion, dedup, smart referencing, and compaction at each turn.
+   - Validate that L4 memory contains only displayText (no context XML leakage).
+
+2. **Layer composition snapshot tests**:
+
+   - For canonical conversation trajectories, snapshot the full `[L1, L2, L3, L4, L5]` payload sent to the LLM.
+   - Detect unintended regressions in layer ordering, dedup behavior, or content placement.
+
+3. **Round-trip persistence tests**:
+
+   - Save a conversation to markdown, reload it, send a follow-up turn.
+   - Assert that lazy reprocessing reconstructs envelopes and L2 correctly.
+
+4. **Edge-case regression tests**:
+
+   - Same artifact attached across 5+ turns (dedup stability).
+   - Artifact added, removed, re-added (L2 cumulative behavior).
+   - Multiple `selected_text` blocks in same turn (unique ID generation).
+   - Malformed XML blocks (graceful fallback, no silent data loss).
+   - Very large context triggering compaction (invariants preserved).
+
+5. **Property-based tests** (optional, aspirational):
+   - Generate random artifact sequences and assert envelope invariants hold:
+     no duplicate segment IDs within a layer, L3 references only exist if ID is in L2,
+     L4 never contains XML block tags.
+
+This suite replaces the need for manual multi-turn chat testing in the UI and provides a safety net for all future envelope changes.
+
+---
+
+## Testing and Observability
+
+### Core Tests to Add/Strengthen
+
+1. Post-load follow-up turn should rebuild/rehydrate envelope behavior deterministically.
+2. Deterministic fallback ID behavior (no wall-clock dependence).
+3. Property tests for parser with malformed/nested blocks.
+4. Compaction invariants:
+   - non-recoverable blocks never become unrecoverable summaries without explicit guardrails.
+5. Prefix-hash stability tests across common conversation trajectories.
+
+### Runtime Metrics (Debug Mode)
+
+- Envelope build time by phase (L2 build, context processing, compaction, render).
+- Segment counts per layer and dedup ratio.
+- Prefix hash change reason classification.
+- Parse-failure count and compacted-context proportion.
+
+---
+
+## References
+
+### Primary Implementation Files
+
+- `src/core/ChatManager.ts`
+- `src/core/ContextManager.ts`
+- `src/context/PromptContextTypes.ts`
+- `src/context/PromptContextEngine.ts`
+- `src/context/parseContextSegments.ts`
+- `src/context/LayerToMessagesConverter.ts`
+- `src/core/MessageRepository.ts`
+- `src/core/ChatPersistenceManager.ts`
+- `src/LLMProviders/chainRunner/LLMChainRunner.ts`
+- `src/LLMProviders/chainRunner/VaultQAChainRunner.ts`
 - `src/LLMProviders/chainRunner/ToolChainRunner.ts`
 - `src/LLMProviders/chainRunner/AutonomousAgentChainRunner.ts`
 

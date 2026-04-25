@@ -1,16 +1,45 @@
 # Inline Citation System
 
-This guide explains how inline citations are produced across Tool Mode, Vault QA, and web search, and how the feature is exercised by automated tests.
+This guide explains how inline citations are produced across Agent mode, Vault QA, and web search, and how the feature is exercised by automated tests.
 
-- Both `ToolChainRunner.prepareLocalSearchResult` and `VaultQAChainRunner` sanitize note content with `sanitizeContentForCitations` to strip stray `[^n]`/`[n]` markers before prompting.
+## Feature Toggle & Surface Area
 
-- A compact source catalog is built via `formatSourceCatalog`, and Tool Mode caches the first 20 entries in `lastCitationSources` for fallback footnotes.
+- `enableInlineCitations` (default `true`) lives in `src/settings/model.ts` and is exposed in the QA settings UI (`src/settings/v2/components/QASettings.tsx`).
+- The toggle gates prompt instructions, fallback post-processing, and chat rendering. When disabled the system falls back to a collapsible sources list without inline markers.
 
-- `getCitationInstructions` (Tool Mode) and `getQACitationInstructionsConditional` (Vault QA) append guidance and a source catalog only when inline citations are enabled.
+## Pipeline Overview
 
-- Tool Mode passes structured `lastCitationSources` into the fallback helper; Vault QA derives titles from the retriever output.
+1. **Retrieval Conditioning**
+   - Both `ToolChainRunner.prepareLocalSearchResult` and `VaultQAChainRunner` sanitize note content with `sanitizeContentForCitations` to strip stray `[^n]`/`[n]` markers before prompting.
+   - Retrieved notes receive stable `__sourceId` values and are serialized with `formatSearchResultsForLLM`; `deduplicateSources` keeps the highest-scoring entry per path/title.
+   - A compact source catalog is built via `formatSourceCatalog`, and Agent mode caches the first 20 entries in `lastCitationSources` for fallback footnotes.
+2. **Prompt Assembly**
+   - `CITATION_RULES` and `WEB_CITATION_RULES` live in `src/LLMProviders/chainRunner/utils/citationUtils.ts`.
+   - `getCitationInstructions` (Agent mode) and `getQACitationInstructionsConditional` (Vault QA) append guidance and a source catalog only when inline citations are enabled.
+   - Web search calls `getWebSearchCitationInstructions` so external sources emit `[title](url)` definitions while vault answers stay on `[[Note]]` links.
+3. **Response Safeguards**
+   - `addFallbackSources` appends a `#### Sources` block when the model produced inline markers but no definitions. Detection relies on `hasExistingCitations`, which now accepts alternate headings (e.g., `## Sources`, `Sources -`) and `<summary>Sources</summary>` blocks.
+   - Agent mode passes structured `lastCitationSources` into the fallback helper; Vault QA derives titles from the retriever output.
+4. **Chat Rendering**
+   - `src/components/chat-components/ChatSingleMessage.tsx` always pipes assistant messages through `processInlineCitations`.
+   - The helper extracts the trailing sources section, builds a first-mention map with `buildCitationMap`, normalizes references (`normalizeCitations`) so constructs like `[^7][^8]` become `[1][2]`, and converts definitions (`convertFootnoteDefinitions`) into clickable wiki links or Markdown anchors.
+   - Duplicate definitions collapse via `consolidateDuplicateSources` + `updateCitationsForConsolidation`, keeping numbering stable. When the sources block is not footnote formatted or citations are disabled, the renderer falls back to a simple `<details>` list.
 
-- Mixed Tool Mode turn (local search + another tool): ensure fallback still works if the model omits the sources block.
+## Testing
+
+- `src/LLMProviders/chainRunner/utils/citationUtils.test.ts`
+  - Sanitization, catalog formatting, and fallback insertion.
+  - `hasExistingCitations` coverage for markdown headings, plain `Sources` labels, and `<summary>` wrappers.
+  - Regression suites for non-sequential citations, duplicate source consolidation, and consecutive markers (`[^7][^8]`).
+- `src/LLMProviders/chainRunner/utils/searchResultUtils.test.ts`
+  - Ensures retrieved documents are serialized with stable IDs and filtered for `includeInContext` before prompting.
+- `src/tools/ToolResultFormatter.test.ts`
+  - Verifies the local search tool emits JSON with the `{ type: "local_search", documents: [...] }` shape expected by the chain runners.
+
+## Manual QA Checklist
+
+- Vault QA turn using only local search: confirm inline `[1]` markers and numbered sources render without duplication.
+- Mixed Agent mode turn (local search + another tool): ensure fallback still works if the model omits the sources block.
 - Web search answer: verify footnote definitions render as `[title](url)` links when citations are enabled.
 
 ## Watchlist
