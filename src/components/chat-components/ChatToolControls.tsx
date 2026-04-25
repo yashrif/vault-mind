@@ -11,7 +11,7 @@ import {
 import { ChainType } from "@/chainFactory";
 import { cn } from "@/lib/utils";
 import { updateSetting } from "@/settings/model";
-import { isPlusChain } from "@/utils";
+import { isAgentChain } from "@/utils";
 
 interface ChatToolControlsProps {
   // Tool toggle states
@@ -47,8 +47,8 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
   onComposerToggleOff,
   currentChain,
 }) => {
-  const isCopilotPlus = isPlusChain(currentChain);
-  const canShowToolControls = isCopilotPlus;
+  const isAgentMode = isAgentChain(currentChain);
+  const canShowToolControls = isAgentMode;
   const showAutonomousAgent = canShowToolControls && currentChain !== ChainType.PROJECT_CHAIN;
   const areManualToolTogglesDisabled = autonomousAgentToggle;
 
@@ -88,7 +88,7 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
     }
   };
 
-  // If not Copilot Plus, don't show any tools
+  // If not agent mode, don't show any tools
   if (!canShowToolControls) {
     return null;
   }
@@ -97,7 +97,7 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
     <TooltipProvider delayDuration={0}>
       {/* Desktop view - show all icons when container is wide enough */}
       <div className="tw-hidden tw-items-center tw-gap-1.5 @[420px]/chat-input:tw-flex">
-        {/* Autonomous Agent button - only show in Copilot Plus mode and NOT in Projects mode */}
+        {/* Autonomous Agent button - only show in agent mode and NOT in Projects mode */}
         {showAutonomousAgent && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -187,7 +187,7 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="tw-w-56">
-            {/* Autonomous Agent option - only show in Copilot Plus mode and NOT in Projects mode */}
+            {/* Autonomous Agent option - only show in agent mode and NOT in Projects mode */}
             {showAutonomousAgent && (
               <DropdownMenuItem
                 onSelect={() => {

@@ -97,14 +97,14 @@ export class ChatOpenRouter extends ChatOpenAI {
    * Prompt caching: The `cache_control` field opts Anthropic models (via OpenRouter) into
    * automatic cache breakpoint detection, reducing token costs on repeated context. This
    * field is only sent when connected to the OpenRouter gateway; other backends (LM Studio,
-   * Copilot Plus) use the same class but must not receive OpenRouter-specific fields.
+   * local models) use the same class but must not receive OpenRouter-specific fields.
    *
    * @see https://openrouter.ai/docs/features/prompt-caching
    */
   override invocationParams(options?: this["ParsedCallOptions"]): any {
     const baseParams = super.invocationParams(options);
 
-    // Only inject cache_control for OpenRouter endpoints. LM Studio, Copilot Plus, and
+    // Only inject cache_control for OpenRouter endpoints. LM Studio, local models, and
     // other OpenAI-compatible backends share this class but reject unknown top-level fields.
     // Skip caching when enablePromptCaching is false (e.g. for ZDR endpoints that don't
     // support Anthropic's automatic caching).

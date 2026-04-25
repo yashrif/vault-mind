@@ -204,15 +204,27 @@ export class TelegramChannelService {
       };
     }
     if (msg.voice) {
-      return { fileId: msg.voice.file_id, fileName: "voice.ogg", mimeType: msg.voice.mime_type ?? "audio/ogg" };
+      return {
+        fileId: msg.voice.file_id,
+        fileName: "voice.ogg",
+        mimeType: msg.voice.mime_type ?? "audio/ogg",
+      };
     }
     if (msg.audio) {
       const name = msg.audio.file_name ?? msg.audio.title ?? "audio";
-      return { fileId: msg.audio.file_id, fileName: name, mimeType: msg.audio.mime_type ?? "audio/mpeg" };
+      return {
+        fileId: msg.audio.file_id,
+        fileName: name,
+        mimeType: msg.audio.mime_type ?? "audio/mpeg",
+      };
     }
     if (msg.video) {
       const name = msg.video.file_name ?? "video.mp4";
-      return { fileId: msg.video.file_id, fileName: name, mimeType: msg.video.mime_type ?? "video/mp4" };
+      return {
+        fileId: msg.video.file_id,
+        fileName: name,
+        mimeType: msg.video.mime_type ?? "video/mp4",
+      };
     }
     return undefined;
   }

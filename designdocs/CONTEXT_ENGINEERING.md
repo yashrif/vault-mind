@@ -238,11 +238,11 @@ All four chain runners use the context envelope for LLM message construction. Ea
 | Runner                         | Envelope Construction                                                                 | Tool Results                                                  | User Message Source  |
 | ------------------------------ | ------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------- |
 | **LLMChainRunner**             | `LayerToMessagesConverter.convert()` → system (L1+L2), user (L3 refs + L5)            | None                                                          | Envelope only        |
-| **CopilotPlusChainRunner**     | Same converter, then `ensureUserQueryLabel` adds `[User query]:` separator            | Prepended to user message in CiC order                        | L5 text via envelope |
+| **ToolChainRunner**            | Same converter, then `ensureUserQueryLabel` adds `[User query]:` separator            | Prepended to user message in CiC order                        | L5 text via envelope |
 | **AutonomousAgentChainRunner** | Same converter for initial messages; ReAct loop appends AI + ToolMessages iteratively | Native tool calling — each result is a separate `ToolMessage` | L5 text via envelope |
 | **VaultQAChainRunner**         | Same converter                                                                        | Retrieval results via hybrid/lexical retriever                | Envelope only        |
 
-### CopilotPlus: Single-Shot Tool Flow
+### ToolChain: Single-Shot Tool Flow
 
 1. Planning phase analyzes L5 text to determine which `@commands` to execute.
 2. Tool results (localSearch, web fetch, etc.) are formatted and prepended to the user message using CiC ordering: `[tool results] → [L3 references + L5 with User query label]`.
@@ -250,7 +250,7 @@ All four chain runners use the context envelope for LLM message construction. Ea
 
 ### Autonomous Agent: ReAct Loop Flow
 
-1. Initial message array built identically to CopilotPlus: `[system (L1+L2+tool guidelines)] → [L4 history] → [user (L3 refs + L5)]`.
+1. Initial message array built identically to Agent mode: `[system (L1+L2+tool guidelines)] → [L4 history] → [user (L3 refs + L5)]`.
 2. Model responds with native tool calls (e.g., `localSearch`, `readFile`).
 3. Each tool result becomes a `ToolMessage` appended to the growing messages array.
 4. `localSearch` results get CiC ordering: the user's question (from L5 `originalUserPrompt`) is appended after the search payload via `ensureCiCOrderingWithQuestion`.
@@ -461,7 +461,7 @@ This suite replaces the need for manual multi-turn chat testing in the UI and pr
 - `src/core/ChatPersistenceManager.ts`
 - `src/LLMProviders/chainRunner/LLMChainRunner.ts`
 - `src/LLMProviders/chainRunner/VaultQAChainRunner.ts`
-- `src/LLMProviders/chainRunner/CopilotPlusChainRunner.ts`
+- `src/LLMProviders/chainRunner/ToolChainRunner.ts`
 - `src/LLMProviders/chainRunner/AutonomousAgentChainRunner.ts`
 
 ### Related Docs

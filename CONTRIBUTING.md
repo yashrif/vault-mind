@@ -81,25 +81,25 @@ The most basic ones are model changes and mode changes.
 
 - To ensure any **new users** can use the plugin on a **fresh install**, manually delete the `data.json` file in the plugin directory, disable the plugin in Obsidian, and re-enable it, enter the OpenAI API key and other API key(s) to see if **onboarding** is working.
 
-### Chat / Plus mode
+### Chat
 
 - Switch the model and check if the log has the new model key
 - Test model selection: Ask the model "what company trained you" to double check. Models from OpenAI, Claude, Gemini models can properly answer this question.
 - Test chat memory: Tell the model your name, and in a turn or two ask "what's my name" to ensure chat memory is working.
 - Use `[[note title]]` in chat and see if the model can access the content.
 
-### Vault QA / Plus mode (with a small test vault)
+### Vault QA
 
 - Use the "Refresh index" button and see if it properly starts indexing. If it says "index is up-to-date", use "Clear Copilot index" and start indexing again (or equivalently, use "force re-index" command).
 - Check if there's any error or warning during indexing in the console, and if the exclusions and inclusions are shown correctly in the notice banner. Click pause and resume.
 - After indexing is successful, ask a specific question where the answer is in your docs. For example, two of my docs are a biography of a person named "Mike", I ask "who is mike" and it should be able to answer using the two docs.
-  - In Plus mode make sure you trigger this query with `@vault` or cmd/ctrl + shift + enter. And then check "Show Sources" button for the expected docs.
+  - In Agent mode make sure you trigger this query with `@vault` or cmd/ctrl + shift + enter. And then check "Show Sources" button for the expected docs.
 - To debug any failed QA query, we need to understand if it failed at 1. indexing 2. retrieval 3. generation.
   - First use "list all indexed files" command to check if the docs are indexed correctly.
   - Then check the console log for "retrieved chunks" from the hybrid retriever.
   - If correctly retrieved, it means the Chat Model is too weak to process the context effectively. Use a stronger Chat Model
 
-### Plus mode
+### Agent mode
 
 - "Give me a recap of this week" or some other time-based query. If you have daily notes or modified notes in this period, it should be able to retrieve them.
 - Pass an image with text and ask gpt-4o-mini or gemini flash to describe the image.

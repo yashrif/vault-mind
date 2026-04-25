@@ -51,8 +51,7 @@ interface APIError extends Error {
 
 // Error message constants
 export const ERROR_MESSAGES = {
-  INVALID_LICENSE_KEY_USER:
-    "Invalid Copilot Plus license key. Please check your license key in settings.",
+  INVALID_LICENSE_KEY_USER: "Invalid API key. Please check your API key in settings.",
   UNKNOWN_ERROR: "An unknown error occurred",
   REQUEST_FAILED: (status: number) => `Request failed, status ${status}`,
 } as const;
@@ -403,12 +402,11 @@ export function isAllowedFileForNoteContext(file: TFile | null): boolean {
 }
 
 /**
- * Checks if a chain type is a Plus mode chain (Copilot Plus or Project Chain).
- * Plus mode chains have access to premium features like PDF processing and URL processing.
+ * Checks if a chain type supports agent features (tools, rich context, PDF/URL processing).
  * @param chainType The chain type to check
- * @returns true if this is a Plus mode chain, false otherwise
+ * @returns true if this chain type supports agent features, false otherwise
  */
-export function isPlusChain(chainType: ChainType): boolean {
+export function isAgentChain(chainType: ChainType): boolean {
   return chainType === ChainType.TOOL_CHAIN || chainType === ChainType.PROJECT_CHAIN;
 }
 

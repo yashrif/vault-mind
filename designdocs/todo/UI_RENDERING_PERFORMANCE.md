@@ -25,7 +25,7 @@ This document tracks UI rendering performance issues identified through a compre
   - `(newMessage) => onEdit(index, newMessage)` (line 109)
   - `() => onDelete(index)` (line 110)
 - These inline closures create new function references on every render, which would defeat `React.memo` even if it were added without also stabilizing the callbacks.
-- `ChatSingleMessage` contains: `MarkdownRenderer.renderMarkdown()`, DOM manipulation (`querySelectorAll`, `createElement`, `insertBefore`), `parseToolCallMarkers()`, multiple regex passes, and multiple `useEffect` hooks.
+- `ChatSingleMessage` contains: `MarkdownRenderer.renderMarkdown()`, DOM manipulation (`querySelectorAll`, `createElement`, `insertBefore`), multiple regex passes, and multiple `useEffect` hooks.
 
 ### Recommended Solution
 
@@ -82,7 +82,7 @@ A new `ChatPersistenceManager` object is allocated on every call to `getCurrentM
 - **File**: `src/core/ChatManager.ts:82-87`
 - **Code**: `this.persistenceManager = new ChatPersistenceManager(this.plugin.app, currentRepo, this.chainManager)` runs unconditionally inside `getCurrentMessageRepo()`.
 - This method is called by `getDisplayMessages()`, `getLLMMessages()`, `getMessage()`, `addMessage()`, `deleteMessage()`, etc.
-- Via `useChatManager`, `getDisplayMessages()` is called on every subscription notification from `ChatUIState`.
+- Via `useChatManager`, `getDisplayMessages()` is called on every reactive notification from `ChatUIState`.
 
 ### Recommended Solution
 
@@ -178,7 +178,7 @@ The `useAllNotes` hook sorts all vault files by creation date inside `useMemo`, 
 ### Technical Details
 
 - **File**: `src/components/chat-components/hooks/useAllNotes.ts:36`
-- **Code**: `files.sort((a, b) => b.stat.ctime - a.stat.ctime)` runs inside `useMemo` with `[allNotes, isCopilotPlus]` deps.
+- **Code**: `files.sort((a, b) => b.stat.ctime - a.stat.ctime)` runs inside `useMemo` with `[allNotes, isAgentMode]` deps.
 - `allNotes` atom gets a new array reference on every debounced vault event (`VaultDataManager.refreshNotes` at `vaultDataAtoms.ts:214` always sets a new array).
 - For vaults with 5000+ files, this is O(N log N) on every file create/delete/rename.
 

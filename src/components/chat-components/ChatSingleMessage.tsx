@@ -1,7 +1,4 @@
-import {
-  ChatActionCapabilities,
-  ChatButtons,
-} from "@/components/chat-components/ChatButtons";
+import { ChatActionCapabilities, ChatButtons } from "@/components/chat-components/ChatButtons";
 import { SourcesModal } from "@/components/modals/SourcesModal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -61,7 +58,10 @@ const TELEGRAM_MEDIA_LABELS: Record<string, { label: string; icon: React.ReactNo
   "[document]": { label: "Document", icon: <FileText className="tw-size-3.5" /> },
   "[sticker]": { label: "Sticker", icon: <FileText className="tw-size-3.5" /> },
   "[photo]": { label: "Photo", icon: <FileText className="tw-size-3.5" /> },
-  "[unsupported message type]": { label: "Unsupported message", icon: <FileText className="tw-size-3.5" /> },
+  "[unsupported message type]": {
+    label: "Unsupported message",
+    icon: <FileText className="tw-size-3.5" />,
+  },
 };
 
 /**

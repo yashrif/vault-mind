@@ -611,9 +611,9 @@ Remember: The user has already told you what to do. Execute it NOW with the avai
 }
 
 /**
- * Copilot Plus adapter for Flash models with anti-hallucination focus
+ * Agent model adapter for Flash models with anti-hallucination focus
  */
-class CopilotPlusModelAdapter extends BaseModelAdapter {
+class AgentModelAdapter extends BaseModelAdapter {
   buildSystemPromptSections(
     basePrompt: string,
     toolDescriptions: string,
@@ -628,13 +628,13 @@ class CopilotPlusModelAdapter extends BaseModelAdapter {
     );
 
     sections.push({
-      id: "copilot-plus-guidelines",
-      label: "Copilot Plus model guidance",
+      id: "agent-guidelines",
+      label: "Agent model guidance",
       source:
-        "src/LLMProviders/chainRunner/utils/modelAdapter.ts#CopilotPlusModelAdapter.buildSystemPromptSections",
+        "src/LLMProviders/chainRunner/utils/modelAdapter.ts#AgentModelAdapter.buildSystemPromptSections",
       content: `🚨 CRITICAL: NO HALLUCINATED TOOL CALLS OR SOURCES 🚨
 
-You are a Copilot Plus model. You MUST follow these rules strictly:
+You MUST follow these rules strictly:
 
 ## Tool Call Integrity
 - You can ONLY reference results from tools you have ACTUALLY called in this conversation
@@ -702,10 +702,10 @@ export class ModelAdapterFactory {
       return new GeminiModelAdapter(modelName);
     }
 
-    // Copilot Plus models (Flash-based, needs anti-hallucination guidance)
+    // Agent/advanced models (Flash-based, needs anti-hallucination guidance)
     if (modelName.includes("copilot-plus")) {
-      logInfo("Using CopilotPlusModelAdapter");
-      return new CopilotPlusModelAdapter(modelName);
+      logInfo("Using AgentModelAdapter");
+      return new AgentModelAdapter(modelName);
     }
 
     // Default adapter for unknown models

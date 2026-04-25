@@ -4,7 +4,7 @@ Critical: The plan does not explicitly handle the history-adapter gap required f
 The shared prep flow in ChatManager.ts:475 passes a repository into ContextManager, and L2 context construction depends on that repository contract in ContextManager.ts:92 and ContextManager.ts:375. Telegram currently provides history via TelegramStore.ts:323, not MessageRepository, so parity will be incomplete unless the plan adds an explicit adapter step.
 
 Critical: Your own UI-vs-runtime separation requirement is correct, but easy to accidentally violate unless made explicit in implementation steps.
-UI helpers currently use plus checks in ChatInput.tsx:138 and ChatToolControls.tsx:50. Runtime/context logic also depends on plus checks in contextProcessor.ts:252. If someone “just adds Telegram to isPlusChain” in utils.ts:411, Telegram UI controls may unintentionally surface. The plan should explicitly require a new runtime policy helper and keep utils.ts:411 UI-facing only.
+UI helpers currently use tool-access checks in ChatInput.tsx:138 and ChatToolControls.tsx:50. Runtime/context logic also depends on access checks in contextProcessor.ts:252. If someone “just adds Telegram to isAgentChain” in utils.ts:411, Telegram UI controls may unintentionally surface. The plan should explicitly require a new runtime policy helper and keep utils.ts:411 UI-facing only.
 
 Critical: L1 parity is not just “use shared path”; it also needs legacy compatibility strategy.
 Telegram currently builds minimal envelopes in TelegramAgent.ts:224, TelegramAgent.ts:302, and TelegramAgent.ts:351. Regular tool mode depends on envelope-provided system content. Without explicit lazy/eager migration handling for existing stored Telegram rows, behavior will be inconsistent across old/new turns.

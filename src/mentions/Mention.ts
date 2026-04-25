@@ -7,7 +7,7 @@ import {
 import { selfHostYoutube4llm } from "@/LLMProviders/selfHostServices";
 import { err2String, isTwitterUrl, isYoutubeUrl } from "@/utils";
 import { logError } from "@/logger";
-import { isSelfHostModeValid } from "@/plusUtils";
+import { isSelfHostModeValid } from "@/selfHostUtils";
 import { getSettings } from "@/settings/model";
 
 export interface MentionData {

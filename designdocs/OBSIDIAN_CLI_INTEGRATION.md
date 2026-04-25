@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-11
 **Status:** Draft — Experimental, Desktop-Only
-**Scope:** Copilot plugin tooling (`AutonomousAgent` + `Copilot Plus` tool execution path)
+**Scope:** Copilot plugin tooling (`AutonomousAgent` + `Tool Mode` tool execution path)
 
 ## 1. Problem Statement
 

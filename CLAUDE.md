@@ -108,7 +108,7 @@ Run `obsidian help` for the full command list.
        - Non-project chats use `defaultProjectKey` repository
    - **ChatUIState** (`src/state/ChatUIState.ts`): Clean UI-only state manager
      - Delegates all business logic to ChatManager
-     - Provides React integration with subscription mechanism
+     - Provides React integration with reactive mechanism
      - Replaces legacy SharedState with minimal, focused approach
    - **ContextManager** (`src/core/ContextManager.ts`): Handles context processing
      - Processes message context (notes, URLs, selected text)
@@ -243,12 +243,12 @@ For detailed architecture diagrams and documentation, see [`MESSAGE_ARCHITECTURE
 
 ### Avoiding Deep Dependency Chains in Tests
 
-This codebase has deep transitive import chains (e.g. a utility → cache → searchUtils → embeddingManager → brevilabsClient → plusUtils → Modal). Importing any module in this chain from a test requires mocking the entire tree, which is brittle and verbose.
+This codebase has deep transitive import chains (e.g. a utility → cache → searchUtils → embeddingManager → Modal). Importing any module in this chain from a test requires mocking the entire tree, which is brittle and verbose.
 
 **Rules for new code:**
 
 1. **Pass data, not services** — If a function only needs a string (like `outputFolder`), accept it as a parameter. Don't give it access to the entire settings singleton.
-2. **Singletons at the edges only** — `getSettings()`, `PDFCache.getInstance()`, `BrevilabsClient.getInstance()` should only be called in top-level orchestration (constructors, main entry points). Inner functions receive what they need as parameters.
+2. **Singletons at the edges only** — `getSettings()`, `PDFCache.getInstance()` should only be called in top-level orchestration (constructors, main entry points). Inner functions receive what they need as parameters.
 3. **Pure logic in leaf modules** — Extract testable logic into small files with minimal imports. The orchestration file (which has heavy imports) calls the leaf function and passes in the dependencies. See `src/tools/convertedDocOutput.ts` as an example.
 4. **Litmus test before writing a function** — "Can I test this by calling it directly with plain arguments?" If the answer is no because of an import, that dependency should be a parameter instead.
 

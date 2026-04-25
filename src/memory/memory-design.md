@@ -147,16 +147,13 @@ The memory system behaves differently depending on which chat mode is active:
   - Shows user notifications when memories are saved
   - Access controlled by tool enablement settings (`autonomousAgentEnabledToolIds`)
 
-### Plus Mode (Legacy Tool Calling)
+### Tool-Based Context (Legacy)
 
-- **Memory Retrieval**: ✅ Full access to both Recent Conversations and Saved Memories via system prompt
-- **Memory Saving**: ✅ Access to `@memory`
-- **Behavior**:
-  - Uses Brevilabs API intent analysis to determine when to call memory tools
-  - Intent analyzer processes user message and decides which tools to execute
-  - Tools are executed before LLM response generation
-  - Memory tool calls are pre-determined rather than AI-reasoned
-  - Same notification system as Agent mode
+- Uses intent analysis to determine when to call memory tools
+- Intent analyzer processes user message and decides which tools to execute
+- Tools are executed before LLM response generation
+- Memory tool calls are pre-determined rather than AI-reasoned
+- Same notification system as Agent mode
 
 ### Basic Chat Mode (LLM Only)
 
@@ -178,7 +175,7 @@ The memory system behaves differently depending on which chat mode is active:
 
 ### Key Differences Summary
 
-| Feature          | Agent Mode    | Plus Mode          | Basic Chat    | Project Mode |
+| Feature          | Agent Mode    | Tool Mode          | Basic Chat    | Project Mode |
 | ---------------- | ------------- | ------------------ | ------------- | ------------ |
 | Memory Retrieval | ✅ Dynamic    | ✅ Dynamic         | ✅ Dynamic    | ❌ Disabled  |
 | Memory Saving    | ✅ XML Tools  | ✅ Intent Analysis | ❌ None       | ❌ None      |

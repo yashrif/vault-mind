@@ -43,8 +43,8 @@ jest.mock("crypto-js", () => ({
   })),
 }));
 
-// Mock plusUtils
-jest.mock("@/plusUtils", () => ({
+// Mock selfHostUtils
+jest.mock("@/selfHostUtils", () => ({
   useIsPlusUser: jest.fn(),
   navigateToPlusPage: jest.fn(),
 }));

@@ -54,11 +54,6 @@ export interface Twitter4llmResponse {
   elapsed_time_ms: number;
 }
 
-export interface LicenseResponse {
-  is_valid: boolean;
-  plan: string;
-}
-
 export class BrevilabsClient {
   private static instance: BrevilabsClient;
   private pluginVersion: string = "Unknown";
@@ -111,45 +106,6 @@ export class BrevilabsClient {
     logInfo(`[API ${endpoint} request]:`, data);
 
     return { data };
-  }
-
-  /**
-   * Validate the license key and update the isPlusUser setting.
-   * @param context Optional context object containing the features that the user is using to validate the license key.
-   * @returns true if the license key is valid, false if the license key is invalid, and undefined if
-   * unknown error.
-   */
-  async validateLicenseKey(
-    context?: Record<string, any>
-  ): Promise<{ isValid: boolean | undefined; plan?: string }> {
-    // Build the request body with proper structure
-    const requestBody: Record<string, any> = {};
-
-    // Safely spread context if provided, ensuring no conflicts with required fields
-    if (context && typeof context === "object") {
-      // Filter out any undefined or null values from context
-      const filteredContext = Object.fromEntries(
-        Object.entries(context).filter(([_, value]) => value !== undefined && value !== null)
-      );
-
-      // Remove any reserved fields that must not be overridden by context
-      const reservedKeys = new Set(["license_key", "user_id"]);
-      for (const key of reservedKeys) {
-        if (key in filteredContext) {
-          delete (filteredContext as Record<string, unknown>)[key];
-        }
-      }
-
-      // Spread the filtered context into the request body
-      Object.assign(requestBody, filteredContext);
-    }
-
-    const { data, error } = await this.makeRequest<LicenseResponse>("/license", requestBody);
-
-    if (error) {
-      return { isValid: undefined };
-    }
-    return { isValid: true, plan: data?.plan };
   }
 
   async rerank(query: string, documents: string[]): Promise<RerankResponse> {

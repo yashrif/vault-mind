@@ -36,7 +36,7 @@ Core direction:
 
 - Chat shell UI and message list containers
 - `MessageRepository` for display storage
-- `ChatUIState` subscription model
+- `ChatUIState` reactive model
 - `ChatManager` as orchestration hub (with an ACP-specific send path)
 - Existing settings infrastructure
 
@@ -175,7 +175,7 @@ In `agent` mode, there are two tool lanes:
 
 ```
 copilot-skills/
-├── vault-search.md         # How to use miyo CLI/MCP for hybrid vault search
+├── vault-search.md         # How to use hybrid vault search
 ├── web-search.md           # Self-hosted web search endpoint and usage
 ├── youtube-transcription.md # Self-hosted YouTube transcription service
 ├── code-review.md          # Instructions for how to review code in this project
@@ -193,11 +193,11 @@ copilot-skills/
 ```markdown
 # Vault Search
 
-Use miyo for hybrid (semantic + keyword) search over this vault.
+Use hybrid (semantic + keyword) search over this vault.
 
 ## CLI
 
-miyo search "<query>" --limit 10
+search "<query>" --limit 10
 
 ## MCP
 
@@ -219,7 +219,7 @@ Returns: JSON array of {title, url, content}
 
 This pattern covers all local tools and self-hosted services uniformly:
 
-- **miyo** for vault hybrid search (CLI or MCP — agent chooses)
+- hybrid vault search (CLI or MCP — agent chooses)
 - **Self-hosted Firecrawl** for web search
 - **Self-hosted Supadata** for YouTube transcription
 - Any future local service the user runs
@@ -326,7 +326,7 @@ When `interactionMode === "agent"`:
 - show mode selector when ACP modes available.
 - show model selector when ACP models available.
 - show session/connection status indicator.
-- hide Copilot Plus LangChain tool toggles and command injection controls.
+- hide tool calling toggles and command injection controls.
 - show skills folder indicator (configured/not configured, skill count).
 
 ### 8.2 Message rendering in agent mode

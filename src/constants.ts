@@ -820,7 +820,7 @@ export const COMMAND_NAMES: Record<CommandId, string> = {
   [COMMAND_IDS.APPLY_CUSTOM_COMMAND]: "Apply custom command",
   [COMMAND_IDS.OPEN_LOG_FILE]: "Create log file",
   [COMMAND_IDS.CLEAR_LOG_FILE]: "Clear log file",
-  [COMMAND_IDS.DOWNLOAD_YOUTUBE_SCRIPT]: "Download YouTube Script (plus)",
+  [COMMAND_IDS.DOWNLOAD_YOUTUBE_SCRIPT]: "Download YouTube Script",
   [COMMAND_IDS.TRIGGER_QUICK_ASK]: "Quick Ask",
 };
 
@@ -991,8 +991,6 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   enableCustomPromptTemplating: true,
   enableSemanticSearchV3: false,
   enableSelfHostMode: false,
-  selfHostModeValidatedAt: null,
-  selfHostValidationCount: 0,
   selfHostUrl: "",
   selfHostApiKey: "",
   selfHostSearchProvider: "firecrawl",
