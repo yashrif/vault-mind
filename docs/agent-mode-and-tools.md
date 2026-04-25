@@ -76,7 +76,7 @@ Lists all tags in your vault with usage statistics. Useful for tag reorganizatio
 
 Saves information to your memory when you explicitly ask the AI to remember something. See [Self-Host and Memory](self-host-and-memory.md#memory-system) for details.
 
-> **Requires**: **Settings → Copilot → Agent → Reference Saved Memories** must be enabled. If this setting is off, the tool is not registered and memory commands will not work.
+> **Requires**: **Settings → Copilot → Agent → Reference Saved Memories** must be enabled.
 
 ### Configurable Tools
 
@@ -100,9 +100,9 @@ Searches the internet for current information.
 
 Creates a new note or overwrites an existing one entirely.
 
-- **Trigger**: Automatically for "create a note" requests, or explicitly with `@composer` (available in both Copilot Plus and Projects mode)
+- **Trigger**: Automatically for "create a note" requests, or explicitly with `@composer` (available in both Agent and Projects mode)
 - **Behavior**: Shows a preview of the content before writing. You can review and accept or reject the change.
-- **Auto-accept**: Enable **Settings → Copilot → Plus → Auto-accept edits** to skip the preview
+- **Auto-accept**: Enable **Settings → Copilot → Agent → Auto-accept edits** to skip the preview
 
 #### Replace in File
 
