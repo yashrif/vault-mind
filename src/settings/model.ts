@@ -9,7 +9,7 @@ import {
   BUILTIN_AUDIO_STT_MODELS,
   BUILTIN_CHAT_MODELS,
   BUILTIN_EMBEDDING_MODELS,
-  COPILOT_FOLDER_ROOT,
+  CORTEX_FOLDER_ROOT,
   DEFAULT_OPEN_AREA,
   DEFAULT_QA_EXCLUSIONS_SETTING,
   DEFAULT_SETTINGS,
@@ -263,8 +263,8 @@ export function sanitizeQaExclusions(rawValue: unknown): string {
   decodedPatterns.forEach((pattern) => {
     const canonical = pattern.replace(/\/+$/, "");
     const canonicalKey = canonical.length > 0 ? canonical : pattern;
-    if (canonicalKey === COPILOT_FOLDER_ROOT) {
-      canonicalToOriginalPattern.set(COPILOT_FOLDER_ROOT, COPILOT_FOLDER_ROOT);
+    if (canonicalKey === CORTEX_FOLDER_ROOT) {
+      canonicalToOriginalPattern.set(CORTEX_FOLDER_ROOT, CORTEX_FOLDER_ROOT);
       return;
     }
     if (!canonicalToOriginalPattern.has(canonicalKey)) {
@@ -274,7 +274,7 @@ export function sanitizeQaExclusions(rawValue: unknown): string {
     }
   });
 
-  canonicalToOriginalPattern.set(COPILOT_FOLDER_ROOT, COPILOT_FOLDER_ROOT);
+  canonicalToOriginalPattern.set(CORTEX_FOLDER_ROOT, CORTEX_FOLDER_ROOT);
 
   return Array.from(canonicalToOriginalPattern.values())
     .map((pattern) => encodeURIComponent(pattern))

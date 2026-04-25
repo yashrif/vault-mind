@@ -1,5 +1,5 @@
 import {
-  COPILOT_FOLDER_ROOT,
+  CORTEX_FOLDER_ROOT,
   DEFAULT_QA_EXCLUSIONS_SETTING,
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_SETTINGS,
@@ -34,13 +34,13 @@ describe("sanitizeQaExclusions", () => {
   });
 
   it("keeps slash-only patterns distinct from canonical entries", () => {
-    const rawValue = `${encodeURIComponent("///")},${encodeURIComponent(COPILOT_FOLDER_ROOT)}`;
+    const rawValue = `${encodeURIComponent("///")},${encodeURIComponent(CORTEX_FOLDER_ROOT)}`;
 
     const sanitized = sanitizeQaExclusions(rawValue);
 
     expect(sanitized.split(",")).toEqual([
       encodeURIComponent("///"),
-      encodeURIComponent(COPILOT_FOLDER_ROOT),
+      encodeURIComponent(CORTEX_FOLDER_ROOT),
     ]);
   });
 
@@ -51,7 +51,7 @@ describe("sanitizeQaExclusions", () => {
 
     expect(sanitized.split(",")).toEqual([
       encodeURIComponent("folder/"),
-      encodeURIComponent(COPILOT_FOLDER_ROOT),
+      encodeURIComponent(CORTEX_FOLDER_ROOT),
     ]);
   });
 });

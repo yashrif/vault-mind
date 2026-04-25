@@ -4,19 +4,19 @@ import { v4 as uuidv4 } from "uuid";
 import { ChainType } from "./chainFactory";
 import { PromptSortStrategy } from "./types";
 
-export const CHAT_VIEWTYPE = "copilot-chat-view";
+export const CHAT_VIEWTYPE = "cortex-chat-view";
 export const USER_SENDER = "user";
 export const AI_SENDER = "ai";
 
 // Default folder names
-export const COPILOT_FOLDER_ROOT = "copilot";
-export const DEFAULT_CHAT_HISTORY_FOLDER = `${COPILOT_FOLDER_ROOT}/copilot-conversations`;
-export const DEFAULT_CUSTOM_PROMPTS_FOLDER = `${COPILOT_FOLDER_ROOT}/copilot-custom-prompts`;
-export const DEFAULT_MEMORY_FOLDER = `${COPILOT_FOLDER_ROOT}/memory`;
-export const DEFAULT_SYSTEM_PROMPTS_FOLDER = `${COPILOT_FOLDER_ROOT}/system-prompts`;
+export const CORTEX_FOLDER_ROOT = "cortex";
+export const DEFAULT_CHAT_HISTORY_FOLDER = `${CORTEX_FOLDER_ROOT}/cortex-conversations`;
+export const DEFAULT_CUSTOM_PROMPTS_FOLDER = `${CORTEX_FOLDER_ROOT}/cortex-custom-prompts`;
+export const DEFAULT_MEMORY_FOLDER = `${CORTEX_FOLDER_ROOT}/memory`;
+export const DEFAULT_SYSTEM_PROMPTS_FOLDER = `${CORTEX_FOLDER_ROOT}/system-prompts`;
 export const DEFAULT_CONVERTED_DOC_OUTPUT_FOLDER = "";
-export const DEFAULT_QA_EXCLUSIONS_SETTING = COPILOT_FOLDER_ROOT;
-export const DEFAULT_SYSTEM_PROMPT = `You are Obsidian Copilot, a helpful assistant that integrates AI to Obsidian note-taking.
+export const DEFAULT_QA_EXCLUSIONS_SETTING = CORTEX_FOLDER_ROOT;
+export const DEFAULT_SYSTEM_PROMPT = `You are Obsidian Cortex, a helpful assistant that integrates AI to Obsidian note-taking.
   1. Never mention that you do not have access to something. Always rely on the user provided context.
   2. Always answer to the best of your knowledge. If you are unsure about something, say so and ask the user to provide more context.
   3. If the user mentions "note", it most likely means an Obsidian note in the vault, not the generic meaning of a note.
@@ -950,7 +950,7 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   openAIEmbeddingProxyBaseUrl: "",
   stream: true,
   defaultSaveFolder: DEFAULT_CHAT_HISTORY_FOLDER,
-  defaultConversationTag: "copilot-conversation",
+  defaultConversationTag: "cortex-conversation",
   autosaveChat: true,
   generateAIChatTitleOnSave: true,
   autoAddActiveContentToContext: true,
