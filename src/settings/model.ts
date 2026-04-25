@@ -640,6 +640,26 @@ export function sanitizeSettings(settings: CortexSettings): CortexSettings {
 
   sanitizedSettings.qaExclusions = sanitizeQaExclusions(settingsToSanitize.qaExclusions);
 
+  // Migration: rename legacy "copilot/" folder prefix to "cortex/"
+  const pathFields = [
+    "defaultSaveFolder",
+    "customPromptsFolder",
+    "memoryFolderName",
+    "userSystemPromptsFolder",
+  ] as const;
+  for (const field of pathFields) {
+    const value = sanitizedSettings[field];
+    if (typeof value === "string" && value.startsWith("copilot/")) {
+      (sanitizedSettings as Record<string, unknown>)[field] = value.replace(
+        /^copilot\//,
+        "cortex/"
+      );
+    }
+  }
+  if (sanitizedSettings.defaultConversationTag === "copilot-conversation") {
+    sanitizedSettings.defaultConversationTag = "cortex-conversation";
+  }
+
   return sanitizedSettings;
 }
 
