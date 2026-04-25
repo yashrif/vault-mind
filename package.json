@@ -1,7 +1,7 @@
 {
-  "name": "obsidian-copilot",
+  "name": "obsidian-cortex",
   "version": "3.2.7",
-  "description": "Your AI Copilot: Chat with Your Second Brain, Learn Faster, Work Smarter.",
+  "description": "Your AI Cortex: Chat with Your Second Brain, Learn Faster, Work Smarter.",
   "main": "main.js",
   "scripts": {
     "dev": "npm-run-all --parallel dev:*",
