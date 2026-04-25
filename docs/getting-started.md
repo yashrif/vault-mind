@@ -120,7 +120,7 @@ By default, **Enter** sends a message and **Shift+Enter** adds a new line. You c
 The AI "brain" behind Copilot — a model trained on vast text to understand and generate human language, powering chat, summarization, and writing assistance.
 
 **API (Application Programming Interface)**
-A way for Copilot to communicate with external AI services. You provide an API key, which is like a password that lets Copilot use a provider's AI models on your behalf. Note: an OpenAI API key is _different_ from a ChatGPT Plus subscription — you don't need ChatGPT Plus to use Copilot.
+A way for Copilot to communicate with external AI services. You provide an API key, which is like a password that lets Copilot use a provider's AI models on your behalf. Note: an OpenAI API key is _different_ from a ChatGPT subscription — you don't need a separate subscription to use Copilot if you have your own API key.
 
 **API Key**
 A secret token from an AI provider that authorizes Copilot to make requests. Most providers require you to have a billing account with a positive balance.

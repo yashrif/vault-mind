@@ -80,11 +80,11 @@ Even after indexing, relevant notes aren't being returned? Try:
 4. Run **List all indexed files** (debug command) to verify the notes are indexed
 5. Run **Force reindex vault** for a clean rebuild
 
-### "Non-markdown files are only available in Copilot Plus"
+### "Non-markdown files are not readable"
 
-**Cause**: You tried to use a PDF, image, or other non-markdown file as context in a free mode.
+**Cause**: You tried to use a PDF, image, or other non-markdown file as context in a model that doesn't support it, or without proper tool setup.
 
-**Fix**: Switch to Copilot Plus mode, or convert the file to markdown manually.
+**Fix**: Ensure you're in **Agent Mode** and have the necessary tools enabled, or convert the file to markdown manually.
 
 ---
 

@@ -180,6 +180,5 @@ On mobile, you can still use Vault QA with lexical search, but semantic search w
 
 ## Related
 
-- [Agent Mode and Tools](agent-mode-and-tools.md) — How @vault uses the index in Plus mode
+- [Agent Mode and Tools](agent-mode-and-tools.md) — How `@vault` uses the index for autonomous search
 - [Models and Parameters](models-and-parameters.md) — Choosing an embedding model
-- [Copilot Plus and Self-Host](copilot-plus-and-self-host.md) — Miyo-powered local semantic search

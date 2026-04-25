@@ -102,12 +102,12 @@ A Chinese AI cloud platform with access to DeepSeek and Qwen models.
 
 Access to OpenAI models deployed on Microsoft Azure. Requires four fields to be configured:
 
-| Setting | Description |
-|---|---|
-| API Key | Your Azure OpenAI key |
-| Instance Name | Your Azure resource name |
+| Setting         | Description                |
+| --------------- | -------------------------- |
+| API Key         | Your Azure OpenAI key      |
+| Instance Name   | Your Azure resource name   |
 | Deployment Name | Your model deployment name |
-| API Version | e.g., `2024-02-01` |
+| API Version     | e.g., `2024-02-01`         |
 
 - **Note**: Unlike other providers, Azure OpenAI uses your own Azure deployment
 - **Embedding**: Can also use Azure for embeddings (separate deployment name required)
@@ -121,6 +121,7 @@ Access to models hosted on AWS Bedrock.
 - **Setting key**: `amazonBedrockApiKey`
 
 **Important**: Always use cross-region inference profile IDs, not bare model IDs. For example:
+
 - Use: `us.anthropic.claude-sonnet-4-5-20250929-v1:0`
 - Not: `anthropic.claude-sonnet-4-5-20250929-v1:0`
 
@@ -132,7 +133,7 @@ Use your existing GitHub Copilot subscription to access AI models.
 
 - **OAuth flow**: Click **Connect GitHub Copilot** in the API key dialog
 - **No separate API key needed** — authenticates via GitHub OAuth
-- **Requires**: Active GitHub Copilot subscription
+- **Requires**: Active GitHub Copilot subscription (Personal, Business, or Enterprise)
 
 ---
 
@@ -171,14 +172,14 @@ For any API that follows the OpenAI API format. Useful for custom deployments, p
 
 ## Provider-Specific Gotchas
 
-| Provider | Common Issue | Fix |
-|---|---|---|
-| Azure OpenAI | Missing one of four required fields | Check all four settings: key, instance name, deployment name, API version |
-| Amazon Bedrock | Rate limit or model not found | Use cross-region inference profile IDs with `us.`, `eu.`, `apac.`, or `global.` prefix |
-| GitHub Copilot | Token expired | Re-authenticate via the OAuth button in API key dialog |
-| Ollama | Connection refused | Make sure Ollama is running (`ollama serve`) and the port is correct |
-| Google Gemini | Quota exceeded | Use a different model or check your quota at console.cloud.google.com |
-| DeepSeek | Streaming errors | Try disabling streaming in the per-session settings if you encounter issues |
+| Provider       | Common Issue                        | Fix                                                                                    |
+| -------------- | ----------------------------------- | -------------------------------------------------------------------------------------- |
+| Azure OpenAI   | Missing one of four required fields | Check all four settings: key, instance name, deployment name, API version              |
+| Amazon Bedrock | Rate limit or model not found       | Use cross-region inference profile IDs with `us.`, `eu.`, `apac.`, or `global.` prefix |
+| GitHub Copilot | Token expired                       | Re-authenticate via the OAuth button in API key dialog                                 |
+| Ollama         | Connection refused                  | Make sure Ollama is running (`ollama serve`) and the port is correct                   |
+| Google Gemini  | Quota exceeded                      | Use a different model or check your quota at console.cloud.google.com                  |
+| DeepSeek       | Streaming errors                    | Try disabling streaming in the per-session settings if you encounter issues            |
 
 ---
 
