@@ -86,7 +86,7 @@ Each AI response has action buttons:
 
 ### Autosave
 
-By default, Cortex automatically saves your conversations as markdown files in your vault. Each saved chat appears in the `copilot/copilot-conversations/` folder.
+By default, Cortex automatically saves your conversations as markdown files in your vault. Each saved chat appears in the `cortex/cortex-conversations/` folder.
 
 You can turn off autosave in Settings → Basic. When you start a new chat, any unsaved conversation is saved automatically.
 

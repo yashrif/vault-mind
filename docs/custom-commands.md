@@ -124,7 +124,7 @@ Go to **Settings → Cortex → Command** to manage all your custom commands:
 
 ### Custom Prompts Folder
 
-Commands are stored as markdown files in your vault. The default folder is `copilot/copilot-custom-prompts/`. You can change this in **Settings → Cortex → Basic → Custom prompts folder**.
+Commands are stored as markdown files in your vault. The default folder is `cortex/cortex-custom-prompts/`. You can change this in **Settings → Cortex → Basic → Custom prompts folder**.
 
 ---
 

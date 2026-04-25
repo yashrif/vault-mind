@@ -201,7 +201,7 @@ Any missing or incorrect field will cause errors.
 If your settings get into a bad state, you can reset:
 
 1. Go to **Settings → Cortex** → find the reset option
-2. Or delete the `data.json` file from the plugin folder: `.obsidian/plugins/copilot/data.json`
+2. Or delete the `data.json` file from the plugin folder: `.obsidian/plugins/cortex/data.json`
 
 ⚠️ Resetting will delete all your settings including API keys. Back them up first.
 
@@ -273,18 +273,18 @@ Yes. You can have API keys configured for multiple providers simultaneously and 
 
 ### Where are my saved chats stored?
 
-Chat conversations are saved as markdown files in your vault, in the folder `copilot/copilot-conversations/` by default. You can change this folder in **Settings → Cortex → Basic → Default save folder**.
+Chat conversations are saved as markdown files in your vault, in the folder `cortex/cortex-conversations/` by default. You can change this folder in **Settings → Cortex → Basic → Default save folder**.
 
 ### How do I clear the Cortex cache?
 
 Use **Command palette → Clear Cortex cache**. This clears cached responses and processed files. It does not affect your chat history or the vault index.
 
-### What is the `copilot/` folder in my vault?
+### What is the `cortex/` folder in my vault?
 
-The `copilot/` folder is created by the plugin and stores:
+The `cortex/` folder is created by the plugin and stores:
 
-- `copilot-conversations/` — Saved chat histories
-- `copilot-custom-prompts/` — Your custom commands
+- `cortex-conversations/` — Saved chat histories
+- `cortex-custom-prompts/` — Your custom commands
 - `system-prompts/` — Your custom system prompts
 - `memory/` — Saved AI memories (if enabled)
 

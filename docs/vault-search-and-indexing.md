@@ -118,7 +118,7 @@ Example: `private, Work/Confidential, #private` excludes the private folder, a s
 
 > **Note**: Tag matching works with tags in the note's **properties (frontmatter)**, not inline tags within the note body.
 
-The `copilot` folder is always excluded automatically (it contains the plugin's own files).
+The `cortex` folder is always excluded automatically (it contains the plugin's own files).
 
 ### Inclusions
 

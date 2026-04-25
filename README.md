@@ -10,7 +10,6 @@ The Ultimate AI Assistant for Your Second Brain
 </p>
 
 <p align="center">
-  <a href="https://www.obsidiancopilot.com/en/docs">Documentation</a> |
   <a href="https://www.youtube.com/@loganhallucinates">Youtube</a> |
   <a href="https://github.com/logancyang/obsidian-cortex/issues/new?template=bug_report.md">Report Bug</a> |
   <a href="https://github.com/logancyang/obsidian-cortex/issues/new?template=feature_request.md">Request Feature</a>
@@ -212,7 +211,6 @@ In agent mode, ask Cortex
 
 ## **Need Help?**
 
-- Check the [documentation](https://www.obsidiancopilot.com/en/docs) for setup guides, how-tos, and advanced features.
 - Watch [Youtube](https://www.youtube.com/@loganhallucinates) for walkthroughs.
 - If you're experiencing a bug or have a feature idea, please follow the steps below to help us help you faster:
   - 🐛 Bug Report Checklist

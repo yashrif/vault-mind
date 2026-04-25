@@ -344,7 +344,7 @@ React invariant #409 surfaced when tool-call banners attempted to render into Re
 
 ### Manager Responsibilities
 
-- Tracks `{ root, isUnmounting }` per message/tool call via `window.__copilotToolCallRoots`.
+- Tracks `{ root, isUnmounting }` per message/tool call via `window.__cortexToolCallRoots`.
 - `ensureToolCallRoot` finalises pending disposals and creates a new `createRoot` when needed.
 - `renderToolCallBanner` renders `<ToolCallBanner />` into the managed root; components never call `root.render` directly.
 - `removeToolCallRoot` and `cleanupMessageToolCallRoots` schedule unmounts on the next tick and drop entries only after disposal completes.

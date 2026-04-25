@@ -41,7 +41,7 @@ Custom system prompts let you add your own instructions on top of the built-in p
 Custom system prompts are stored as markdown files in your vault, in the folder:
 
 ```
-copilot/system-prompts/
+cortex/system-prompts/
 ```
 
 You can change this folder in **Settings → Cortex → Advanced → System Prompts Folder Name**.
@@ -58,7 +58,7 @@ You can change this folder in **Settings → Cortex → Advanced → System Prom
 
 #### From the System Prompts Folder
 
-Create any `.md` file in the `copilot/system-prompts/` folder. Its filename (without `.md`) becomes the prompt's title.
+Create any `.md` file in the `cortex/system-prompts/` folder. Its filename (without `.md`) becomes the prompt's title.
 
 ### Writing Good System Prompts
 

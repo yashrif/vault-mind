@@ -61,7 +61,7 @@ You can ask Cortex to explicitly remember specific facts about you:
 Cortex saves this to a memory file in your vault and references it in future conversations.
 
 - **Enable**: **Settings → Cortex → Advanced → Reference Saved Memories** (on by default)
-- **Memory folder**: **Settings → Cortex → Advanced → Memory Folder Name** — default: `copilot/memory`
+- **Memory folder**: **Settings → Cortex → Advanced → Memory Folder Name** — default: `cortex/memory`
 - **Update memory tool**: The AI can add, update, or remove memories when you ask
 
 ---

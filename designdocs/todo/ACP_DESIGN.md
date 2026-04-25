@@ -169,12 +169,12 @@ In `agent` mode, there are two tool lanes:
 
 - A `.md` file containing instructions, templates, or domain knowledge.
 - Optionally accompanied by scripts (shell, python, etc.) that the agent can execute via its own tool system.
-- Organized in a configurable skills folder within the vault (e.g., `copilot-skills/`).
+- Organized in a configurable skills folder within the vault (e.g., `cortex-skills/`).
 
 **Example skill structure:**
 
 ```
-copilot-skills/
+cortex-skills/
 ├── vault-search.md         # How to use hybrid vault search
 ├── web-search.md           # Self-hosted web search endpoint and usage
 ├── youtube-transcription.md # Self-hosted YouTube transcription service
@@ -373,7 +373,7 @@ Extend `CopilotSettings` with ACP section:
 - `acpDefaultAgentId`
 - `acpAgents: ACPAgentConfig[]`
 - `acpAutoAllowPermissions` (default false)
-- `acpSkillsFolderPath` (default `"copilot-skills"`, vault-relative)
+- `acpSkillsFolderPath` (default `"cortex-skills"`, vault-relative)
 - optional ACP diagnostics/logging toggles
 
 ## 11. Implementation Plan
@@ -484,7 +484,7 @@ Extend `CopilotSettings` with ACP section:
 
 **Workload**: Medium-light. Skill discovery is straightforward filesystem scanning. AcpPromptAssembler assembles the prompt with skill index + active skill content. Browser UI is a simple list with toggles.
 
-**Exit criteria**: Configure `copilot-skills/` folder → skills appear in browser → mark `vault-search.md` as always-active → send message → agent sees skill index + vault-search.md content in prompt → agent uses miyo to search.
+**Exit criteria**: Configure `cortex-skills/` folder → skills appear in browser → mark `vault-search.md` as always-active → send message → agent sees skill index + vault-search.md content in prompt → agent uses miyo to search.
 
 ---
 
