@@ -650,7 +650,7 @@ export function sanitizeSettings(settings: CortexSettings): CortexSettings {
   for (const field of pathFields) {
     const value = sanitizedSettings[field];
     if (typeof value === "string" && value.startsWith("copilot/")) {
-      (sanitizedSettings as Record<string, unknown>)[field] = value.replace(
+      (sanitizedSettings as unknown as Record<string, unknown>)[field] = value.replace(
         /^copilot\//,
         "cortex/"
       );
