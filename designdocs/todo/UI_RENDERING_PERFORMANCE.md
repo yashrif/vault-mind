@@ -25,7 +25,7 @@ This document tracks UI rendering performance issues identified through a compre
   - `(newMessage) => onEdit(index, newMessage)` (line 109)
   - `() => onDelete(index)` (line 110)
 - These inline closures create new function references on every render, which would defeat `React.memo` even if it were added without also stabilizing the callbacks.
-- `ChatSingleMessage` contains: `MarkdownRenderer.renderMarkdown()`, DOM manipulation (`querySelectorAll`, `createElement`, `insertBefore`), `parseToolCallMarkers()`, multiple regex passes, and multiple `useEffect` hooks.
+- `ChatSingleMessage` contains: `MarkdownRenderer.renderMarkdown()`, DOM manipulation (`querySelectorAll`, `createElement`, `insertBefore`), multiple regex passes, and multiple `useEffect` hooks.
 
 ### Recommended Solution
 
