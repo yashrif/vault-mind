@@ -390,7 +390,7 @@ All context is wrapped in semantic XML tags for clear structure:
 > - **L1_SYSTEM / L2_PREVIOUS**: Stable prefixes rendered from accumulated context
 > - **L3_TURN**: Turn-specific smart references that either link back to L2 or embed full content
 > - **L4_STRIP**: Chat history managed by memory
-> - **L5_USER**: The user’s raw message (plus composer directives when present)
+> - **L5_USER**: The user’s raw message
 
 #### Note Context
 
