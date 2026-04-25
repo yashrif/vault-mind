@@ -188,7 +188,7 @@ cortex-skills/
     └── meeting-note.md     # Template the agent can use when creating notes
 ```
 
-**Example: vault-search.md (miyo integration)**
+**Example: vault-search.md (hybrid search integration)**
 
 ```markdown
 # Vault Search
@@ -201,7 +201,7 @@ search "<query>" --limit 10
 
 ## MCP
 
-miyo is also available as an MCP server for structured tool access.
+A vault search server is also available as an MCP server for structured tool access.
 ```
 
 **Example: web-search.md (self-hosted service)**
@@ -484,7 +484,7 @@ Extend `CopilotSettings` with ACP section:
 
 **Workload**: Medium-light. Skill discovery is straightforward filesystem scanning. AcpPromptAssembler assembles the prompt with skill index + active skill content. Browser UI is a simple list with toggles.
 
-**Exit criteria**: Configure `cortex-skills/` folder → skills appear in browser → mark `vault-search.md` as always-active → send message → agent sees skill index + vault-search.md content in prompt → agent uses miyo to search.
+**Exit criteria**: Configure `cortex-skills/` folder → skills appear in browser → mark `vault-search.md` as always-active → send message → agent sees skill index + vault-search.md content in prompt → agent uses the vault search skill to search.
 
 ---
 

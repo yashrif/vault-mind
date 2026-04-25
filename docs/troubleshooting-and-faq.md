@@ -170,7 +170,6 @@ Any missing or incorrect field will cause errors.
 - Check **Embedding Requests per Minute** — higher values speed up indexing but may cause rate limits
 - Use exclusions to skip folders you don't need indexed (e.g., large archive folders)
 - Use the incremental **Index (refresh) vault** command instead of Force Reindex when possible
-- Consider Miyo (self-host) for local indexing without API rate limits
 
 ### High Memory Usage
 
@@ -258,7 +257,7 @@ Yes, but only with models that have **Vision** capability (shown by a vision ico
 
 With local models (Ollama or LM Studio), yes — once a model is downloaded, it runs fully offline. Cloud providers (OpenAI, Anthropic, etc.) require an internet connection.
 
-Lexical vault search works offline. Semantic search requires an embedding model, which may also need an internet connection unless you're using a local embedding provider or Miyo.
+Lexical vault search works offline. Semantic search requires an embedding model, which may also need an internet connection unless you're using a local embedding provider.
 
 ### What's the difference between Chat mode and Vault QA mode?
 

@@ -191,30 +191,6 @@ describe("sanitizeSettings - telegramSystemPromptTitle", () => {
   });
 });
 
-describe("sanitizeSettings - legacy Miyo settings cleanup", () => {
-  it("strips obsolete Miyo keys from persisted settings", () => {
-    const legacySettings = {
-      ...DEFAULT_SETTINGS,
-      enableMiyo: true,
-      enableMiyoSearch: true,
-      miyoSearchAll: true,
-      miyoServerUrl: "http://127.0.0.1:8742",
-      miyoRemoteVaultPath: "\\\\Mac\\Home\\Downloads\\graham-essays-main",
-      miyoVaultName: "old-vault",
-    };
-
-    const sanitized = sanitizeSettings(legacySettings as any);
-    const sanitizedRecord = sanitized as unknown as Record<string, unknown>;
-
-    expect("enableMiyo" in sanitizedRecord).toBe(false);
-    expect("enableMiyoSearch" in sanitizedRecord).toBe(false);
-    expect("miyoSearchAll" in sanitizedRecord).toBe(false);
-    expect("miyoServerUrl" in sanitizedRecord).toBe(false);
-    expect("miyoRemoteVaultPath" in sanitizedRecord).toBe(false);
-    expect("miyoVaultName" in sanitizedRecord).toBe(false);
-  });
-});
-
 describe("getSystemPrompt", () => {
   beforeEach(() => {
     jest.clearAllMocks();

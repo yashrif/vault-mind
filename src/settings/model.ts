@@ -402,13 +402,6 @@ export function sanitizeSettings(settings: CortexSettings): CortexSettings {
   );
 
   const sanitizedSettings: CortexSettings = { ...settingsToSanitize };
-  const sanitizedSettingsRecord = sanitizedSettings as unknown as Record<string, unknown>;
-  delete sanitizedSettingsRecord.miyoRemoteVaultPath;
-  delete sanitizedSettingsRecord.miyoVaultName;
-  delete sanitizedSettingsRecord.enableMiyoSearch;
-  delete sanitizedSettingsRecord.enableMiyo;
-  delete sanitizedSettingsRecord.miyoSearchAll;
-  delete sanitizedSettingsRecord.miyoServerUrl;
 
   // Migration: Rename self-hosted search settings to self-host mode (v3.2.0+)
   if (

@@ -16,7 +16,7 @@ Welcome to the official documentation for **Cortex for Obsidian**, an AI-powered
 | [Agent Mode and Tools](agent-mode-and-tools.md)           | Autonomous agent, all tools, file editing, web search                           |
 | [Projects](projects.md)                                   | Focused workspaces with isolated context, model, and chat history               |
 | [System Prompts](system-prompts.md)                       | Customizing AI behavior with built-in and custom system prompts                 |
-| [Self-Host and Memory](self-host-and-memory.md)           | Self-host mode, memory system, Miyo                                             |
+| [Self-Host and Memory](self-host-and-memory.md)           | Self-host mode, memory system                                                   |
 | [Troubleshooting and FAQ](troubleshooting-and-faq.md)     | Common errors, provider-specific issues, performance, FAQ                       |
 
 ## Quick Start

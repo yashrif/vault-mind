@@ -88,7 +88,6 @@ Self-Host Mode lets you replace Cortex's cloud services with your own infrastruc
 - Use local or custom LLM servers
 - Custom web search via Firecrawl or Perplexity Sonar
 - Local YouTube transcript extraction via Supadata
-- Miyo desktop app for local PDF parsing, semantic search, and more
 
 ### Enabling Self-Host Mode
 
@@ -111,39 +110,8 @@ Use your own Supadata API key for YouTube transcript extraction:
 
 ---
 
-## Miyo Desktop App
-
-Miyo is a companion desktop app from the same developer that enhances Cortex with local, offline capabilities:
-
-### What Miyo Provides
-
-- **Local semantic search** — Fast vector search without embedding API calls
-- **PDF parsing** — Converts PDFs to markdown locally (no cloud OCR)
-- **Context hub** — Manages your indexed documents locally
-- **Custom server URL** — Run Miyo on any machine (local or server)
-
-### Setting Up Miyo
-
-1. Download and install the Miyo desktop app
-2. Start the Miyo server
-3. In Cortex, go to **Settings → Cortex → Advanced → Enable Miyo Search**
-4. Miyo automatically connects to the local server (or use a custom URL in **Miyo Server URL**)
-5. Index your vault — Cortex will use Miyo to generate and store embeddings locally
-
-### Custom Miyo Server URL
-
-If Miyo is running on a different machine (e.g., a home server), enter its address:
-
-```
-http://192.168.1.10:8742
-```
-
-Leave empty to use automatic local discovery.
-
----
-
 ## Related
 
 - [Agent Mode and Tools](agent-mode-and-tools.md) — Using the autonomous agent
-- [Vault Search and Indexing](vault-search-and-indexing.md) — How Miyo enhances semantic search
+- [Vault Search and Indexing](vault-search-and-indexing.md) — How semantic search works
 - [Getting Started](getting-started.md) — First-time setup
