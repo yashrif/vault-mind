@@ -42,7 +42,7 @@ Create a new `safeFetchFormData` function that:
 
 ### References
 
-- Related commit: e49aafa (Brevilabs CORS issue #918)
+- Related commit: e49aafa (CORS issue #918)
 - Forum discussion: https://forum.obsidian.md/t/holo-how-to-add-a-png-image-or-file-to-formdata-in-obsidian-like-below-this-help/73420
 - Backend implementation: `/Users/chaoyang/webapps/brevilabs-api/app/main.py:1039`
 

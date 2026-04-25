@@ -82,7 +82,7 @@ A new `ChatPersistenceManager` object is allocated on every call to `getCurrentM
 - **File**: `src/core/ChatManager.ts:82-87`
 - **Code**: `this.persistenceManager = new ChatPersistenceManager(this.plugin.app, currentRepo, this.chainManager)` runs unconditionally inside `getCurrentMessageRepo()`.
 - This method is called by `getDisplayMessages()`, `getLLMMessages()`, `getMessage()`, `addMessage()`, `deleteMessage()`, etc.
-- Via `useChatManager`, `getDisplayMessages()` is called on every subscription notification from `ChatUIState`.
+- Via `useChatManager`, `getDisplayMessages()` is called on every reactive notification from `ChatUIState`.
 
 ### Recommended Solution
 

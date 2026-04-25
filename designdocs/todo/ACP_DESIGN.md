@@ -36,7 +36,7 @@ Core direction:
 
 - Chat shell UI and message list containers
 - `MessageRepository` for display storage
-- `ChatUIState` subscription model
+- `ChatUIState` reactive model
 - `ChatManager` as orchestration hub (with an ACP-specific send path)
 - Existing settings infrastructure
 
