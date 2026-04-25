@@ -1,9 +1,9 @@
 import {
-  COPILOT_COMMAND_CONTEXT_MENU_ENABLED,
-  COPILOT_COMMAND_CONTEXT_MENU_ORDER,
-  COPILOT_COMMAND_LAST_USED,
-  COPILOT_COMMAND_MODEL_KEY,
-  COPILOT_COMMAND_SLASH_ENABLED,
+  CORTEX_COMMAND_CONTEXT_MENU_ENABLED,
+  CORTEX_COMMAND_CONTEXT_MENU_ORDER,
+  CORTEX_COMMAND_LAST_USED,
+  CORTEX_COMMAND_MODEL_KEY,
+  CORTEX_COMMAND_SLASH_ENABLED,
   EMPTY_COMMAND,
   LEGACY_SELECTED_TEXT_PLACEHOLDER,
   QUICK_COMMAND_CODE_BLOCK,
@@ -100,7 +100,7 @@ export function isCustomCommandFile(file: TAbstractFile): boolean {
 
 export function hasOrderFrontmatter(file: TFile): boolean {
   const metadata = app.metadataCache.getFileCache(file);
-  return metadata?.frontmatter?.[COPILOT_COMMAND_CONTEXT_MENU_ORDER] != null;
+  return metadata?.frontmatter?.[CORTEX_COMMAND_CONTEXT_MENU_ORDER] != null;
 }
 
 /**
@@ -111,13 +111,12 @@ export async function parseCustomCommandFile(file: TFile): Promise<CustomCommand
   const content = stripFrontmatter(rawContent);
   const metadata = app.metadataCache.getFileCache(file);
   const showInContextMenu =
-    metadata?.frontmatter?.[COPILOT_COMMAND_CONTEXT_MENU_ENABLED] ??
-    EMPTY_COMMAND.showInContextMenu;
+    metadata?.frontmatter?.[CORTEX_COMMAND_CONTEXT_MENU_ENABLED] ?? EMPTY_COMMAND.showInContextMenu;
   const showInSlashMenu =
-    metadata?.frontmatter?.[COPILOT_COMMAND_SLASH_ENABLED] ?? EMPTY_COMMAND.showInSlashMenu;
-  const lastUsedMs = metadata?.frontmatter?.[COPILOT_COMMAND_LAST_USED] ?? EMPTY_COMMAND.lastUsedMs;
-  const order = metadata?.frontmatter?.[COPILOT_COMMAND_CONTEXT_MENU_ORDER] ?? EMPTY_COMMAND.order;
-  const modelKey = metadata?.frontmatter?.[COPILOT_COMMAND_MODEL_KEY] ?? EMPTY_COMMAND.modelKey;
+    metadata?.frontmatter?.[CORTEX_COMMAND_SLASH_ENABLED] ?? EMPTY_COMMAND.showInSlashMenu;
+  const lastUsedMs = metadata?.frontmatter?.[CORTEX_COMMAND_LAST_USED] ?? EMPTY_COMMAND.lastUsedMs;
+  const order = metadata?.frontmatter?.[CORTEX_COMMAND_CONTEXT_MENU_ORDER] ?? EMPTY_COMMAND.order;
+  const modelKey = metadata?.frontmatter?.[CORTEX_COMMAND_MODEL_KEY] ?? EMPTY_COMMAND.modelKey;
 
   return {
     title: file.basename,
@@ -494,20 +493,20 @@ export async function ensureCommandFrontmatter(file: TFile, command: CustomComma
   try {
     addPendingFileWrite(file.path);
     await app.fileManager.processFrontMatter(file, (frontmatter) => {
-      if (frontmatter[COPILOT_COMMAND_CONTEXT_MENU_ENABLED] == null) {
-        frontmatter[COPILOT_COMMAND_CONTEXT_MENU_ENABLED] = command.showInContextMenu;
+      if (frontmatter[CORTEX_COMMAND_CONTEXT_MENU_ENABLED] == null) {
+        frontmatter[CORTEX_COMMAND_CONTEXT_MENU_ENABLED] = command.showInContextMenu;
       }
-      if (frontmatter[COPILOT_COMMAND_SLASH_ENABLED] == null) {
-        frontmatter[COPILOT_COMMAND_SLASH_ENABLED] = command.showInSlashMenu;
+      if (frontmatter[CORTEX_COMMAND_SLASH_ENABLED] == null) {
+        frontmatter[CORTEX_COMMAND_SLASH_ENABLED] = command.showInSlashMenu;
       }
-      if (frontmatter[COPILOT_COMMAND_CONTEXT_MENU_ORDER] == null) {
-        frontmatter[COPILOT_COMMAND_CONTEXT_MENU_ORDER] = command.order;
+      if (frontmatter[CORTEX_COMMAND_CONTEXT_MENU_ORDER] == null) {
+        frontmatter[CORTEX_COMMAND_CONTEXT_MENU_ORDER] = command.order;
       }
-      if (frontmatter[COPILOT_COMMAND_MODEL_KEY] == null) {
-        frontmatter[COPILOT_COMMAND_MODEL_KEY] = command.modelKey;
+      if (frontmatter[CORTEX_COMMAND_MODEL_KEY] == null) {
+        frontmatter[CORTEX_COMMAND_MODEL_KEY] = command.modelKey;
       }
-      if (frontmatter[COPILOT_COMMAND_LAST_USED] == null) {
-        frontmatter[COPILOT_COMMAND_LAST_USED] = command.lastUsedMs;
+      if (frontmatter[CORTEX_COMMAND_LAST_USED] == null) {
+        frontmatter[CORTEX_COMMAND_LAST_USED] = command.lastUsedMs;
       }
     });
   } finally {
