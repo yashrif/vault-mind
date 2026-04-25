@@ -195,7 +195,7 @@ export abstract class BaseChainRunner implements ChainRunner {
     if (this.isAuthenticationError(error, msg)) {
       errorMessage =
         "Something went wrong. Please check if you have set your API key." +
-        "\nPath: Settings > copilot plugin > Basic Tab > Set Keys." +
+        "\nPath: Settings > Cortex plugin > Basic Tab > Set Keys." +
         "\nOr check model config" +
         "\nError Details: " +
         errorMessage;

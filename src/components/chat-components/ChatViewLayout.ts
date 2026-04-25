@@ -4,10 +4,10 @@ import { Platform, Workspace } from "obsidian";
 const CSS_CHANGE_DEBOUNCE_MS = 600;
 
 /**
- * Manages layout concerns for the Copilot chat view, such as status bar
+ * Manages layout concerns for the Cortex chat view, such as status bar
  * clearance and (in the future) chat input collapse state.
  *
- * Instantiated once per CopilotView and tied to its lifecycle.
+ * Instantiated once per CortexView and tied to its lifecycle.
  */
 export class ChatViewLayout {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -21,7 +21,7 @@ export class ChatViewLayout {
   }
 
   /**
-   * Tear down observers and timers. Call from CopilotView.onClose().
+   * Tear down observers and timers. Call from CortexView.onClose().
    */
   destroy(): void {
     if (this.debounceTimer) {
@@ -54,7 +54,7 @@ export class ChatViewLayout {
       if (!statusBar || !viewContent) return;
 
       // Zero out clearance and force reflow to measure natural overlap.
-      viewContent.style.setProperty("--copilot-status-bar-clearance", "0px");
+      viewContent.style.setProperty("--cortex-status-bar-clearance", "0px");
       const overlap =
         viewContent.getBoundingClientRect().bottom - statusBar.getBoundingClientRect().top;
 
@@ -68,7 +68,7 @@ export class ChatViewLayout {
       const hidden =
         s.display === "none" || s.visibility === "hidden" || parseFloat(s.opacity) === 0;
       viewContent.style.setProperty(
-        "--copilot-status-bar-clearance",
+        "--cortex-status-bar-clearance",
         `${hidden ? 0 : Math.ceil(overlap)}px`
       );
     };

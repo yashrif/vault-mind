@@ -181,7 +181,7 @@ export const QASettings: React.FC = () => {
           <SettingItem
             type="slider"
             title="Max Sources"
-            description="Copilot goes through your vault to find relevant notes and passes the top N to the LLM. Default for N is 30. Increase if you want more notes included in the answer generation step."
+            description="Cortex goes through your vault to find relevant notes and passes the top N to the LLM. Default for N is 30. Increase if you want more notes included in the answer generation step."
             min={1}
             max={128}
             step={1}
@@ -220,7 +220,7 @@ export const QASettings: React.FC = () => {
               <SettingItem
                 type="select"
                 title="Number of Partitions"
-                description="Number of partitions for Copilot index. Default is 1. Increase if you have issues indexing large vaults. Warning: Changes require clearing and rebuilding the index!"
+                description="Number of partitions for Cortex index. Default is 1. Increase if you have issues indexing large vaults. Warning: Changes require clearing and rebuilding the index!"
                 value={String(settings.numPartitions || 1)}
                 onChange={(value) => updateSetting("numPartitions", Number(value))}
                 options={[
@@ -286,8 +286,8 @@ export const QASettings: React.FC = () => {
           {/* Enable Obsidian Sync */}
           <SettingItem
             type="switch"
-            title="Enable Obsidian Sync for Copilot index"
-            description="If enabled, store the semantic index in .obsidian so it syncs with Obsidian Sync. If disabled, store it under .copilot/ at the vault root."
+            title="Enable Obsidian Sync for Cortex index"
+            description="If enabled, store the semantic index in .obsidian so it syncs with Obsidian Sync. If disabled, store it under .Cortex/ at the vault root."
             checked={settings.enableIndexSync}
             onCheckedChange={(checked) => updateSetting("enableIndexSync", checked)}
           />
@@ -296,7 +296,7 @@ export const QASettings: React.FC = () => {
           <SettingItem
             type="switch"
             title="Disable index loading on mobile"
-            description="When enabled, Copilot index won't be loaded on mobile devices to save resources. Only chat mode will be available. Any existing index from desktop sync will be preserved. Uncheck to enable QA modes on mobile."
+            description="When enabled, Cortex index won't be loaded on mobile devices to save resources. Only chat mode will be available. Any existing index from desktop sync will be preserved. Uncheck to enable QA modes on mobile."
             checked={settings.disableIndexOnMobile}
             onCheckedChange={(checked) => updateSetting("disableIndexOnMobile", checked)}
           />

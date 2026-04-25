@@ -9,7 +9,7 @@ import {
   ModelCapability,
   ReasoningEffort,
 } from "@/constants";
-import { CopilotSettings } from "@/settings/model";
+import { CortexSettings } from "@/settings/model";
 import {
   getDefaultReasoningEffort,
   getDefaultVerbosity,
@@ -30,7 +30,7 @@ const PARAM_RANGES = {
 
 interface ModelParametersEditorProps {
   model: CustomModel;
-  settings: CopilotSettings;
+  settings: CortexSettings;
   onChange: (field: keyof CustomModel, value: any) => void;
   onReset?: (field: keyof CustomModel) => void;
   showTokenLimit?: boolean; // Whether to show Token limit, defaults to true

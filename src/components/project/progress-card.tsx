@@ -15,11 +15,11 @@ import {
 import { FailedItem, useProjectContextLoad } from "@/aiParams";
 import { Button } from "@/components/ui/button";
 import { TruncatedText } from "@/components/TruncatedText";
-import CopilotPlugin from "@/main";
+import CortexPlugin from "@/main";
 import { logError } from "@/logger";
 
 interface ProgressCardProps {
-  plugin?: CopilotPlugin;
+  plugin?: CortexPlugin;
   setHiddenCard: (hidden: boolean) => void;
   onEditContext?: () => void;
 }

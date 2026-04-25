@@ -9,7 +9,7 @@ export interface PdfCacheEntry {
 
 export class PDFCache {
   private static instance: PDFCache;
-  private cacheDir: string = ".copilot/pdf-cache";
+  private cacheDir: string = ".Cortex/pdf-cache";
 
   private constructor() {}
 

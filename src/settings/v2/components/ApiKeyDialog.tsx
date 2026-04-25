@@ -128,7 +128,7 @@ function ApiKeyModalContent({ onClose, onGoToModelTab }: ApiKeyModalContentProps
           })}
         </div>
 
-        {/* GitHub Copilot Section */}
+        {/* GitHub Cortex Section */}
         <GitHubCopilotAuth />
 
         {/* Local Services Section */}

@@ -10,7 +10,7 @@ export interface AudioTranscriptionCacheEntry {
 
 export class AudioTranscriptionCache {
   private static instance: AudioTranscriptionCache;
-  private cacheDir: string = ".copilot/audio-transcription-cache";
+  private cacheDir: string = ".Cortex/audio-transcription-cache";
 
   private constructor() {}
 

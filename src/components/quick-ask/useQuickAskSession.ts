@@ -19,13 +19,13 @@ import { processCommandPrompt } from "@/commands/customCommandUtils";
 import { findCustomModel } from "@/utils";
 import { logError, logWarn } from "@/logger";
 import type { QuickAskMessage } from "./types";
-import type { CopilotSettings } from "@/settings/model";
+import type { CortexSettings } from "@/settings/model";
 
 interface UseQuickAskSessionParams {
   selectedText: string;
   selectedModelKey: string;
   includeNoteContext: boolean;
-  settings: CopilotSettings;
+  settings: CortexSettings;
 }
 
 interface QuickAskSessionApi {
@@ -86,8 +86,8 @@ export function useQuickAskSession(params: UseQuickAskSessionParams): QuickAskSe
     systemPrompt: QUICK_COMMAND_SYSTEM_PROMPT,
     excludeThinking: true,
     onNoModel: () => {
-      logError("No active model is configured. Please configure a model in Copilot settings.");
-      new Notice("No active model configured. Please configure a model in Copilot settings.");
+      logError("No active model is configured. Please configure a model in Cortex settings.");
+      new Notice("No active model configured. Please configure a model in Cortex settings.");
     },
     onNonAbortError: (error) => {
       logError("Error generating response:", error);

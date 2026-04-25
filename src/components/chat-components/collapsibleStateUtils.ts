@@ -1,8 +1,8 @@
-export const COPILOT_COLLAPSIBLE_DOM_ID_PREFIX = "copilot-collapsible";
+export const Cortex_COLLAPSIBLE_DOM_ID_PREFIX = "cortex-collapsible";
 
 declare global {
   interface Window {
-    __copilotCollapsibleStates?: Map<string, Map<string, boolean>>;
+    __CortexCollapsibleStates?: Map<string, Map<string, boolean>>;
   }
 }
 
@@ -13,10 +13,10 @@ declare global {
  * transition to final messages.
  */
 const getCollapsibleStateRegistry = (): Map<string, Map<string, boolean>> => {
-  if (!window.__copilotCollapsibleStates) {
-    window.__copilotCollapsibleStates = new Map<string, Map<string, boolean>>();
+  if (!window.__CortexCollapsibleStates) {
+    window.__CortexCollapsibleStates = new Map<string, Map<string, boolean>>();
   }
-  return window.__copilotCollapsibleStates;
+  return window.__CortexCollapsibleStates;
 };
 
 /**
@@ -37,27 +37,27 @@ export const getMessageCollapsibleStates = (messageId: string): Map<string, bool
  * Builds a stable DOM id for a collapsible section within a message.
  * Includes messageId to ensure uniqueness across messages.
  */
-export const buildCopilotCollapsibleDomId = (
+export const buildCortexCollapsibleDomId = (
   messageInstanceId: string,
   sectionKey: string
 ): string => {
   // Normalize messageId to be safe for DOM id attribute
   const safeMessageId = messageInstanceId.replace(/[^a-zA-Z0-9_-]/g, "_");
-  return `${COPILOT_COLLAPSIBLE_DOM_ID_PREFIX}-${safeMessageId}-${sectionKey}`;
+  return `${Cortex_COLLAPSIBLE_DOM_ID_PREFIX}-${safeMessageId}-${sectionKey}`;
 };
 
 /**
- * Captures the open/closed state for Copilot-rendered collapsible sections.
+ * Captures the open/closed state for cortex-rendered collapsible sections.
  * Used to persist user toggles across markdown re-renders during streaming.
  */
-export const captureCopilotCollapsibleOpenStates = (
+export const captureCortexCollapsibleOpenStates = (
   root: HTMLElement,
   stateById: Map<string, boolean>,
   options: { overwriteExisting?: boolean } = {}
 ): void => {
   const overwriteExisting = options.overwriteExisting ?? true;
   const detailsList = root.querySelectorAll<HTMLDetailsElement>(
-    `details[id^="${COPILOT_COLLAPSIBLE_DOM_ID_PREFIX}-"]`
+    `details[id^="${Cortex_COLLAPSIBLE_DOM_ID_PREFIX}-"]`
   );
   detailsList.forEach((details) => {
     const id = details.id;
@@ -73,10 +73,10 @@ export const captureCopilotCollapsibleOpenStates = (
 };
 
 /**
- * Returns the Copilot collapsible <details> element associated with an event.
+ * Returns the Cortex collapsible <details> element associated with an event.
  * Uses composedPath() when available to remain robust against retargeting.
  */
-export const getCopilotCollapsibleDetailsFromEvent = (
+export const getCortexCollapsibleDetailsFromEvent = (
   event: Event,
   root: HTMLElement
 ): HTMLDetailsElement | null => {
@@ -84,10 +84,7 @@ export const getCopilotCollapsibleDetailsFromEvent = (
   for (const entry of path) {
     if (entry instanceof HTMLElement && entry.tagName === "DETAILS") {
       const details = entry as HTMLDetailsElement;
-      if (
-        details.id.startsWith(`${COPILOT_COLLAPSIBLE_DOM_ID_PREFIX}-`) &&
-        root.contains(details)
-      ) {
+      if (details.id.startsWith(`${Cortex_COLLAPSIBLE_DOM_ID_PREFIX}-`) && root.contains(details)) {
         return details;
       }
     }
@@ -98,7 +95,7 @@ export const getCopilotCollapsibleDetailsFromEvent = (
     return null;
   }
 
-  const details = target.closest(`details[id^="${COPILOT_COLLAPSIBLE_DOM_ID_PREFIX}-"]`);
+  const details = target.closest(`details[id^="${Cortex_COLLAPSIBLE_DOM_ID_PREFIX}-"]`);
   if (details instanceof HTMLElement && details.tagName === "DETAILS" && root.contains(details)) {
     return details as HTMLDetailsElement;
   }

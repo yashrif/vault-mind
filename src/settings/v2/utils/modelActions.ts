@@ -28,10 +28,10 @@ export async function fetchModelsForProvider(
   provider: SettingKeyProviders
 ): Promise<FetchModelsResult> {
   try {
-    // Special handling for GitHub Copilot
+    // Special handling for GitHub Cortex
     if (provider === ChatModelProviders.GITHUB_COPILOT) {
-      const copilotProvider = GitHubCopilotProvider.getInstance();
-      const response = await copilotProvider.listModels();
+      const CortexProvider = GitHubCopilotProvider.getInstance();
+      const response = await CortexProvider.listModels();
       const models = parseModelsResponse(provider, response);
       return { success: true, models };
     }
@@ -152,7 +152,7 @@ export async function verifyAndAddModel(
       verificationFailed = true;
       verificationError = err2String(error);
 
-      // For GitHub Copilot models, a "not supported" 400 typically means the user
+      // For GitHub Cortex models, a "not supported" 400 typically means the user
       // hasn't enabled this model on their GitHub settings page. Append the policy
       // terms (which include an activation link) to guide the user.
       if (

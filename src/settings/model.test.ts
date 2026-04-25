@@ -29,7 +29,7 @@ jest.mock("@/settings/model", () => {
 });
 
 describe("sanitizeQaExclusions", () => {
-  it("defaults to copilot root when value is not a string", () => {
+  it("defaults to Cortex root when value is not a string", () => {
     expect(sanitizeQaExclusions(undefined)).toBe(encodeURIComponent(DEFAULT_QA_EXCLUSIONS_SETTING));
   });
 

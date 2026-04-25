@@ -205,12 +205,12 @@ export async function processCommandPrompt(
   }
 
   // This is the legacy custom command selected text placeholder. It replaced
-  // {copilot-selection} in the prompt with the selected text. This is different
+  // {cortex-selection} in the prompt with the selected text. This is different
   // from the custom prompt processor which uses {} in the prompt and appends
   // the selected text to the prompt. We cannot change user's custom commands
   // that have the old placeholder, so we need to support both.
   // Also, selected text is required for custom commands. If neither `{}` nor
-  // `{copilot-selection}` is found, append the selected text to the prompt.
+  // `{cortex-selection}` is found, append the selected text to the prompt.
   const index = processedPrompt.indexOf(LEGACY_SELECTED_TEXT_PLACEHOLDER);
   if (index === -1) {
     // No legacy placeholder found
@@ -240,13 +240,13 @@ export async function processCommandPrompt(
 
 /**
  * Find all variables between {} in a custom command prompt.
- * {copilot-selection} is the legacy custom command special placeholder. It must
+ * {cortex-selection} is the legacy custom command special placeholder. It must
  * be skipped when processing custom prompts because it's handled differently
  * by the custom command prompt processor.
  *
  * Also excludes {[[...]]} patterns which are handled separately by extractTemplateNoteFiles.
  */
-const VARIABLE_REGEX = /\{(?!copilot-selection\}|\[\[)([^}]+)\}/g;
+const VARIABLE_REGEX = /\{(?!cortex-selection\}|\[\[)([^}]+)\}/g;
 
 /**
  * Represents the result of processing a custom prompt variable.

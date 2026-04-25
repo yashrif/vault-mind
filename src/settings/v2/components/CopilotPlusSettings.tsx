@@ -4,7 +4,7 @@ import { updateSetting, useSettingsValue } from "@/settings/model";
 import React from "react";
 import { ToolSettingsSection } from "./ToolSettingsSection";
 
-export const CopilotPlusSettings: React.FC = () => {
+export const CortexPlusSettings: React.FC = () => {
   const settings = useSettingsValue();
 
   /**
@@ -48,7 +48,7 @@ export const CopilotPlusSettings: React.FC = () => {
             onChange={(value) => {
               updateSetting("convertedDocOutputFolder", value);
             }}
-            placeholder="e.g. copilot/converteddocs"
+            placeholder="e.g. Cortex/converteddocs"
           />
 
           <div className="tw-pt-4 tw-text-xl tw-font-semibold">Memory (experimental)</div>
@@ -61,13 +61,13 @@ export const CopilotPlusSettings: React.FC = () => {
             onChange={(value) => {
               updateSetting("memoryFolderName", value);
             }}
-            placeholder="copilot/memory"
+            placeholder="Cortex/memory"
           />
 
           <SettingItem
             type="switch"
             title="Reference Recent Conversation"
-            description="When enabled, Copilot references your recent conversation history to provide more contextually relevant responses. All history data is stored locally in your vault."
+            description="When enabled, Cortex references your recent conversation history to provide more contextually relevant responses. All history data is stored locally in your vault."
             checked={settings.enableRecentConversations}
             onCheckedChange={(checked) => {
               updateSetting("enableRecentConversations", checked);
@@ -90,7 +90,7 @@ export const CopilotPlusSettings: React.FC = () => {
           <SettingItem
             type="switch"
             title="Reference Saved Memories"
-            description="When enabled, Copilot can access memories that you explicitly asked it to remember. Use this to store important facts, preferences, or context for future conversations."
+            description="When enabled, Cortex can access memories that you explicitly asked it to remember. Use this to store important facts, preferences, or context for future conversations."
             checked={settings.enableSavedMemory}
             onCheckedChange={(checked) => {
               updateSetting("enableSavedMemory", checked);
@@ -200,7 +200,7 @@ export const CopilotPlusSettings: React.FC = () => {
                     <span>
                       API key for YouTube transcripts via Supadata.{" "}
                       <a
-                        href="https://supadata.ai/?ref=obcopilot"
+                        href="https://supadata.ai/?ref=obCortex"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="tw-text-accent"

@@ -165,7 +165,7 @@ export const ProjectList = memo(
     projects: ProjectConfig[];
     defaultOpen?: boolean;
     app: App;
-    plugin?: any; // CopilotPlugin, optional for backwards compatibility
+    plugin?: any; // CortexPlugin, optional for backwards compatibility
     onProjectAdded: (project: ProjectConfig) => void;
     onEditProject: (originP: ProjectConfig, updateP: ProjectConfig) => void;
     hasMessages?: boolean;

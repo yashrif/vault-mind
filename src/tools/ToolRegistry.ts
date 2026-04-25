@@ -12,7 +12,7 @@ export interface ToolMetadata {
   isAlwaysEnabled?: boolean; // Tools that are always available (e.g., time tools)
   requiresVault?: boolean; // Tools that need vault access
   customPromptInstructions?: string; // Optional custom instructions for this tool
-  copilotCommands?: string[]; // Optional Copilot slash command aliases (e.g., "@vault")
+  CortexCommands?: string[]; // Optional Cortex slash command aliases (e.g., "@vault")
   // Execution control properties
   timeoutMs?: number;
   isBackground?: boolean; // If true, tool execution is not shown to user
@@ -120,15 +120,15 @@ export class ToolRegistry {
   }
 
   /**
-   * Build a map of Copilot command aliases to tool definitions.
+   * Build a map of Cortex command aliases to tool definitions.
    *
-   * @returns Map keyed by lower-case Copilot command aliases pointing to their tool definitions.
+   * @returns Map keyed by lower-case Cortex command aliases pointing to their tool definitions.
    */
-  getCopilotCommandMappings(): Map<string, ToolDefinition> {
+  getCortexCommandMappings(): Map<string, ToolDefinition> {
     const mappings = new Map<string, ToolDefinition>();
 
     for (const definition of this.tools.values()) {
-      const commands = definition.metadata.copilotCommands;
+      const commands = definition.metadata.CortexCommands;
 
       if (!commands) {
         continue;

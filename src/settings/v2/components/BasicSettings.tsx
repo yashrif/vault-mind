@@ -19,7 +19,7 @@ import { ApiKeyDialog } from "./ApiKeyDialog";
 const ChainType2Label: Record<ChainType, string> = {
   [ChainType.LLM_CHAIN]: "Chat",
   [ChainType.VAULT_QA_CHAIN]: "Vault QA (Basic)",
-  [ChainType.TOOL_CHAIN]: "Agentic Copilot",
+  [ChainType.TOOL_CHAIN]: "Agentic Cortex",
   [ChainType.PROJECT_CHAIN]: "Projects (alpha)",
   [ChainType.TELEGRAM_CHAIN]: "Telegram",
 };
@@ -195,7 +195,7 @@ export const BasicSettings: React.FC = () => {
                           with semantic search. <i>Free to use with your own API key.</i>
                         </li>
                         <li>
-                          <strong>Agentic Copilot:</strong> Covers all features of the 2 free modes,
+                          <strong>Agentic Cortex:</strong> Covers all features of the 2 free modes,
                           plus advanced features including chat context menu, advanced search, AI
                           agents, and more.
                         </li>
@@ -327,10 +327,10 @@ export const BasicSettings: React.FC = () => {
           <SettingItem
             type="text"
             title="Default Conversation Folder Name"
-            description="The default folder name where chat conversations will be saved. Default is 'copilot/copilot-conversations'"
+            description="The default folder name where chat conversations will be saved. Default is 'Cortex/cortex-conversations'"
             value={settings.defaultSaveFolder}
             onChange={(value) => updateSetting("defaultSaveFolder", value)}
-            placeholder="copilot/copilot-conversations"
+            placeholder="Cortex/cortex-conversations"
           />
 
           <SettingItem

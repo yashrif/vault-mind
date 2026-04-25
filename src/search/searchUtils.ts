@@ -32,7 +32,7 @@ export async function getVectorLength(embeddingInstance: Embeddings | undefined)
   } catch (error) {
     console.error("Error getting vector length:", error);
     throw new CustomError(
-      "Failed to determine embedding vector length. Please check your Copilot settings to make sure you have a working embedding model."
+      "Failed to determine embedding vector length. Please check your Cortex settings to make sure you have a working embedding model."
     );
   }
 }
@@ -149,7 +149,7 @@ export function shouldIndexFile(
   exclusions: PatternCategory | null,
   isProject?: boolean
 ): boolean {
-  // Always exclude Copilot's own log file from Copilot searches/indexing
+  // Always exclude Cortex's own log file from Cortex searches/indexing
   if (isInternalExcludedFile(file)) {
     return false;
   }
@@ -381,15 +381,15 @@ export function getExtensionPattern(extension: string): string {
 }
 
 /**
- * Get a list of internal Copilot file paths that must be excluded from searches.
- * Currently includes the rolling log file path (e.g., "copilot/copilot-log.md").
+ * Get a list of internal Cortex file paths that must be excluded from searches.
+ * Currently includes the rolling log file path (e.g., "Cortex/cortex-log.md").
  */
 export function getInternalExcludePaths(): string[] {
   return [logFileManager.getLogPath()];
 }
 
 /**
- * Check whether a file path is an internal Copilot file that should be excluded from searches.
+ * Check whether a file path is an internal Cortex file that should be excluded from searches.
  * @param filePath - Full path to the file in the vault
  */
 export function isInternalExcludedPath(filePath: string): boolean {
@@ -398,7 +398,7 @@ export function isInternalExcludedPath(filePath: string): boolean {
 }
 
 /**
- * Check whether a TFile is an internal Copilot file that should be excluded from searches.
+ * Check whether a TFile is an internal Cortex file that should be excluded from searches.
  * @param file - Obsidian file object
  */
 export function isInternalExcludedFile(file: TFile): boolean {

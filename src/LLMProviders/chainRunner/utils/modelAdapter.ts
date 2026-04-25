@@ -100,29 +100,29 @@ class BaseModelAdapter implements ModelAdapter {
       }
     }
 
-    const copilotCommandInstructions = this.buildCopilotCommandInstructions(toolMetadata);
-    if (copilotCommandInstructions) {
-      instructions.push(copilotCommandInstructions);
+    const CortexCommandInstructions = this.buildCortexCommandInstructions(toolMetadata);
+    if (CortexCommandInstructions) {
+      instructions.push(CortexCommandInstructions);
     }
 
     return instructions.length > 0 ? instructions.join("\n\n") : "";
   }
 
   /**
-   * Build instructional text that maps Copilot command aliases to tool names.
+   * Build instructional text that maps Cortex command aliases to tool names.
    *
    * @param toolMetadata - Metadata for all tools available to the agent.
-   * @returns Instructional string or null if there are no Copilot aliases.
+   * @returns Instructional string or null if there are no Cortex aliases.
    */
-  private buildCopilotCommandInstructions(toolMetadata: ToolMetadata[]): string | null {
+  private buildCortexCommandInstructions(toolMetadata: ToolMetadata[]): string | null {
     const aliasLines: string[] = [];
 
     for (const meta of toolMetadata) {
-      if (!meta.copilotCommands || meta.copilotCommands.length === 0) {
+      if (!meta.CortexCommands || meta.CortexCommands.length === 0) {
         continue;
       }
 
-      for (const command of meta.copilotCommands) {
+      for (const command of meta.CortexCommands) {
         aliasLines.push(`- ${command}: call the tool named ${meta.id}`);
       }
     }
@@ -132,7 +132,7 @@ class BaseModelAdapter implements ModelAdapter {
     }
 
     return [
-      "When the user explicitly includes a Copilot command alias (e.g., @vault) in their message, treat it as a direct request to call the mapped tool before proceeding.",
+      "When the user explicitly includes a Cortex command alias (e.g., @vault) in their message, treat it as a direct request to call the mapped tool before proceeding.",
       "Honor these aliases exactly (case-insensitive):",
       ...aliasLines,
       "If the referenced tool is unavailable, explain that the command cannot be fulfilled instead of ignoring it.",
@@ -703,7 +703,7 @@ export class ModelAdapterFactory {
     }
 
     // Agent/advanced models (Flash-based, needs anti-hallucination guidance)
-    if (modelName.includes("copilot-plus")) {
+    if (modelName.includes("cortex-plus")) {
       logInfo("Using AgentModelAdapter");
       return new AgentModelAdapter(modelName);
     }

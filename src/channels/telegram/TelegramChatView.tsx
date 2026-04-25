@@ -197,7 +197,7 @@ export const TelegramChatView: React.FC<TelegramChatViewProps> = ({ store, onRes
                 </p>
                 <ol className="tw-list-none tw-space-y-1 tw-text-left tw-text-xs tw-text-muted">
                   <li>
-                    1. Open <strong>Settings → Copilot → Telegram → Allowed Chat IDs</strong>
+                    1. Open <strong>Settings → Cortex → Telegram → Allowed Chat IDs</strong>
                   </li>
                   <li>2. Add your chat ID, then DM the bot from that chat to bind it</li>
                   <li>3. Once bound, the send field unlocks and you can chat</li>

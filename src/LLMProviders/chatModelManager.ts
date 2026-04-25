@@ -10,7 +10,7 @@ import { getDecryptedKey } from "@/encryptionService";
 import { logError, logInfo } from "@/logger";
 
 import {
-  CopilotSettings,
+  CortexSettings,
   getModelKeyFromModel,
   getSettings,
   subscribeToSettingsChange,
@@ -169,7 +169,7 @@ export default class ChatModelManager {
   private getTemperatureForModel(
     modelInfo: ModelInfo,
     customModel: CustomModel,
-    settings: CopilotSettings
+    settings: CortexSettings
   ): number | undefined {
     // Thinking-enabled models don't accept temperature
     if (modelInfo.isThinkingEnabled) {
@@ -314,8 +314,8 @@ export default class ChatModelManager {
           baseURL: customModel.baseUrl || "https://openrouter.ai/api/v1",
           fetch: customModel.enableCors ? safeFetch : undefined,
           defaultHeaders: {
-            "HTTP-Referer": "https://obsidiancopilot.com",
-            "X-Title": "Obsidian Copilot",
+            "HTTP-Referer": "https://obsidianCortex.com",
+            "X-Title": "Obsidian Cortex",
           },
         },
         // Enable reasoning if the model has the reasoning capability
@@ -416,7 +416,7 @@ export default class ChatModelManager {
         // WARNING: AbortSignal/timeout will NOT work when enableCors is true
         // because Obsidian's requestUrl doesn't support cancellation.
         // Reason: fetchImplementation is passed to the authed fetch wrapper inside
-        // GitHubCopilotChatModel, which injects Copilot token and headers per request.
+        // GitHubCopilotChatModel, which injects Cortex token and headers per request.
         fetchImplementation: customModel.enableCors ? safeFetchNoThrow : undefined,
       },
     };
@@ -511,14 +511,14 @@ export default class ChatModelManager {
    * Builds configuration for Amazon Bedrock models by merging custom overrides with global defaults.
    * @param customModel - The model definition provided by the user.
    * @param modelName - The resolved Bedrock model identifier to invoke.
-   * @param settings - Current Copilot settings.
+   * @param settings - Current Cortex settings.
    * @param maxTokens - Maximum completion tokens requested for the invocation.
    * @param temperature - Optional temperature override for the invocation.
    */
   private async buildBedrockConfig(
     customModel: CustomModel,
     modelName: string,
-    settings: CopilotSettings,
+    settings: CortexSettings,
     maxTokens: number,
     temperature: number | undefined
   ): Promise<BedrockChatModelFields> {
@@ -684,7 +684,7 @@ export default class ChatModelManager {
   /**
    * Helper to validate a model config has valid credentials.
    */
-  private isModelConfigValid(model: CustomModel, settings: CopilotSettings): boolean {
+  private isModelConfigValid(model: CustomModel, settings: CortexSettings): boolean {
     const modelKey = getModelKeyFromModel(model);
     const modelInfo = ChatModelManager.modelMap[modelKey];
 

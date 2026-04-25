@@ -12,7 +12,7 @@ import { PromptContextEnvelope, PromptLayerSegment } from "@/context/PromptConte
 jest.mock("@/chainFactory", () => ({
   ChainType: {
     LLM_CHAIN: "llm_chain",
-    TOOL_CHAIN: "copilot_plus_chain",
+    TOOL_CHAIN: "Cortex_plus_chain",
     PROJECT_CHAIN: "project_chain",
   },
 }));

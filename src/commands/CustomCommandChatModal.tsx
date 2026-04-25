@@ -264,7 +264,7 @@ function CustomCommandChatModalContent({
     systemPrompt: systemPrompt || "",
     excludeThinking: true,
     onNoModel: () => {
-      new Notice("No active model is configured. Please configure a model in Copilot settings.");
+      new Notice("No active model is configured. Please configure a model in Cortex settings.");
       setIsLoading(false);
     },
     onNonAbortError: (error) => {
@@ -653,7 +653,7 @@ export class CustomCommandChatModal {
 
     const doc = this.resolveDocument(activeView);
     this.container = doc.createElement("div");
-    this.container.className = "copilot-menu-command-modal-container";
+    this.container.className = "cortex-menu-command-modal-container";
     doc.body.appendChild(this.container);
 
     this.root = createRoot(this.container);

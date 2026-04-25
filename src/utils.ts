@@ -11,7 +11,7 @@ import {
   USER_SENDER,
 } from "@/constants";
 import { logInfo, logWarn } from "@/logger";
-import { CopilotSettings } from "@/settings/model";
+import { CortexSettings } from "@/settings/model";
 import { ChatMessage } from "@/types/message";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { MemoryVariables } from "@langchain/core/memory";
@@ -257,7 +257,7 @@ export const stringToChainType = (chain: string): ChainType => {
       return ChainType.LLM_CHAIN;
     case "vault_qa":
       return ChainType.VAULT_QA_CHAIN;
-    case "copilot_plus":
+    case "Cortex_plus":
       return ChainType.TOOL_CHAIN;
     default:
       throw new Error(`Unknown chain type: ${chain}`);
@@ -328,7 +328,7 @@ export const formatDateTime = (
  * Works across desktop and mobile. Safe to call repeatedly.
  *
  * Examples:
- * - ensureFolderExists("copilot/copilot-conversations")
+ * - ensureFolderExists("Cortex/cortex-conversations")
  * - ensureFolderExists("some/deep/nested/path")
  *
  * Throws if any segment conflicts with an existing file.
@@ -512,7 +512,7 @@ export interface ChatHistoryEntry {
  * Extract text-only chat history from memory variables.
  * This function pairs messages by index (i, i+1) and returns only string content.
  *
- * Note: For multimodal chains (CopilotPlus, AutonomousAgent), use
+ * Note: For multimodal chains (CortexPlus, AutonomousAgent), use
  * chatHistoryUtils.processRawChatHistory instead to preserve image content.
  *
  * @param memoryVariables Memory variables from LangChain memory
@@ -1137,7 +1137,7 @@ export async function checkLatestVersion(): Promise<{
 }> {
   try {
     const response = await requestUrl({
-      url: "https://api.github.com/repos/logancyang/obsidian-copilot/releases/latest",
+      url: "https://api.github.com/repos/logancyang/obsidian-Cortex/releases/latest",
       method: "GET",
     });
     const version = response.json.tag_name.replace("v", "");
@@ -1220,7 +1220,7 @@ export function getNeedSetKeyProvider(): Provider[] {
 
 export function checkModelApiKey(
   model: CustomModel,
-  settings: Readonly<CopilotSettings>
+  settings: Readonly<CortexSettings>
 ): {
   hasApiKey: boolean;
   errorNotice?: string;
@@ -1239,7 +1239,7 @@ export function checkModelApiKey(
     return { hasApiKey: true };
   }
 
-  // GitHub Copilot uses OAuth, not API key
+  // GitHub Cortex uses OAuth, not API key
   if (model.provider === ChatModelProviders.GITHUB_COPILOT) {
     const hasAuth = Boolean(
       model.apiKey || settings.githubCopilotToken || settings.githubCopilotAccessToken
@@ -1248,7 +1248,7 @@ export function checkModelApiKey(
       return {
         hasApiKey: false,
         errorNotice:
-          "GitHub Copilot is not authenticated. Please connect it in Settings > Copilot > Basic Tab > Set Keys.",
+          "GitHub Cortex is not authenticated. Please connect it in Settings > Cortex > Basic Tab > Set Keys.",
       };
     }
     return { hasApiKey: true };
@@ -1261,7 +1261,7 @@ export function checkModelApiKey(
   if (needSetKeyPath && hasNoApiKey) {
     const notice =
       `Please configure API Key for ${model.name} in settings first.` +
-      "\nPath: Settings > copilot plugin > Basic Tab > Set Keys";
+      "\nPath: Settings > Cortex plugin > Basic Tab > Set Keys";
     return {
       hasApiKey: false,
       errorNotice: notice,

@@ -6,16 +6,16 @@ import {
   ChatModelProviders,
   EmbeddingModelProviders,
 } from "@/constants";
-import { CopilotSettings } from "@/settings/model";
+import { CortexSettings } from "@/settings/model";
 
 export interface ModelCategoryConfig {
   label: string;
   settingField: keyof Pick<
-    CopilotSettings,
+    CortexSettings,
     "activeModels" | "activeEmbeddingModels" | "activeAudioSTTModels"
   >;
   keyField: keyof Pick<
-    CopilotSettings,
+    CortexSettings,
     "defaultModelKey" | "embeddingModelKey" | "audioSTTModelKey"
   >;
   builtIns: typeof BUILTIN_CHAT_MODELS;

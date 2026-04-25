@@ -7,7 +7,7 @@ import { ChatMessage, MessageContext, WebTabContext } from "@/types/message";
 import { FileParserManager } from "@/tools/FileParserManager";
 import ChainManager from "@/LLMProviders/chainManager";
 import { updateChatMemory } from "@/chatUtils";
-import CopilotPlugin from "@/main";
+import CortexPlugin from "@/main";
 import { MessageRepository } from "./MessageRepository";
 import { ChatPersistenceManager } from "./ChatPersistenceManager";
 import { MessagePreparationService } from "./MessagePreparationService";
@@ -39,7 +39,7 @@ export class ChatManager {
     private messageRepo: MessageRepository,
     private chainManager: ChainManager,
     private fileParserManager: FileParserManager,
-    private plugin: CopilotPlugin
+    private plugin: CortexPlugin
   ) {
     // Initialize default project repository
     this.projectMessageRepos.set(this.defaultProjectKey, messageRepo);

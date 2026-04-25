@@ -15,7 +15,7 @@ jest.mock("@/logger");
 jest.mock("@/settings/model", () => ({
   getSettings: jest.fn().mockReturnValue({
     defaultSaveFolder: "test-folder",
-    defaultConversationTag: "copilot-conversation",
+    defaultConversationTag: "cortex-conversation",
     defaultConversationNoteName: "{$topic}@{$date}_{$time}",
     generateAIChatTitleOnSave: true,
   }),
@@ -213,7 +213,7 @@ describe("ChatPersistenceManager", () => {
 epoch: 1695513480000
 modelKey: gpt-4
 tags:
-  - copilot-conversation
+  - cortex-conversation
 ---
 
 **user**: my name is logan, what's your name
@@ -270,7 +270,7 @@ tags:
 epoch: 1695513480000
 modelKey: gpt-4
 tags:
-  - copilot-conversation
+  - cortex-conversation
 ---
 
 **user**: Can you write a haiku?
@@ -672,7 +672,7 @@ Nature's quiet song`);
         if (createCallCount === 1) {
           // First call: throw ENAMETOOLONG error (simulating the original filename being too long)
           const error = new Error(
-            "ENAMETOOLONG: name too long, open '/home/user/vault/copilot/copilot-conversations/1)_используй_словарь_уже_установленных_терминов_Словарь_перевода_Songs_of@20251025_161120.md'"
+            "ENAMETOOLONG: name too long, open '/home/user/vault/Cortex/cortex-conversations/1)_используй_словарь_уже_установленных_терминов_Словарь_перевода_Songs_of@20251025_161120.md'"
           );
           return Promise.reject(error);
         } else {
@@ -1009,7 +1009,7 @@ Nature's quiet song`);
 epoch: 1695513480000
 modelKey: gpt-4
 tags:
-  - copilot-conversation
+  - cortex-conversation
 ---
 
 **user**: Hello
@@ -1064,7 +1064,7 @@ tags:
 epoch: 1695513480000
 modelKey: gpt-4
 tags:
-  - copilot-conversation
+  - cortex-conversation
 ---
 
 ${formattedContent}`;
@@ -1158,7 +1158,7 @@ ${formattedContent}`;
 epoch: 1695513480000
 modelKey: gpt-4
 tags:
-  - copilot-conversation
+  - cortex-conversation
 ---
 
 ${formattedContent}`;
@@ -1207,7 +1207,7 @@ ${formattedContent}`;
 epoch: 1695513480000
 modelKey: gpt-4
 tags:
-  - copilot-conversation
+  - cortex-conversation
 ---
 
 **user**: What are the files about TypeScript?
@@ -1251,7 +1251,7 @@ tags:
 epoch: 1695513480000
 modelKey: gpt-4
 tags:
-  - copilot-conversation
+  - cortex-conversation
 ---
 
 **user**: What are the files about TypeScript?
@@ -1277,7 +1277,7 @@ tags:
 epoch: 1695513480000
 modelKey: gpt-4
 tags:
-  - copilot-conversation
+  - cortex-conversation
 ---
 
 **user**: What are the files about TypeScript?
@@ -1298,7 +1298,7 @@ tags:
 epoch: 1695513480000
 modelKey: gpt-4
 tags:
-  - copilot-conversation
+  - cortex-conversation
 ---
 
 **user**: Hello without context
@@ -1383,10 +1383,10 @@ tags:
       mockMessageRepo.getDisplayMessages.mockReturnValue(messages);
       mockApp.vault.getAbstractFileByPath.mockReturnValue(true);
 
-      await persistenceManager.saveChat("copilot-plus-flash|copilot-plus");
+      await persistenceManager.saveChat("cortex-plus-flash|cortex-plus");
 
       const savedContent = mockApp.vault.create.mock.calls[0][1];
-      expect(savedContent).toContain('modelKey: "copilot-plus-flash|copilot-plus"');
+      expect(savedContent).toContain('modelKey: "cortex-plus-flash|cortex-plus"');
     });
 
     it("should properly escape modelKey with embedded quotes", async () => {

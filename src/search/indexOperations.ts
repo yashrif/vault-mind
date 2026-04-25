@@ -95,7 +95,7 @@ export class IndexOperations {
           indexedCount: 0,
           totalFiles: 0,
           errors: [
-            "Embedding model not available. Please check your Copilot settings to make sure you have a working embedding model.",
+            "Embedding model not available. Please check your Cortex settings to make sure you have a working embedding model.",
           ],
           completionStatus: "error",
         });
@@ -256,7 +256,7 @@ export class IndexOperations {
 
           if (currentCheckpoint > previousCheckpoint) {
             await this.indexBackend.save();
-            console.log("Copilot index checkpoint save completed.");
+            console.log("Cortex index checkpoint save completed.");
           }
         } catch (err) {
           this.handleError(err, {
@@ -280,7 +280,7 @@ export class IndexOperations {
         this.indexBackend
           .save()
           .then(() => {
-            logInfo("Copilot index final save completed.");
+            logInfo("Cortex index final save completed.");
             this.indexBackend.checkIndexIntegrity().catch((err) => {
               logError("Background integrity check failed:", err);
             });
@@ -536,7 +536,7 @@ export class IndexOperations {
     // Handle json stringify string length error consistently
     if (this.isStringLengthError(error)) {
       new Notice(
-        "Vault is too large for 1 partition, please increase the number of partitions in your Copilot QA settings!",
+        "Vault is too large for 1 partition, please increase the number of partitions in your Cortex QA settings!",
         10000 // Show for 10 seconds
       );
       return;

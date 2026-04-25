@@ -59,7 +59,7 @@ export function useChatFileDrop(props: UseChatFileDropProps): UseChatFileDropRet
       if (e.dataTransfer) {
         e.dataTransfer.dropEffect = "copy";
 
-        if (e.dataTransfer.types.includes("copilot/internal-drag")) {
+        if (e.dataTransfer.types.includes("Cortex/internal-drag")) {
           return;
         }
 

@@ -1,7 +1,7 @@
 jest.mock("@/chainFactory", () => ({
   ChainType: {
     TELEGRAM_CHAIN: "telegram",
-    TOOL_CHAIN: "copilot_plus",
+    TOOL_CHAIN: "Cortex_plus",
     PROJECT_CHAIN: "project_chain",
   },
 }));
@@ -23,8 +23,8 @@ describe("RuntimeChainPolicy", () => {
     expect(policy.historyScope).toBe("telegram_visible_thread");
   });
 
-  it("keeps copilot_plus on shared default policies", () => {
-    const policy = resolveRuntimeChainPolicy("copilot_plus" as any);
+  it("keeps Cortex_plus on shared default policies", () => {
+    const policy = resolveRuntimeChainPolicy("Cortex_plus" as any);
 
     expect(policy.promptTarget).toBe("default");
     expect(policy.manualToolPolicy).toBe("ui_markers");
