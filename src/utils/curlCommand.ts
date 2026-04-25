@@ -252,7 +252,7 @@ async function buildOpenAICompatibleRequestSpec(
 
   // Add OpenRouter-specific headers (see chatModelManager.ts:259-262)
   if (provider === ChatModelProviders.OPENROUTERAI) {
-    headers["HTTP-Referer"] = "https://cortex.com";
+    headers["HTTP-Referer"] = "https://obsidianCortex.com";
     headers["X-Title"] = "Obsidian Cortex";
   }
 
