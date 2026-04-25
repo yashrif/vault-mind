@@ -1,7 +1,4 @@
-import {
-  TEXT_READABLE_EXTENSIONS,
-  NON_PREVIEWABLE_EXTENSIONS,
-} from "@/constants";
+import { TEXT_READABLE_EXTENSIONS, NON_PREVIEWABLE_EXTENSIONS } from "@/constants";
 import { App } from "obsidian";
 
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tiff", "avif"];

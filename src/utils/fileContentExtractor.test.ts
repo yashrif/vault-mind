@@ -110,15 +110,12 @@ describe("extractFileContent", () => {
   });
 
   describe("DOCX routing", () => {
-    it.each(["docx", "doc", "docm"])(
-      "routes .%s to parseDocxLocal",
-      async (ext) => {
-        const file = makeFile(`doc.${ext}`);
-        const result = await extractFileContent(file);
-        expect(parseDocxLocal).toHaveBeenCalled();
-        expect(result).toBe("docx content");
-      }
-    );
+    it.each(["docx", "doc", "docm"])("routes .%s to parseDocxLocal", async (ext) => {
+      const file = makeFile(`doc.${ext}`);
+      const result = await extractFileContent(file);
+      expect(parseDocxLocal).toHaveBeenCalled();
+      expect(result).toBe("docx content");
+    });
   });
 
   describe("spreadsheet routing", () => {

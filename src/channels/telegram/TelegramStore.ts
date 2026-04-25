@@ -531,8 +531,7 @@ export class TelegramStore {
 
     if (target.message_id !== undefined) {
       return this.thread.findIndex(
-        (message) =>
-          message.chat_id === target.chat_id && message.message_id === target.message_id
+        (message) => message.chat_id === target.chat_id && message.message_id === target.message_id
       );
     }
 
