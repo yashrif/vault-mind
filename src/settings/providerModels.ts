@@ -344,7 +344,7 @@ export interface SiliconFlowModel {
   owned_by: string;
 }
 
-// GitHub Cortex response model definition
+// GitHub Copilot response model definition
 export interface GitHubCopilotModelResponse {
   object: string;
   data: GitHubCopilotModel[];

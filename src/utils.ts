@@ -1239,7 +1239,7 @@ export function checkModelApiKey(
     return { hasApiKey: true };
   }
 
-  // GitHub Cortex uses OAuth, not API key
+  // GitHub Copilot uses OAuth, not API key
   if (model.provider === ChatModelProviders.GITHUB_COPILOT) {
     const hasAuth = Boolean(
       model.apiKey || settings.githubCopilotToken || settings.githubCopilotAccessToken
@@ -1248,7 +1248,7 @@ export function checkModelApiKey(
       return {
         hasApiKey: false,
         errorNotice:
-          "GitHub Cortex is not authenticated. Please connect it in Settings > Cortex > Basic Tab > Set Keys.",
+          "GitHub Copilot is not authenticated. Please connect it in Settings > Cortex > Basic Tab > Set Keys.",
       };
     }
     return { hasApiKey: true };

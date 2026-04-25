@@ -66,7 +66,7 @@ export interface CortexSettings {
   amazonBedrockApiKey: string;
   amazonBedrockRegion: string;
   siliconflowApiKey: string;
-  // GitHub Cortex OAuth tokens
+  // GitHub Copilot OAuth tokens
   githubCopilotAccessToken: string;
   githubCopilotToken: string;
   githubCopilotTokenExpiresAt: number;

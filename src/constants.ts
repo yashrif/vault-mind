@@ -680,7 +680,7 @@ export const ProviderInfo: Record<Provider, ProviderMetadata> = {
     listModelURL: "",
   },
   [ChatModelProviders.GITHUB_COPILOT]: {
-    label: "GitHub Cortex",
+    label: "GitHub Copilot",
     host: "https://api.githubcopilot.com",
     curlBaseURL: "https://api.githubcopilot.com",
     keyManagementURL: "https://github.com/settings/apps/authorizations",
@@ -894,7 +894,7 @@ export const DEFAULT_SETTINGS: CortexSettings = {
   amazonBedrockApiKey: "",
   amazonBedrockRegion: "",
   siliconflowApiKey: "",
-  // GitHub Cortex OAuth tokens
+  // GitHub Copilot OAuth tokens
   githubCopilotAccessToken: "",
   githubCopilotToken: "",
   githubCopilotTokenExpiresAt: 0,
