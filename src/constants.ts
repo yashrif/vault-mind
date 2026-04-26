@@ -219,7 +219,6 @@ export const MODEL_CAPABILITIES: Record<ModelCapability, string> = {
 export enum STTModels {
   WHISPER_LARGE_V3 = "whisper-large-v3",
   WHISPER_LARGE_V3_TURBO = "whisper-large-v3-turbo",
-  DISTIL_WHISPER_LARGE_V3_EN = "distil-whisper-large-v3-en",
 }
 
 export const BUILTIN_AUDIO_STT_MODELS: CustomModel[] = [
@@ -234,14 +233,6 @@ export const BUILTIN_AUDIO_STT_MODELS: CustomModel[] = [
   },
   {
     name: STTModels.WHISPER_LARGE_V3_TURBO,
-    provider: ChatModelProviders.GROQ,
-    enabled: true,
-    isBuiltIn: true,
-    core: false,
-    modelType: "stt",
-  },
-  {
-    name: STTModels.DISTIL_WHISPER_LARGE_V3_EN,
     provider: ChatModelProviders.GROQ,
     enabled: true,
     isBuiltIn: true,
