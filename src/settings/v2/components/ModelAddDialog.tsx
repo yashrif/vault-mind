@@ -158,7 +158,6 @@ export const ModelAddDialog: React.FC<ModelAddDialogProps> = ({
       isBuiltIn: false,
       baseUrl: "",
       apiKey: getApiKeyForProvider(provider as SettingKeyProviders),
-      isEmbeddingModel,
       modelType,
       capabilities: [],
     };
@@ -513,11 +512,17 @@ export const ModelAddDialog: React.FC<ModelAddDialogProps> = ({
     return `https://${instanceName}.openai.azure.com/openai/deployments/${deploymentName}/${endpoint}?api-version=${apiVersion}`;
   };
 
-  const capabilityOptions = Object.entries(MODEL_CAPABILITIES).map(([id, description]) => ({
-    id,
-    label: id.charAt(0).toUpperCase() + id.slice(1),
-    description,
-  })) as Array<{ id: ModelCapability; label: string; description: string }>;
+  const capabilityOptions = Object.entries(MODEL_CAPABILITIES)
+    .filter(
+      ([id]) =>
+        !categoryConfig.allowedCapabilities ||
+        categoryConfig.allowedCapabilities.includes(id as ModelCapability)
+    )
+    .map(([id, description]) => ({
+      id: id as ModelCapability,
+      label: id.charAt(0).toUpperCase() + id.slice(1),
+      description,
+    }));
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

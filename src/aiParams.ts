@@ -141,10 +141,8 @@ export interface CustomModel {
   baseUrl?: string;
   apiKey?: string;
   enabled: boolean;
-  /** Discriminates chat / embedding / stt model families. Replaces isEmbeddingModel. */
+  /** Discriminates chat / embedding / stt model families. */
   modelType?: ModelType;
-  /** @deprecated Use modelType instead. Kept for backward-compat with persisted settings. */
-  isEmbeddingModel?: boolean;
   isBuiltIn?: boolean;
   enableCors?: boolean;
   core?: boolean;
@@ -188,8 +186,7 @@ export interface CustomModel {
 }
 
 export function getModelType(model: CustomModel): ModelType {
-  if (model.modelType) return model.modelType;
-  return model.isEmbeddingModel ? "embedding" : "chat";
+  return model.modelType ?? "chat";
 }
 
 export function setModelKey(modelKey: string) {

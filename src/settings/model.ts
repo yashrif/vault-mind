@@ -385,12 +385,7 @@ export function sanitizeSettings(settings: CortexSettings): CortexSettings {
   ): CustomModel[] =>
     models.map((m) => {
       if (m.modelType) return m;
-      return {
-        ...m,
-        modelType: type,
-        // keep isEmbeddingModel in sync for any code still reading the old flag
-        isEmbeddingModel: type === "embedding" ? true : m.isEmbeddingModel,
-      };
+      return { ...m, modelType: type };
     });
 
   settingsToSanitize.activeModels = migrateModelType(settingsToSanitize.activeModels || [], "chat");

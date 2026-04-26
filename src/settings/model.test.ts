@@ -387,7 +387,6 @@ describe("sanitizeSettings - STT model migration", () => {
       name: "text-embedding-ada-002",
       provider: "openai",
       enabled: true,
-      isEmbeddingModel: true,
       // no modelType field
     };
     const settings = {

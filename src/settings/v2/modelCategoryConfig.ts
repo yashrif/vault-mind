@@ -5,6 +5,7 @@ import {
   BUILTIN_EMBEDDING_MODELS,
   ChatModelProviders,
   EmbeddingModelProviders,
+  ModelCapability,
 } from "@/constants";
 import { CortexSettings } from "@/settings/model";
 
@@ -23,6 +24,8 @@ export interface ModelCategoryConfig {
   providerValues: string[];
   /** Whether the capabilities multi-select is shown in Add/Edit dialogs */
   supportsCapabilities: boolean;
+  /** Subset of capabilities shown in Add/Edit dialogs. If absent, all capabilities are shown. */
+  allowedCapabilities?: ModelCapability[];
   /** Whether Azure embedding-specific fields are shown */
   showAzureEmbeddingFields: boolean;
   /** Whether the Enable/Disable checkbox is shown in ModelTable rows */
@@ -39,6 +42,11 @@ export const MODEL_CATEGORIES: Record<ModelType, ModelCategoryConfig> = {
     builtIns: BUILTIN_CHAT_MODELS,
     providerValues: Object.values(ChatModelProviders),
     supportsCapabilities: true,
+    allowedCapabilities: [
+      ModelCapability.REASONING,
+      ModelCapability.VISION,
+      ModelCapability.WEB_SEARCH,
+    ],
     showAzureEmbeddingFields: false,
     showEnableToggle: true,
     defaultProvider: ChatModelProviders.OPENROUTERAI,

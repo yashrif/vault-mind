@@ -218,13 +218,37 @@ export const MODEL_CAPABILITIES: Record<ModelCapability, string> = {
   "audio-transcription": "This model can transcribe audio files.",
 };
 
+export enum STTModels {
+  WHISPER_LARGE_V3 = "whisper-large-v3",
+  WHISPER_LARGE_V3_TURBO = "whisper-large-v3-turbo",
+  DISTIL_WHISPER_LARGE_V3_EN = "distil-whisper-large-v3-en",
+}
+
 export const BUILTIN_AUDIO_STT_MODELS: CustomModel[] = [
   {
-    name: "whisper-large-v3",
+    name: STTModels.WHISPER_LARGE_V3,
     provider: ChatModelProviders.GROQ,
     enabled: true,
     isBuiltIn: true,
     core: true,
+    modelType: "stt",
+    capabilities: [ModelCapability.AUDIO_TRANSCRIPTION],
+  },
+  {
+    name: STTModels.WHISPER_LARGE_V3_TURBO,
+    provider: ChatModelProviders.GROQ,
+    enabled: true,
+    isBuiltIn: true,
+    core: false,
+    modelType: "stt",
+    capabilities: [ModelCapability.AUDIO_TRANSCRIPTION],
+  },
+  {
+    name: STTModels.DISTIL_WHISPER_LARGE_V3_EN,
+    provider: ChatModelProviders.GROQ,
+    enabled: true,
+    isBuiltIn: true,
+    core: false,
     modelType: "stt",
     capabilities: [ModelCapability.AUDIO_TRANSCRIPTION],
   },
@@ -350,7 +374,7 @@ export const BUILTIN_EMBEDDING_MODELS: CustomModel[] = [
     enabled: true,
     isBuiltIn: true,
     core: true,
-    isEmbeddingModel: true,
+    modelType: "embedding",
   },
   {
     name: EmbeddingModels.OPENROUTER_OPENAI_EMBEDDING_SMALL,
@@ -358,7 +382,7 @@ export const BUILTIN_EMBEDDING_MODELS: CustomModel[] = [
     enabled: true,
     isBuiltIn: true,
     core: false,
-    isEmbeddingModel: true,
+    modelType: "embedding",
   },
   {
     name: EmbeddingModels.OPENAI_EMBEDDING_SMALL,
@@ -366,49 +390,49 @@ export const BUILTIN_EMBEDDING_MODELS: CustomModel[] = [
     enabled: true,
     isBuiltIn: true,
     core: false,
-    isEmbeddingModel: true,
+    modelType: "embedding",
   },
   {
     name: EmbeddingModels.OPENAI_EMBEDDING_LARGE,
     provider: EmbeddingModelProviders.OPENAI,
     enabled: true,
     isBuiltIn: true,
-    isEmbeddingModel: true,
+    modelType: "embedding",
   },
   {
     name: EmbeddingModels.COHEREAI_EMBED_MULTILINGUAL_LIGHT_V3_0,
     provider: EmbeddingModelProviders.COHEREAI,
     enabled: true,
     isBuiltIn: true,
-    isEmbeddingModel: true,
+    modelType: "embedding",
   },
   {
     name: EmbeddingModels.GOOGLE_ENG,
     provider: EmbeddingModelProviders.GOOGLE,
     enabled: true,
     isBuiltIn: true,
-    isEmbeddingModel: true,
+    modelType: "embedding",
   },
   {
     name: EmbeddingModels.GOOGLE_GEMINI_EMBEDDING,
     provider: EmbeddingModelProviders.GOOGLE,
     enabled: true,
     isBuiltIn: true,
-    isEmbeddingModel: true,
+    modelType: "embedding",
   },
   {
     name: EmbeddingModels.AZURE_OPENAI,
     provider: EmbeddingModelProviders.AZURE_OPENAI,
     enabled: true,
     isBuiltIn: true,
-    isEmbeddingModel: true,
+    modelType: "embedding",
   },
   {
     name: EmbeddingModels.SILICONFLOW_QWEN3_EMBEDDING_0_6B,
     provider: EmbeddingModelProviders.SILICONFLOW,
     enabled: true,
     isBuiltIn: true,
-    isEmbeddingModel: true,
+    modelType: "embedding",
     baseUrl: "https://api.siliconflow.com/v1",
   },
 ];
