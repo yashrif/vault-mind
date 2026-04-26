@@ -1,7 +1,7 @@
 import React from "react";
 import { CustomModel } from "@/aiParams";
 import { getProviderLabel } from "@/utils";
-import { Lightbulb, Eye, Globe, Mic } from "lucide-react";
+import { Layers, Lightbulb, Eye, Globe, Mic } from "lucide-react";
 import { ModelCapability } from "@/constants";
 
 interface ModelDisplayProps {
@@ -65,6 +65,13 @@ export const ModelDisplay: React.FC<ModelDisplayProps> = ({ model, iconSize = 14
         <div className="tw-flex tw-shrink-0 tw-items-center tw-gap-0.5">
           <Mic
             className="tw-text-model-capabilities-green"
+            style={{ width: iconSize, height: iconSize }}
+          />
+        </div>
+      ) : model.modelType === "embedding" ? (
+        <div className="tw-flex tw-shrink-0 tw-items-center tw-gap-0.5">
+          <Layers
+            className="tw-text-model-capabilities-blue"
             style={{ width: iconSize, height: iconSize }}
           />
         </div>

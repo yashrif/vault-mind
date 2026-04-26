@@ -229,6 +229,7 @@ export const BUILTIN_AUDIO_STT_MODELS: CustomModel[] = [
     enabled: true,
     isBuiltIn: true,
     core: true,
+    enableCors: true,
     modelType: "stt",
   },
   {
@@ -369,6 +370,7 @@ export const BUILTIN_EMBEDDING_MODELS: CustomModel[] = [
     enabled: true,
     isBuiltIn: true,
     core: true,
+    enableCors: true,
     modelType: "embedding",
   },
   {
