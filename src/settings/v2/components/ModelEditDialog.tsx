@@ -1,4 +1,4 @@
-import { CustomModel } from "@/aiParams";
+import { CustomModel, getModelType } from "@/aiParams";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
@@ -97,26 +97,34 @@ export const ModelEditModalContent: React.FC<ModelEditModalContentProps> = ({
     }
 
     const instanceName = localModel.azureOpenAIApiInstanceName || "[instance]";
-    const deploymentName = localModel.isEmbeddingModel
+    const isEmbedding = getModelType(localModel) === "embedding";
+    const deploymentName = isEmbedding
       ? localModel.azureOpenAIApiEmbeddingDeploymentName || "[deployment]"
       : localModel.azureOpenAIApiDeploymentName || "[deployment]";
     const apiVersion = localModel.azureOpenAIApiVersion || "[api-version]";
-    const endpoint = localModel.isEmbeddingModel ? "embeddings" : "chat/completions";
+    const endpoint = isEmbedding ? "embeddings" : "chat/completions";
 
     return `https://${instanceName}.openai.azure.com/openai/deployments/${deploymentName}/${endpoint}?api-version=${apiVersion}`;
   };
 
-  const capabilityOptions = Object.entries(MODEL_CAPABILITIES).map(([id, description]) => ({
-    id,
-    label: id.charAt(0).toUpperCase() + id.slice(1),
-    description,
-  })) as Array<{ id: ModelCapability; label: string; description: string }>;
+  const categoryConfig = MODEL_CATEGORIES[modelType];
+  const capabilityOptions = Object.entries(MODEL_CAPABILITIES)
+    .filter(
+      ([id]) =>
+        !categoryConfig.allowedCapabilities ||
+        categoryConfig.allowedCapabilities.includes(id as ModelCapability)
+    )
+    .map(([id, description]) => ({
+      id: id as ModelCapability,
+      label: id.charAt(0).toUpperCase() + id.slice(1),
+      description,
+    }));
 
   const displayApiKey = getApiKeyForProvider(
     localModel.provider as SettingKeyProviders,
     localModel
   );
-  const showOtherParameters = MODEL_CATEGORIES[modelType].supportsCapabilities;
+  const showOtherParameters = categoryConfig.supportsCapabilities;
 
   return (
     <div className="tw-space-y-3 tw-p-4">

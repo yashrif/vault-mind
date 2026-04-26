@@ -38,6 +38,7 @@ import {
   Eye,
   Globe,
   GripVertical,
+  Layers,
   Lightbulb,
   LucideProps,
   Mic,
@@ -80,18 +81,12 @@ const CAPABILITY_ICONS: Record<
     color: "tw-text-model-capabilities-blue",
     tooltip: MODEL_CAPABILITIES.websearch,
   },
-  [ModelCapability.AUDIO_TRANSCRIPTION]: {
-    icon: Mic,
-    color: "tw-text-model-capabilities-green",
-    tooltip: MODEL_CAPABILITIES["audio-transcription"],
-  },
 } as const;
 
 const CAPABILITY_ORDER = [
   ModelCapability.REASONING,
   ModelCapability.VISION,
   ModelCapability.WEB_SEARCH,
-  ModelCapability.AUDIO_TRANSCRIPTION,
 ] as const;
 
 interface ModelTableHeaderProps {
@@ -126,6 +121,33 @@ const ModelTableHeader: React.FC<ModelTableHeaderProps> = ({ title, onRefresh, o
 );
 
 const renderCapabilities = (model: CustomModel) => {
+  if (model.modelType === "stt") {
+    return (
+      <div className="tw-mx-auto tw-flex tw-w-fit tw-items-center tw-justify-center tw-gap-1.5">
+        <HelpTooltip content="This model can transcribe audio files." side="bottom">
+          <div className="tw-flex tw-items-center tw-justify-center">
+            <Mic className="tw-size-4 tw-text-model-capabilities-green" />
+          </div>
+        </HelpTooltip>
+      </div>
+    );
+  }
+
+  if (model.modelType === "embedding") {
+    return (
+      <div className="tw-mx-auto tw-flex tw-w-fit tw-items-center tw-justify-center tw-gap-1.5">
+        <HelpTooltip
+          content="This model generates vector embeddings for semantic search."
+          side="bottom"
+        >
+          <div className="tw-flex tw-items-center tw-justify-center">
+            <Layers className="tw-size-4 tw-text-model-capabilities-blue" />
+          </div>
+        </HelpTooltip>
+      </div>
+    );
+  }
+
   return (
     <div className="tw-mx-auto tw-flex tw-w-fit tw-items-center tw-justify-center tw-gap-1.5">
       {CAPABILITY_ORDER.map((capability) => {
@@ -227,7 +249,11 @@ const ModelCard: React.FC<ModelCardProps> = ({
       title={model.displayName || model.name}
       subtitle={getProviderLabel(model.provider, model)}
       badge={
-        model.capabilities && model.capabilities.length > 0 ? (
+        model.modelType === "stt" ? (
+          <Mic className="tw-size-3.5 tw-text-model-capabilities-green" />
+        ) : model.modelType === "embedding" ? (
+          <Layers className="tw-size-3.5 tw-text-model-capabilities-blue" />
+        ) : model.capabilities && model.capabilities.length > 0 ? (
           <ModelCapabilityIcons capabilities={model.capabilities} iconSize={14} />
         ) : undefined
       }
@@ -295,7 +321,7 @@ const DesktopSortableTableRow: React.FC<{
       </TableCell>
       <TableCell className="tw-pl-0">{model.displayName || model.name}</TableCell>
       <TableCell>{getProviderLabel(model.provider, model)}</TableCell>
-      <TableCell>{renderCapabilities(model)}</TableCell>
+      <TableCell className="tw-text-center">{renderCapabilities(model)}</TableCell>
       {!isEmbeddingModel && (
         <TableCell className="tw-text-center">
           <Checkbox

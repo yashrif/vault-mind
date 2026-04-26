@@ -212,15 +212,17 @@ export const settingsAtom = atom<CortexSettings>(DEFAULT_SETTINGS);
  * @returns A valid embedding model key.
  */
 function resolveEmbeddingModelKey(settings: CortexSettings): string {
+  const activeEmbeddingModels = settings.activeEmbeddingModels || [];
   const activeEmbeddingModelKeys = new Set(
-    (settings.activeEmbeddingModels || []).map((model) => getModelKeyFromModel(model))
+    activeEmbeddingModels.map((model) => getModelKeyFromModel(model))
   );
 
   if (settings.embeddingModelKey && activeEmbeddingModelKeys.has(settings.embeddingModelKey)) {
     return settings.embeddingModelKey;
   }
 
-  return DEFAULT_SETTINGS.embeddingModelKey;
+  const firstEnabled = activeEmbeddingModels.find((m) => m.enabled);
+  return firstEnabled ? getModelKeyFromModel(firstEnabled) : DEFAULT_SETTINGS.embeddingModelKey;
 }
 
 function resolveAudioSTTModelKey(settings: CortexSettings): string {
@@ -383,12 +385,7 @@ export function sanitizeSettings(settings: CortexSettings): CortexSettings {
   ): CustomModel[] =>
     models.map((m) => {
       if (m.modelType) return m;
-      return {
-        ...m,
-        modelType: type,
-        // keep isEmbeddingModel in sync for any code still reading the old flag
-        isEmbeddingModel: type === "embedding" ? true : m.isEmbeddingModel,
-      };
+      return { ...m, modelType: type };
     });
 
   settingsToSanitize.activeModels = migrateModelType(settingsToSanitize.activeModels || [], "chat");
