@@ -321,7 +321,7 @@ const DesktopSortableTableRow: React.FC<{
       </TableCell>
       <TableCell className="tw-pl-0">{model.displayName || model.name}</TableCell>
       <TableCell>{getProviderLabel(model.provider, model)}</TableCell>
-      <TableCell>{renderCapabilities(model)}</TableCell>
+      <TableCell className="tw-text-center">{renderCapabilities(model)}</TableCell>
       {!isEmbeddingModel && (
         <TableCell className="tw-text-center">
           <Checkbox
