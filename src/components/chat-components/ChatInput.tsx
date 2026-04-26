@@ -178,16 +178,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
     "If you have many files in context, this can take a while...",
   ];
 
-  // Sync autonomous agent toggle with settings and chain type
   useEffect(() => {
-    if (currentChain === ChainType.PROJECT_CHAIN) {
-      // Force off in Projects mode
-      setAutonomousAgentToggle(false);
-    } else {
-      // In other modes, use the actual settings value
-      setAutonomousAgentToggle(settings.enableAutonomousAgent);
-    }
-  }, [settings.enableAutonomousAgent, currentChain]);
+    setAutonomousAgentToggle(settings.enableAutonomousAgent);
+  }, [settings.enableAutonomousAgent]);
 
   useEffect(() => {
     if (currentChain === ChainType.PROJECT_CHAIN) {

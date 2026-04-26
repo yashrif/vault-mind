@@ -49,7 +49,7 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
 }) => {
   const isAgentMode = isAgentChain(currentChain);
   const canShowToolControls = isAgentMode;
-  const showAutonomousAgent = canShowToolControls && currentChain !== ChainType.PROJECT_CHAIN;
+  const showAutonomousAgent = canShowToolControls;
   const areManualToolTogglesDisabled = autonomousAgentToggle;
 
   const handleAutonomousAgentToggle = () => {
