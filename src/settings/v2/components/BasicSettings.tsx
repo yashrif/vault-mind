@@ -89,6 +89,16 @@ export const BasicSettings: React.FC = () => {
       value: getModelKeyFromModel(model),
     }));
 
+  const defaultSTTModelActivated = !!settings.activeAudioSTTModels.find(
+    (m) => m.enabled && getModelKeyFromModel(m) === settings.audioSTTModelKey
+  );
+  const enabledSTTModels = settings.activeAudioSTTModels
+    .filter((m) => m.enabled)
+    .map((model) => ({
+      label: getModelDisplayWithIcons(model),
+      value: getModelKeyFromModel(model),
+    }));
+
   return (
     <div className="tw-space-y-4">
       {/* General Section */}
@@ -171,6 +181,20 @@ export const BasicSettings: React.FC = () => {
               defaultModelActivated
                 ? enableActivatedModels
                 : [{ label: "Select Model", value: "Select Model" }, ...enableActivatedModels]
+            }
+            placeholder="Model"
+          />
+
+          <SettingItem
+            type="select"
+            title="Default STT Model"
+            description="Select the Speech-to-Text model used for audio transcription"
+            value={defaultSTTModelActivated ? settings.audioSTTModelKey : "Select Model"}
+            onChange={(value) => updateSetting("audioSTTModelKey", value)}
+            options={
+              defaultSTTModelActivated
+                ? enabledSTTModels
+                : [{ label: "Select Model", value: "Select Model" }, ...enabledSTTModels]
             }
             placeholder="Model"
           />
