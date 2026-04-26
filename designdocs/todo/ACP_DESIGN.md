@@ -36,7 +36,7 @@ Core direction:
 
 - Chat shell UI and message list containers
 - `MessageRepository` for display storage
-- `ChatUIState` subscription model
+- `ChatUIState` reactive model
 - `ChatManager` as orchestration hub (with an ACP-specific send path)
 - Existing settings infrastructure
 
@@ -169,13 +169,13 @@ In `agent` mode, there are two tool lanes:
 
 - A `.md` file containing instructions, templates, or domain knowledge.
 - Optionally accompanied by scripts (shell, python, etc.) that the agent can execute via its own tool system.
-- Organized in a configurable skills folder within the vault (e.g., `copilot-skills/`).
+- Organized in a configurable skills folder within the vault (e.g., `cortex-skills/`).
 
 **Example skill structure:**
 
 ```
-copilot-skills/
-├── vault-search.md         # How to use miyo CLI/MCP for hybrid vault search
+cortex-skills/
+├── vault-search.md         # How to use hybrid vault search
 ├── web-search.md           # Self-hosted web search endpoint and usage
 ├── youtube-transcription.md # Self-hosted YouTube transcription service
 ├── code-review.md          # Instructions for how to review code in this project
@@ -188,20 +188,20 @@ copilot-skills/
     └── meeting-note.md     # Template the agent can use when creating notes
 ```
 
-**Example: vault-search.md (miyo integration)**
+**Example: vault-search.md (hybrid search integration)**
 
 ```markdown
 # Vault Search
 
-Use miyo for hybrid (semantic + keyword) search over this vault.
+Use hybrid (semantic + keyword) search over this vault.
 
 ## CLI
 
-miyo search "<query>" --limit 10
+search "<query>" --limit 10
 
 ## MCP
 
-miyo is also available as an MCP server for structured tool access.
+A vault search server is also available as an MCP server for structured tool access.
 ```
 
 **Example: web-search.md (self-hosted service)**
@@ -219,7 +219,7 @@ Returns: JSON array of {title, url, content}
 
 This pattern covers all local tools and self-hosted services uniformly:
 
-- **miyo** for vault hybrid search (CLI or MCP — agent chooses)
+- hybrid vault search (CLI or MCP — agent chooses)
 - **Self-hosted Firecrawl** for web search
 - **Self-hosted Supadata** for YouTube transcription
 - Any future local service the user runs
@@ -326,7 +326,7 @@ When `interactionMode === "agent"`:
 - show mode selector when ACP modes available.
 - show model selector when ACP models available.
 - show session/connection status indicator.
-- hide Copilot Plus LangChain tool toggles and command injection controls.
+- hide tool calling toggles and command injection controls.
 - show skills folder indicator (configured/not configured, skill count).
 
 ### 8.2 Message rendering in agent mode
@@ -373,7 +373,7 @@ Extend `CopilotSettings` with ACP section:
 - `acpDefaultAgentId`
 - `acpAgents: ACPAgentConfig[]`
 - `acpAutoAllowPermissions` (default false)
-- `acpSkillsFolderPath` (default `"copilot-skills"`, vault-relative)
+- `acpSkillsFolderPath` (default `"cortex-skills"`, vault-relative)
 - optional ACP diagnostics/logging toggles
 
 ## 11. Implementation Plan
@@ -484,7 +484,7 @@ Extend `CopilotSettings` with ACP section:
 
 **Workload**: Medium-light. Skill discovery is straightforward filesystem scanning. AcpPromptAssembler assembles the prompt with skill index + active skill content. Browser UI is a simple list with toggles.
 
-**Exit criteria**: Configure `copilot-skills/` folder → skills appear in browser → mark `vault-search.md` as always-active → send message → agent sees skill index + vault-search.md content in prompt → agent uses miyo to search.
+**Exit criteria**: Configure `cortex-skills/` folder → skills appear in browser → mark `vault-search.md` as always-active → send message → agent sees skill index + vault-search.md content in prompt → agent uses the vault search skill to search.
 
 ---
 

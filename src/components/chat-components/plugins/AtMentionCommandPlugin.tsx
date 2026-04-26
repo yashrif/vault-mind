@@ -4,6 +4,7 @@ import { TFile, App } from "obsidian";
 import { TypeaheadMenuPortal } from "../TypeaheadMenuPortal";
 import { useTypeaheadPlugin } from "../hooks/useTypeaheadPlugin";
 import { $replaceTriggeredTextWithPill, PillData } from "../utils/lexicalTextUtils";
+import { NON_PREVIEWABLE_EXTENSIONS } from "@/constants";
 import {
   useAtMentionCategories,
   AtMentionCategory,
@@ -16,12 +17,12 @@ import { useAtMentionSearch } from "../hooks/useAtMentionSearch";
 declare const app: App;
 
 interface AtMentionCommandPluginProps {
-  isCopilotPlus?: boolean;
+  isAgentMode?: boolean;
   currentActiveFile?: TFile | null;
 }
 
 export function AtMentionCommandPlugin({
-  isCopilotPlus = false,
+  isAgentMode = false,
   currentActiveFile = null,
 }: AtMentionCommandPluginProps): JSX.Element {
   const [editor] = useLexicalComposerContext();
@@ -36,13 +37,13 @@ export function AtMentionCommandPlugin({
   const [currentPreviewContent, setCurrentPreviewContent] = useState<string>("");
 
   // Use the shared at-mention categories hook
-  const availableCategoryOptions = useAtMentionCategories(isCopilotPlus);
+  const availableCategoryOptions = useAtMentionCategories(isAgentMode);
 
   // Load note content for preview using shared utilities
   const loadNoteContentForPreview = useCallback(async (file: TFile) => {
     try {
-      // Handle PDF and canvas files - treat as empty content (no preview)
-      if (file.extension === "pdf" || file.extension === "canvas") {
+      // Treat heavy/binary/canvas files as empty content (no preview)
+      if (NON_PREVIEWABLE_EXTENSIONS.includes(file.extension)) {
         setCurrentPreviewContent("");
         return;
       }
@@ -68,7 +69,7 @@ export function AtMentionCommandPlugin({
     currentQuery,
     extendedState.mode,
     extendedState.selectedCategory,
-    isCopilotPlus,
+    isAgentMode,
     availableCategoryOptions,
     currentActiveFile
   );

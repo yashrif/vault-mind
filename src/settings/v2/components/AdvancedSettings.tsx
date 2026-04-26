@@ -87,7 +87,7 @@ export const AdvancedSettings: React.FC = () => {
           description="Folder where system prompts are stored."
           value={settings.userSystemPromptsFolder}
           onChange={(value) => updateSetting("userSystemPromptsFolder", value)}
-          placeholder="copilot/system-prompts"
+          placeholder="Cortex/system-prompts"
         />
       </section>
 
@@ -118,7 +118,7 @@ export const AdvancedSettings: React.FC = () => {
         <SettingItem
           type="custom"
           title="Create Log File"
-          description={`Open the Copilot log file (${logFileManager.getLogPath()}) for easy sharing when reporting issues.`}
+          description={`Open the Cortex log file (${logFileManager.getLogPath()}) for easy sharing when reporting issues.`}
         >
           <Button
             variant="secondary"

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Copilot for Obsidian is an AI-powered assistant plugin that integrates various LLM providers (OpenAI, Anthropic, Google, etc.) with Obsidian. It provides chat interfaces, autocomplete, semantic search, and various AI-powered commands for note-taking and knowledge management.
+Cortex for Obsidian is an AI-powered assistant plugin that integrates various LLM providers (OpenAI, Anthropic, Google, etc.) with Obsidian. It provides chat interfaces, autocomplete, semantic search, and various AI-powered commands for note-taking and knowledge management.
 
 ## Development Commands
 
@@ -38,7 +38,7 @@ The Obsidian desktop app includes a CLI for plugin development. Use the full pat
 **Plugin reload** (after `npm run build`):
 
 ```bash
-/Applications/Obsidian.app/Contents/MacOS/obsidian plugin:reload id=copilot
+/Applications/Obsidian.app/Contents/MacOS/obsidian plugin:reload id=cortex
 ```
 
 **Console debugging** (requires attaching debugger first):
@@ -55,7 +55,7 @@ The Obsidian desktop app includes a CLI for plugin development. Use the full pat
 - `dev:dom selector=<css>` — Query DOM elements
 - `dev:screenshot path=<file>` — Take a screenshot
 - `eval code=<js>` — Execute JS in the app context
-- `plugin:disable id=copilot` / `plugin:enable id=copilot`
+- `plugin:disable id=cortex` / `plugin:enable id=cortex`
 
 Run `obsidian help` for the full command list.
 
@@ -108,7 +108,7 @@ Run `obsidian help` for the full command list.
        - Non-project chats use `defaultProjectKey` repository
    - **ChatUIState** (`src/state/ChatUIState.ts`): Clean UI-only state manager
      - Delegates all business logic to ChatManager
-     - Provides React integration with subscription mechanism
+     - Provides React integration with reactive mechanism
      - Replaces legacy SharedState with minimal, focused approach
    - **ContextManager** (`src/core/ContextManager.ts`): Handles context processing
      - Processes message context (notes, URLs, selected text)
@@ -243,12 +243,12 @@ For detailed architecture diagrams and documentation, see [`MESSAGE_ARCHITECTURE
 
 ### Avoiding Deep Dependency Chains in Tests
 
-This codebase has deep transitive import chains (e.g. a utility → cache → searchUtils → embeddingManager → brevilabsClient → plusUtils → Modal). Importing any module in this chain from a test requires mocking the entire tree, which is brittle and verbose.
+This codebase has deep transitive import chains (e.g. a utility → cache → searchUtils → embeddingManager → Modal). Importing any module in this chain from a test requires mocking the entire tree, which is brittle and verbose.
 
 **Rules for new code:**
 
 1. **Pass data, not services** — If a function only needs a string (like `outputFolder`), accept it as a parameter. Don't give it access to the entire settings singleton.
-2. **Singletons at the edges only** — `getSettings()`, `PDFCache.getInstance()`, `BrevilabsClient.getInstance()` should only be called in top-level orchestration (constructors, main entry points). Inner functions receive what they need as parameters.
+2. **Singletons at the edges only** — `getSettings()`, `PDFCache.getInstance()` should only be called in top-level orchestration (constructors, main entry points). Inner functions receive what they need as parameters.
 3. **Pure logic in leaf modules** — Extract testable logic into small files with minimal imports. The orchestration file (which has heavy imports) calls the leaf function and passes in the dependencies. See `src/tools/convertedDocOutput.ts` as an example.
 4. **Litmus test before writing a function** — "Can I test this by calling it directly with plain arguments?" If the answer is no because of an import, that dependency should be a parameter instead.
 
@@ -351,7 +351,7 @@ The TODO.md should be:
 - **Clean Architecture**: New architecture follows Repository → Manager → UIState → UI pattern
 - **Single Source of Truth**: All messages stored once in MessageRepository with computed views
 - **Context Always Fresh**: Context is reprocessed when messages are edited to ensure accuracy
-- **Chat History Loading**: Uses pending message mechanism through CopilotView → Chat component props
+- **Chat History Loading**: Uses pending message mechanism through CortexView → Chat component props
 - **Project Chat Isolation**: Each project now has completely isolated chat history
   - Automatic detection of project switches via `ProjectManager.getCurrentProjectId()`
   - Separate MessageRepository instances per project ID
@@ -359,3 +359,10 @@ The TODO.md should be:
   - Backwards compatible - loads existing messages from ProjectManager cache
   - Zero configuration required - works automatically
 - Check @tailwind.config.js to understand what tailwind css classnames are available
+
+<!-- SPECKIT START -->
+
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+
+<!-- SPECKIT END -->

@@ -5,7 +5,7 @@ import { useRafResizable } from "@/hooks/use-resizable";
 import { DragHandle } from "./drag-handle";
 import { CloseButton } from "./close-button";
 
-const DRAGGABLE_MODAL_DATA_ATTRIBUTE = "data-copilot-draggable-modal";
+const DRAGGABLE_MODAL_DATA_ATTRIBUTE = "data-cortex-draggable-modal";
 const DRAGGABLE_MODAL_SELECTOR = `[${DRAGGABLE_MODAL_DATA_ATTRIBUTE}="true"]`;
 
 interface DraggableModalProps {
@@ -56,7 +56,13 @@ export function DraggableModal({
   closeOnEscapeFromOutside = false,
   anchorBottom,
 }: DraggableModalProps) {
-  const { position, setPosition, dragRef, handleMouseDown: rawHandleMouseDown, isDragging } = useDraggable({
+  const {
+    position,
+    setPosition,
+    dragRef,
+    handleMouseDown: rawHandleMouseDown,
+    isDragging,
+  } = useDraggable({
     initialPosition: initialPosition || {
       x: typeof window !== "undefined" ? (window.innerWidth - 500) / 2 : 100,
       y: typeof window !== "undefined" ? (window.innerHeight - 400) / 2 : 100,

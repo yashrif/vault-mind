@@ -10,10 +10,10 @@ import {
 } from "@/aiParams";
 import { ContextCache, ProjectContextCache } from "@/cache/projectContextCache";
 import { ChainType } from "@/chainFactory";
-import CopilotView from "@/components/CopilotView";
+import CortexView from "@/components/CortexView";
 import { CHAT_VIEWTYPE, VAULT_VECTOR_STORE_STRATEGY } from "@/constants";
 import { logError, logInfo, logWarn } from "@/logger";
-import CopilotPlugin from "@/main";
+import CortexPlugin from "@/main";
 import { Mention } from "@/mentions/Mention";
 import { getMatchingPatterns, shouldIndexFile } from "@/search/searchUtils";
 import { getSettings, subscribeToSettingsChange, updateSetting } from "@/settings/model";
@@ -30,25 +30,20 @@ export default class ProjectManager {
   public static instance: ProjectManager;
   private currentProjectId: string | null;
   private app: App;
-  private plugin: CopilotPlugin;
+  private plugin: CortexPlugin;
   private readonly chainMangerInstance: ChainManager;
   private readonly projectContextCache: ProjectContextCache;
   private fileParserManager: FileParserManager;
   private loadTracker: ProjectLoadTracker;
   private readonly projectUsageTimestampsManager = new RecentUsageManager<string>();
 
-  private constructor(app: App, plugin: CopilotPlugin) {
+  private constructor(app: App, plugin: CortexPlugin) {
     this.app = app;
     this.plugin = plugin;
     this.currentProjectId = null;
     this.chainMangerInstance = new ChainManager(app);
     this.projectContextCache = ProjectContextCache.getInstance();
-    this.fileParserManager = new FileParserManager(
-      BrevilabsClient.getInstance(),
-      this.app.vault,
-      true,
-      null
-    );
+    this.fileParserManager = new FileParserManager(this.app.vault, true, null);
     this.loadTracker = ProjectLoadTracker.getInstance(this.app);
 
     // Set up subscriptions
@@ -65,8 +60,7 @@ export default class ProjectManager {
       const shouldAutoIndex =
         settings.enableSemanticSearchV3 &&
         settings.indexVaultToVectorStore === VAULT_VECTOR_STORE_STRATEGY.ON_MODE_SWITCH &&
-        (getChainType() === ChainType.VAULT_QA_CHAIN ||
-          getChainType() === ChainType.COPILOT_PLUS_CHAIN);
+        (getChainType() === ChainType.VAULT_QA_CHAIN || getChainType() === ChainType.TOOL_CHAIN);
       await this.getCurrentChainManager().createChainWithNewModel({
         refreshIndex: shouldAutoIndex,
       });
@@ -124,7 +118,7 @@ export default class ProjectManager {
     return JSON.stringify(prevComparable) !== JSON.stringify(nextComparable);
   }
 
-  public static getInstance(app: App, plugin: CopilotPlugin): ProjectManager {
+  public static getInstance(app: App, plugin: CortexPlugin): ProjectManager {
     if (!ProjectManager.instance) {
       ProjectManager.instance = new ProjectManager(app, plugin);
     }
@@ -215,12 +209,7 @@ export default class ProjectManager {
       await this.loadNextProjectMessage();
       await this.getCurrentChainManager().createChainWithNewModel();
       // Update FileParserManager with the current project
-      this.fileParserManager = new FileParserManager(
-        BrevilabsClient.getInstance(),
-        this.app.vault,
-        true,
-        project
-      );
+      this.fileParserManager = new FileParserManager(this.app.vault, true, project);
       await this.loadProjectContext(project);
 
       // fresh chat view
@@ -362,7 +351,7 @@ export default class ProjectManager {
 
   private refreshChatView() {
     // get chat view
-    const chatView = this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0]?.view as CopilotView;
+    const chatView = this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0]?.view as CortexView;
     if (chatView) {
       chatView.updateView();
     }
@@ -801,12 +790,7 @@ modified: ${stat ? new Date(stat.mtime).toISOString() : "unknown"}`;
       return;
     }
 
-    this.fileParserManager = new FileParserManager(
-      BrevilabsClient.getInstance(),
-      this.app.vault,
-      true,
-      project
-    );
+    this.fileParserManager = new FileParserManager(this.app.vault, true, project);
 
     let processedNonMdCount = 0;
 
@@ -976,7 +960,7 @@ modified: ${stat ? new Date(stat.mtime).toISOString() : "unknown"}`;
   }
 
   private getProjectAllFiles(project: ProjectConfig) {
-    // NOTE: Must not fallback to GLOBAL inclusions and exclusions in Copilot settings in Projects!
+    // NOTE: Must not fallback to GLOBAL inclusions and exclusions in Cortex settings in Projects!
     // This is to avoid project inclusions in the project that conflict with the global ones
     // Project UI should be the ONLY source of truth for project inclusions and exclusions
     const { inclusions: inclusionPatterns, exclusions: exclusionPatterns } = getMatchingPatterns({

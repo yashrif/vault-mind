@@ -1,11 +1,16 @@
 import React from "react";
-import { ExternalLink, FileText, Folder, Globe, Hash, CircleDashed } from "lucide-react";
+import { ExternalLink, FileText, Folder, Globe, Hash, CircleDashed, Paperclip } from "lucide-react";
 import { TFile } from "obsidian";
 import { TruncatedText } from "@/components/TruncatedText";
 import { getDomainFromUrl } from "@/utils";
 import { cn } from "@/lib/utils";
 import { ContextBadgeWrapper } from "./ContextBadgeWrapper";
-import { SelectedTextContext, WebTabContext, isWebSelectedTextContext } from "@/types/message";
+import {
+  AttachedFileContent,
+  SelectedTextContext,
+  WebTabContext,
+  isWebSelectedTextContext,
+} from "@/types/message";
 
 interface BaseContextBadgeProps {
   onRemove?: () => void;
@@ -224,6 +229,20 @@ export function ContextFolderBadge({ folder, onRemove }: ContextFolderBadgeProps
     <ContextBadgeWrapper icon={<Folder className="tw-size-3" />} onRemove={onRemove}>
       <TruncatedText className="tw-max-w-40" tooltipContent={folder} alwaysShowTooltip>
         {folder}
+      </TruncatedText>
+    </ContextBadgeWrapper>
+  );
+}
+
+interface ContextAttachedFileBadgeProps extends BaseContextBadgeProps {
+  file: AttachedFileContent;
+}
+
+export function ContextAttachedFileBadge({ file, onRemove }: ContextAttachedFileBadgeProps) {
+  return (
+    <ContextBadgeWrapper icon={<Paperclip className="tw-size-3" />} onRemove={onRemove}>
+      <TruncatedText className="tw-max-w-40" tooltipContent={file.name} alwaysShowTooltip>
+        {file.name}
       </TruncatedText>
     </ContextBadgeWrapper>
   );

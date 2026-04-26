@@ -14,6 +14,7 @@ import {
 import { ContextProcessor } from "@/contextProcessor";
 import { logInfo } from "@/logger";
 import { Mention } from "@/mentions/Mention";
+import { RuntimeChainPolicy, resolveRuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { getSettings } from "@/settings/model";
 import { FileParserManager } from "@/tools/FileParserManager";
 import { ChatMessage, MessageContext } from "@/types/message";
@@ -68,6 +69,7 @@ export class ContextManager {
     fileParserManager: FileParserManager,
     vault: Vault,
     chainType: ChainType,
+    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(chainType),
     includeActiveNote: boolean,
     activeNote: TFile | null,
     messageRepo: MessageRepository,
@@ -91,10 +93,10 @@ export class ContextManager {
       // 2. Build L2 context from previous turns (uses stored envelope content, preserves compaction)
       const { l2Context, l2Paths } = this.buildL2ContextFromPreviousTurns(message.id!, messageRepo);
 
-      // 3. Extract URLs and process them (for Copilot Plus chain)
+      // 3. Extract URLs and process them (for agent chain)
       const contextUrls = message.context?.urls || [];
       const urlContextAddition =
-        chainType === ChainType.COPILOT_PLUS_CHAIN
+        runtimePolicy.richContextPolicy === "plus"
           ? await this.mention.processUrlList(contextUrls)
           : { urlContext: "", imageUrls: [] };
 
@@ -131,7 +133,8 @@ export class ContextManager {
         notes,
         includeActiveNote,
         activeNote,
-        chainType
+        chainType,
+        runtimePolicy
       );
 
       // Add processed context notes to tracking sets
@@ -162,7 +165,8 @@ export class ContextManager {
             filteredTaggedNotes,
             false, // Don't include active note again
             null,
-            chainType
+            chainType,
+            runtimePolicy
           );
 
           // Add processed tagged notes to tracking sets and collect paths
@@ -196,7 +200,8 @@ export class ContextManager {
             filteredFolderNotes,
             false, // Don't include active note again
             null,
-            chainType
+            chainType,
+            runtimePolicy
           );
 
           // Add processed folder notes to tracking sets and collect paths
@@ -215,6 +220,12 @@ export class ContextManager {
       const webTabs = message.context?.webTabs || [];
       const webTabContextAddition = await this.contextProcessor.processContextWebTabs(webTabs);
 
+      // 8b. Process locally-attached file contents (from the file picker, not vault TFiles)
+      const attachedFileContents = message.context?.attachedFileContents || [];
+      const attachedFilesAddition = attachedFileContents
+        .map((f) => `<attached_file name="${f.name}">\n${f.content}\n</attached_file>`)
+        .join("\n");
+
       // 9. Build context portion separately (for compaction boundary preservation)
       const contextPortion =
         l2Context +
@@ -223,7 +234,8 @@ export class ContextManager {
         folderContextAddition +
         urlContextAddition.urlContext +
         selectedTextContextAddition +
-        webTabContextAddition;
+        webTabContextAddition +
+        attachedFilesAddition;
 
       // Combine everything (L2 previous context, then L3 current turn context)
       let finalProcessedMessage = processedUserMessage + contextPortion;
@@ -284,6 +296,7 @@ export class ContextManager {
             urlContext: urlContextAddition.urlContext,
             selectedText: selectedTextContextAddition,
             webTabContext: webTabContextAddition,
+            attachedFilesContext: attachedFilesAddition,
           });
 
       return {
@@ -309,6 +322,7 @@ export class ContextManager {
     fileParserManager: FileParserManager,
     vault: Vault,
     chainType: ChainType,
+    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(chainType),
     includeActiveNote: boolean,
     activeNote: TFile | null,
     systemPrompt?: string,
@@ -327,6 +341,7 @@ export class ContextManager {
       fileParserManager,
       vault,
       chainType,
+      runtimePolicy,
       includeActiveNote,
       activeNote,
       messageRepo, // Use same repo for L2 building
@@ -511,6 +526,7 @@ export class ContextManager {
     this.appendParsedSegments(turnSegments, params.urlContext);
     this.appendParsedSegments(turnSegments, params.selectedText);
     this.appendParsedSegments(turnSegments, params.webTabContext);
+    this.appendParsedSegments(turnSegments, params.attachedFilesContext);
 
     if (turnSegments.length > 0) {
       layerSegments.L3_TURN = turnSegments;
@@ -775,4 +791,5 @@ interface BuildPromptContextEnvelopeParams {
   urlContext: string;
   selectedText: string;
   webTabContext: string;
+  attachedFilesContext: string;
 }

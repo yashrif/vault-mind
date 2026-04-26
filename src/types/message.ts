@@ -76,6 +76,11 @@ export interface WebTabContext {
 /**
  * Context information attached to messages
  */
+export interface AttachedFileContent {
+  name: string;
+  content: string;
+}
+
 export interface MessageContext {
   notes: TFile[];
   urls: string[];
@@ -83,6 +88,7 @@ export interface MessageContext {
   folders?: string[];
   selectedTextContexts?: SelectedTextContext[];
   webTabs?: WebTabContext[];
+  attachedFileContents?: AttachedFileContent[];
 }
 
 /**

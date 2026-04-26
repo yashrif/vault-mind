@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-11
 **Status:** Draft — Experimental, Desktop-Only
-**Scope:** Copilot plugin tooling (`AutonomousAgent` + `Copilot Plus` tool execution path)
+**Scope:** Copilot plugin tooling (`AutonomousAgent` + `Tool Mode` tool execution path)
 
 ## 1. Problem Statement
 
@@ -370,11 +370,11 @@ obsidian properties file="Rewrite as tweet"
 ```
 
 ```
-copilot-command-context-menu-enabled: false
-copilot-command-slash-enabled: false
-copilot-command-context-menu-order: 90
-copilot-command-model-key: ""
-copilot-command-last-used: 0
+cortex-command-context-menu-enabled: false
+cortex-command-slash-enabled: false
+cortex-command-context-menu-order: 90
+cortex-command-model-key: ""
+cortex-command-last-used: 0
 ```
 
 | Parameter     | Required | Description                                               |

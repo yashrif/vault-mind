@@ -116,7 +116,7 @@ export function MenuCommandModal({
   useEffect(() => {
     if (!open) return;
 
-    const modalEl = innerRef.current?.closest<HTMLElement>('[data-copilot-draggable-modal="true"]');
+    const modalEl = innerRef.current?.closest<HTMLElement>('[data-cortex-draggable-modal="true"]');
     const ownerDocument = modalEl?.ownerDocument ?? document;
 
     const handleKeyDown = (e: KeyboardEvent) => {

@@ -6,7 +6,7 @@ This directory contains the refactored chain runner system for Obsidian Copilot,
 
 The chain runner system provides two distinct tool calling approaches:
 
-1. **Copilot Plus** (CopilotPlusChainRunner) - Uses native tool calling for intent analysis
+1. **Tool Chain** (ToolChainRunner) - Uses native tool calling for intent analysis
 2. **Autonomous Agent** (AutonomousAgentChainRunner) - Uses native LangChain tool calling with ReAct pattern
 
 ## Architecture
@@ -16,8 +16,8 @@ chainRunner/
 ├── BaseChainRunner.ts                 # Abstract base class with shared functionality
 ├── LLMChainRunner.ts                  # Basic LLM interaction (no tools)
 ├── VaultQAChainRunner.ts              # Vault-only Q&A with retrieval
-├── CopilotPlusChainRunner.ts          # Legacy tool calling system
-├── ProjectChainRunner.ts              # Project-aware extension of Plus
+├── ToolChainRunner.ts                 # Tool-augmented chain runner
+├── ProjectChainRunner.ts              # Project-aware chain runner extension
 ├── AutonomousAgentChainRunner.ts   # Native tool calling with ReAct agent loop
 ├── index.ts                           # Main exports
 └── utils/
@@ -29,7 +29,7 @@ chainRunner/
 
 ## Tool Calling Systems Comparison
 
-### 1. Model-Based Tool Planning (CopilotPlusChainRunner)
+### 1. Model-Based Tool Planning (ToolChainRunner)
 
 **How it works:**
 
@@ -222,7 +222,7 @@ AIMessage: {
 
 ## Key Differences
 
-| Aspect             | Copilot Plus                    | Autonomous Agent                      |
+| Aspect             | Tool Chain                      | Autonomous Agent                      |
 | ------------------ | ------------------------------- | ------------------------------------- |
 | **Tool Decision**  | Model-based intent planning     | AI decides autonomously (ReAct)       |
 | **Tool Execution** | Pre-LLM, synchronous            | During conversation, iterative        |
@@ -255,7 +255,6 @@ interface ToolMetadata {
   isAlwaysEnabled?: boolean;
   timeoutMs?: number;
   isBackground?: boolean;
-  isPlusOnly?: boolean;
 }
 ```
 
@@ -522,7 +521,7 @@ interface ToolCall {
 
 ### Available Tools in Agent Mode
 
-All tools from the Copilot Plus system plus autonomous decision-making:
+All tools plus autonomous decision-making:
 
 - **localSearch** - Vault content search with salient terms and query expansion
 - **webSearch** - Web search with chat history context
@@ -600,8 +599,8 @@ const runner = chainManager.getChainRunner(); // Returns AutonomousAgentChainRun
 try {
   // Sequential thinking execution
 } catch (error) {
-  // Automatic fallback to CopilotPlusChainRunner
-  const fallbackRunner = new CopilotPlusChainRunner(this.chainManager);
+  // Automatic fallback to ToolChainRunner
+  const fallbackRunner = new ToolChainRunner(this.chainManager);
   return await fallbackRunner.run(/* same parameters */);
 }
 ```

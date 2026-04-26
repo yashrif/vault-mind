@@ -1,3 +1,8 @@
+import {
+  parseTelegramAllowedChatIds,
+  TelegramChannelService,
+} from "@/channels/telegram/TelegramChannelService";
+import { TelegramAgent } from "@/channels/telegram/TelegramAgent";
 import { BrevilabsClient } from "@/LLMProviders/brevilabsClient";
 import ProjectManager from "@/LLMProviders/projectManager";
 import {
@@ -8,7 +13,7 @@ import {
 } from "@/aiParams";
 import { NoteSelectedTextContext, SelectedTextContext } from "@/types/message";
 import { registerCommands } from "@/commands";
-import CopilotView from "@/components/CopilotView";
+import CortexView from "@/components/CortexView";
 import { APPLY_VIEW_TYPE, ApplyView } from "@/components/composer/ApplyView";
 import { LoadChatHistoryModal } from "@/components/modals/LoadChatHistoryModal";
 
@@ -25,14 +30,13 @@ import { logInfo, logWarn } from "@/logger";
 import { logFileManager } from "@/logFileManager";
 import { UserMemoryManager } from "@/memory/UserMemoryManager";
 import { clearRecordedPromptPayload } from "@/LLMProviders/chainRunner/utils/promptPayloadRecorder";
-import { checkIsPlusUser, refreshSelfHostModeValidation } from "@/plusUtils";
 import {
   getWebViewerService,
   startActiveWebTabTracking,
 } from "@/services/webViewerService/webViewerServiceSingleton";
 import { WebSelectionTracker } from "@/services/webViewerService/webViewerServiceSelection";
 import VectorStoreManager from "@/search/vectorStoreManager";
-import { CopilotSettingTab } from "@/settings/SettingsPage";
+import { CortexSettingTab } from "@/settings/SettingsPage";
 import {
   getModelKeyFromModel,
   getSettings,
@@ -72,7 +76,7 @@ import { v4 as uuidv4 } from "uuid";
 
 // Removed unused FileTrackingState interface
 
-export default class CopilotPlugin extends Plugin {
+export default class CortexPlugin extends Plugin {
   // Plugin components
   projectManager: ProjectManager;
   brevilabsClient: BrevilabsClient;
@@ -83,6 +87,7 @@ export default class CopilotPlugin extends Plugin {
   systemPromptRegister: SystemPromptRegister;
   settingsUnsubscriber?: () => void;
   chatUIState: ChatUIState;
+  telegramChannelService?: TelegramChannelService;
   userMemoryManager: UserMemoryManager;
   quickAskController: QuickAskController;
   chatSelectionHighlightController: ChatSelectionHighlightController;
@@ -101,8 +106,48 @@ export default class CopilotPlugin extends Plugin {
         await this.saveData(next);
       }
       registerCommands(this, prev, next);
+
+      // Restart Telegram service when token or enabled state changes (desktop only)
+      if (Platform.isDesktopApp) {
+        const tokenChanged = prev.telegramBotApiKey !== next.telegramBotApiKey;
+        const enabledChanged = prev.telegramEnabled !== next.telegramEnabled;
+        const allowlistChanged = prev.telegramAllowedChatIds !== next.telegramAllowedChatIds;
+        if (tokenChanged || enabledChanged || allowlistChanged) {
+          if (next.telegramEnabled && next.telegramBotApiKey) {
+            const { getDecryptedKey } = await import("@/encryptionService");
+            const rawToken = await getDecryptedKey(next.telegramBotApiKey);
+            const allowedChatIds = parseTelegramAllowedChatIds(next.telegramAllowedChatIds);
+            if (this.telegramChannelService) {
+              this.telegramChannelService.setAllowedChatIds(allowedChatIds);
+              if (tokenChanged || enabledChanged) {
+                await this.telegramChannelService.restart(rawToken);
+              }
+              // Re-wire agent after restart so it uses the new TelegramClient
+              const restartedAgent = new TelegramAgent(
+                this.telegramChannelService.client,
+                this.telegramChannelService.store,
+                this.projectManager.getCurrentChainManager()
+              );
+              this.telegramChannelService.setAgent(restartedAgent);
+            } else {
+              this.telegramChannelService = new TelegramChannelService(rawToken, {
+                allowedChatIds,
+              });
+              await this.telegramChannelService.start();
+              const telegramAgent = new TelegramAgent(
+                this.telegramChannelService.client,
+                this.telegramChannelService.store,
+                this.projectManager.getCurrentChainManager()
+              );
+              this.telegramChannelService.setAgent(telegramAgent);
+            }
+          } else {
+            this.telegramChannelService?.stop();
+          }
+        }
+      }
     });
-    this.addSettingTab(new CopilotSettingTab(this.app, this));
+    this.addSettingTab(new CortexSettingTab(this.app, this));
 
     // Core plugin initialization
 
@@ -112,8 +157,6 @@ export default class CopilotPlugin extends Plugin {
     // Initialize BrevilabsClient
     this.brevilabsClient = BrevilabsClient.getInstance();
     this.brevilabsClient.setPluginVersion(this.manifest.version);
-    checkIsPlusUser();
-    refreshSelfHostModeValidation();
 
     // Initialize ProjectManager
     this.projectManager = ProjectManager.getInstance(this.app, this);
@@ -127,13 +170,32 @@ export default class CopilotPlugin extends Plugin {
     vaultDataManager.initialize();
 
     // Initialize FileParserManager early with other core services
-    this.fileParserManager = new FileParserManager(this.brevilabsClient, this.app.vault);
+    this.fileParserManager = new FileParserManager(this.app.vault);
 
     // Initialize ChatUIState with new architecture
     const messageRepo = new MessageRepository();
     const chainManager = this.projectManager.getCurrentChainManager();
     const chatManager = new ChatManager(messageRepo, chainManager, this.fileParserManager, this);
     this.chatUIState = new ChatUIState(chatManager);
+
+    // Initialize Telegram channel service (desktop only)
+    if (Platform.isDesktopApp) {
+      const settings = getSettings();
+      if (settings.telegramEnabled && settings.telegramBotApiKey) {
+        const { getDecryptedKey } = await import("@/encryptionService");
+        const rawToken = await getDecryptedKey(settings.telegramBotApiKey);
+        this.telegramChannelService = new TelegramChannelService(rawToken, {
+          allowedChatIds: parseTelegramAllowedChatIds(settings.telegramAllowedChatIds),
+        });
+        await this.telegramChannelService.start();
+        const telegramAgent = new TelegramAgent(
+          this.telegramChannelService.client,
+          this.telegramChannelService.store,
+          this.projectManager.getCurrentChainManager()
+        );
+        this.telegramChannelService.setAgent(telegramAgent);
+      }
+    }
 
     // Initialize UserMemoryManager
     this.userMemoryManager = new UserMemoryManager(this.app);
@@ -159,18 +221,18 @@ export default class CopilotPlugin extends Plugin {
       this.registerEvent(layoutRef);
     }
 
-    this.registerView(CHAT_VIEWTYPE, (leaf: WorkspaceLeaf) => new CopilotView(leaf, this));
+    this.registerView(CHAT_VIEWTYPE, (leaf: WorkspaceLeaf) => new CortexView(leaf, this));
     this.registerView(APPLY_VIEW_TYPE, (leaf: WorkspaceLeaf) => new ApplyView(leaf));
 
     this.initActiveLeafChangeHandler();
 
-    this.addRibbonIcon("message-square", "Open Copilot Chat", (evt: MouseEvent) => {
+    this.addRibbonIcon("message-square", "Open Cortex Chat", (evt: MouseEvent) => {
       this.activateView();
     });
 
     registerCommands(this, undefined, getSettings());
 
-    // Tool initialization is now handled automatically in CopilotPlusChainRunner and AutonomousAgentChainRunner
+    // Tool initialization is now handled automatically in ToolChainRunner and AutonomousAgentChainRunner
 
     this.registerEvent(
       this.app.workspace.on("editor-menu", (menu: Menu) => {
@@ -188,13 +250,13 @@ export default class CopilotPlugin extends Plugin {
           if (file) {
             // Note: File tracking and real-time reindexing removed for simplicity
             // Semantic search indexes are rebuilt manually or on startup as needed
-            const activeCopilotView = this.app.workspace
+            const activeCortexView = this.app.workspace
               .getLeavesOfType(CHAT_VIEWTYPE)
-              .find((leaf) => leaf.view instanceof CopilotView)?.view as CopilotView;
+              .find((leaf) => leaf.view instanceof CortexView)?.view as CortexView;
 
-            if (activeCopilotView) {
+            if (activeCortexView) {
               const event = new CustomEvent(EVENT_NAMES.ACTIVE_LEAF_CHANGE);
-              activeCopilotView.eventTarget.dispatchEvent(event);
+              activeCortexView.eventTarget.dispatchEvent(event);
             }
           }
         }
@@ -222,6 +284,9 @@ export default class CopilotPlugin extends Plugin {
   }
 
   async onunload() {
+    // Stop Telegram channel service if running
+    this.telegramChannelService?.stop();
+
     // Clear all persistent selection highlights before unload
     // This prevents "stuck" highlights after hot reload (dev environment)
     this.clearAllPersistentSelectionHighlights();
@@ -256,7 +321,7 @@ export default class CopilotPlugin extends Plugin {
 
     // Best-effort flush of log file
     await logFileManager.flush();
-    logInfo("Copilot plugin unloaded");
+    logInfo("Cortex plugin unloaded");
   }
 
   /**
@@ -286,7 +351,7 @@ export default class CopilotPlugin extends Plugin {
 
   async autosaveCurrentChat() {
     if (getSettings().autosaveChat) {
-      const chatView = this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0]?.view as CopilotView;
+      const chatView = this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0]?.view as CortexView;
       if (chatView) {
         await chatView.saveChat();
       }
@@ -309,12 +374,12 @@ export default class CopilotPlugin extends Plugin {
 
     // Without the timeout, the view is not yet active
     setTimeout(() => {
-      const activeCopilotView = this.app.workspace
+      const activeCortexView = this.app.workspace
         .getLeavesOfType(CHAT_VIEWTYPE)
-        .find((leaf) => leaf.view instanceof CopilotView)?.view as CopilotView;
-      if (activeCopilotView && (!checkSelectedText || selectedText)) {
+        .find((leaf) => leaf.view instanceof CortexView)?.view as CortexView;
+      if (activeCortexView && (!checkSelectedText || selectedText)) {
         const event = new CustomEvent(eventType, { detail: { selectedText, eventSubtype } });
-        activeCopilotView.eventTarget.dispatchEvent(event);
+        activeCortexView.eventTarget.dispatchEvent(event);
       }
     }, 0);
   }
@@ -324,13 +389,13 @@ export default class CopilotPlugin extends Plugin {
   }
 
   emitChatIsVisible() {
-    const activeCopilotView = this.app.workspace
+    const activeCortexView = this.app.workspace
       .getLeavesOfType(CHAT_VIEWTYPE)
-      .find((leaf) => leaf.view instanceof CopilotView)?.view as CopilotView;
+      .find((leaf) => leaf.view instanceof CortexView)?.view as CortexView;
 
-    if (activeCopilotView) {
+    if (activeCortexView) {
       const event = new CustomEvent(EVENT_NAMES.CHAT_IS_VISIBLE);
-      activeCopilotView.eventTarget.dispatchEvent(event);
+      activeCortexView.eventTarget.dispatchEvent(event);
     }
   }
 
@@ -618,7 +683,7 @@ export default class CopilotPlugin extends Plugin {
     return Array.from(modelMap.values());
   }
 
-  async loadCopilotChatHistory() {
+  async loadCortexChatHistory() {
     const chatFiles = await this.getChatHistoryFiles();
     if (chatFiles.length === 0) {
       new Notice("No chat history found.");
@@ -726,7 +791,7 @@ export default class CopilotPlugin extends Plugin {
       // Mark persistence successful for throttling purposes
       this.chatHistoryLastAccessedAtManager.markPersisted(file.path, persistedAtMs);
     } catch (error) {
-      logWarn(`[CopilotPlugin] Failed to update chat lastAccessedAt for ${file.path}`, error);
+      logWarn(`[CortexPlugin] Failed to update chat lastAccessedAt for ${file.path}`, error);
     }
   }
 
@@ -742,7 +807,7 @@ export default class CopilotPlugin extends Plugin {
     // First autosave the current chat if the setting is enabled
     await this.autosaveCurrentChat();
 
-    // Check if the Copilot view is already active
+    // Check if the Cortex view is already active
     const existingView = this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0];
     if (!existingView) {
       // Only activate the view if it's not already open
@@ -756,10 +821,10 @@ export default class CopilotPlugin extends Plugin {
     void this.touchChatHistoryLastAccessedAt(file);
 
     // Update the view
-    const copilotView = (existingView || this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0])
-      ?.view as CopilotView;
-    if (copilotView) {
-      copilotView.updateView();
+    const CortexView = (existingView || this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0])
+      ?.view as CortexView;
+    if (CortexView) {
+      CortexView.updateView();
     }
   }
 
@@ -858,12 +923,12 @@ export default class CopilotPlugin extends Plugin {
     // Abort any ongoing streams before clearing chat
     const existingView = this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0];
     if (existingView) {
-      const copilotView = existingView.view as CopilotView;
+      const CortexView = existingView.view as CortexView;
       // Dispatch abort event to stop any ongoing streams
       const abortEvent = new CustomEvent(EVENT_NAMES.ABORT_STREAM, {
         detail: { reason: ABORT_REASON.NEW_CHAT },
       });
-      copilotView.eventTarget.dispatchEvent(abortEvent);
+      CortexView.eventTarget.dispatchEvent(abortEvent);
     }
 
     // Clear messages through ChatUIState (which also clears chain memory)
@@ -871,8 +936,8 @@ export default class CopilotPlugin extends Plugin {
 
     // Update view if it exists
     if (existingView) {
-      const copilotView = existingView.view as CopilotView;
-      copilotView.updateView();
+      const CortexView = existingView.view as CortexView;
+      CortexView.updateView();
     } else {
       // If view doesn't exist, open it
       await this.activateView();

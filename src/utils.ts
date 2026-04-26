@@ -2,7 +2,6 @@ import { ChainType, Document } from "@/chainFactory";
 import {
   ALLOWED_NOTE_CONTEXT_EXTENSIONS,
   ChatModelProviders,
-  EmbeddingModelProviders,
   NOMIC_EMBED_TEXT,
   Provider,
   ProviderInfo,
@@ -12,7 +11,7 @@ import {
   USER_SENDER,
 } from "@/constants";
 import { logInfo, logWarn } from "@/logger";
-import { CopilotSettings } from "@/settings/model";
+import { CortexSettings } from "@/settings/model";
 import { ChatMessage } from "@/types/message";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { MemoryVariables } from "@langchain/core/memory";
@@ -52,8 +51,7 @@ interface APIError extends Error {
 
 // Error message constants
 export const ERROR_MESSAGES = {
-  INVALID_LICENSE_KEY_USER:
-    "Invalid Copilot Plus license key. Please check your license key in settings.",
+  INVALID_LICENSE_KEY_USER: "Invalid API key. Please check your API key in settings.",
   UNKNOWN_ERROR: "An unknown error occurred",
   REQUEST_FAILED: (status: number) => `Request failed, status ${status}`,
 } as const;
@@ -259,8 +257,8 @@ export const stringToChainType = (chain: string): ChainType => {
       return ChainType.LLM_CHAIN;
     case "vault_qa":
       return ChainType.VAULT_QA_CHAIN;
-    case "copilot_plus":
-      return ChainType.COPILOT_PLUS_CHAIN;
+    case "Cortex_plus":
+      return ChainType.TOOL_CHAIN;
     default:
       throw new Error(`Unknown chain type: ${chain}`);
   }
@@ -330,7 +328,7 @@ export const formatDateTime = (
  * Works across desktop and mobile. Safe to call repeatedly.
  *
  * Examples:
- * - ensureFolderExists("copilot/copilot-conversations")
+ * - ensureFolderExists("Cortex/cortex-conversations")
  * - ensureFolderExists("some/deep/nested/path")
  *
  * Throws if any segment conflicts with an existing file.
@@ -404,32 +402,24 @@ export function isAllowedFileForNoteContext(file: TFile | null): boolean {
 }
 
 /**
- * Checks if a chain type is a Plus mode chain (Copilot Plus or Project Chain).
- * Plus mode chains have access to premium features like PDF processing and URL processing.
+ * Checks if a chain type supports agent features (tools, rich context, PDF/URL processing).
  * @param chainType The chain type to check
- * @returns true if this is a Plus mode chain, false otherwise
+ * @returns true if this chain type supports agent features, false otherwise
  */
-export function isPlusChain(chainType: ChainType): boolean {
-  return chainType === ChainType.COPILOT_PLUS_CHAIN || chainType === ChainType.PROJECT_CHAIN;
+export function isAgentChain(chainType: ChainType): boolean {
+  return chainType === ChainType.TOOL_CHAIN || chainType === ChainType.PROJECT_CHAIN;
 }
 
 /**
- * Checks if a file extension is allowed for context based on the chain type.
- * All chains support text-readable files (md, canvas, base).
- * Plus chains additionally support PDF, EPUB, PPT, DOCX, etc.
+ * Checks if a file is allowed for context. All file types are supported now —
+ * markdown/canvas/base are read directly; PDFs, Office docs, EPUBs, and spreadsheets
+ * are parsed locally by FileParserManager; unsupported formats surface a clear
+ * "not yet supported" message in chat context.
  * @param file The file to check
- * @param chainType The current chain type
- * @returns true if the file is allowed for this chain type, false otherwise
+ * @returns true if the file is a valid TFile, false otherwise
  */
-export function isAllowedFileForChainContext(file: TFile | null, chainType: ChainType): boolean {
-  if (!file) return false;
-
-  if (isTextReadableFile(file)) {
-    return true;
-  }
-
-  // Plus chains support all other file types (PDF, EPUB, PPT, DOCX, etc.)
-  return isPlusChain(chainType);
+export function isAllowedFileForChainContext(file: TFile | null, _chainType: ChainType): boolean {
+  return !!file;
 }
 
 export async function getAllNotesContent(vault: Vault): Promise<string> {
@@ -522,7 +512,7 @@ export interface ChatHistoryEntry {
  * Extract text-only chat history from memory variables.
  * This function pairs messages by index (i, i+1) and returns only string content.
  *
- * Note: For multimodal chains (CopilotPlus, AutonomousAgent), use
+ * Note: For multimodal chains (CortexPlus, AutonomousAgent), use
  * chatHistoryUtils.processRawChatHistory instead to preserve image content.
  *
  * @param memoryVariables Memory variables from LangChain memory
@@ -967,7 +957,7 @@ export function getProviderInfo(provider: string): ProviderMetadata {
 
 export function getProviderLabel(provider: string, model?: CustomModel): string {
   const baseLabel = ProviderInfo[provider as Provider]?.label || provider;
-  return baseLabel + (model?.believerExclusive && baseLabel === "Copilot Plus" ? "(Believer)" : "");
+  return baseLabel;
 }
 
 export function getProviderHost(provider: string): string {
@@ -1147,7 +1137,7 @@ export async function checkLatestVersion(): Promise<{
 }> {
   try {
     const response = await requestUrl({
-      url: "https://api.github.com/repos/logancyang/obsidian-copilot/releases/latest",
+      url: "https://api.github.com/repos/logancyang/obsidian-Cortex/releases/latest",
       method: "GET",
     });
     const version = response.json.tag_name.replace("v", "");
@@ -1223,8 +1213,6 @@ export function getNeedSetKeyProvider(): Provider[] {
     ChatModelProviders.LM_STUDIO,
     ChatModelProviders.AZURE_OPENAI,
     ChatModelProviders.GITHUB_COPILOT,
-    EmbeddingModelProviders.COPILOT_PLUS,
-    EmbeddingModelProviders.COPILOT_PLUS_JINA,
   ];
 
   return (Object.keys(ProviderInfo) as Provider[]).filter((key) => !excludeProviders.includes(key));
@@ -1232,7 +1220,7 @@ export function getNeedSetKeyProvider(): Provider[] {
 
 export function checkModelApiKey(
   model: CustomModel,
-  settings: Readonly<CopilotSettings>
+  settings: Readonly<CortexSettings>
 ): {
   hasApiKey: boolean;
   errorNotice?: string;
@@ -1260,7 +1248,7 @@ export function checkModelApiKey(
       return {
         hasApiKey: false,
         errorNotice:
-          "GitHub Copilot is not authenticated. Please connect it in Settings > Copilot > Basic Tab > Set Keys.",
+          "GitHub Copilot is not authenticated. Please connect it in Settings > Cortex > Basic Tab > Set Keys.",
       };
     }
     return { hasApiKey: true };
@@ -1273,7 +1261,7 @@ export function checkModelApiKey(
   if (needSetKeyPath && hasNoApiKey) {
     const notice =
       `Please configure API Key for ${model.name} in settings first.` +
-      "\nPath: Settings > copilot plugin > Basic Tab > Set Keys";
+      "\nPath: Settings > Cortex plugin > Basic Tab > Set Keys";
     return {
       hasApiKey: false,
       errorNotice: notice,

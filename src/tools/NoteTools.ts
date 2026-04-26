@@ -2,6 +2,7 @@ import { TFile } from "obsidian";
 import { z } from "zod";
 import { logInfo, logWarn } from "@/logger";
 import { createLangChainTool } from "./createLangChainTool";
+import { FileParserManager } from "./FileParserManager";
 
 const LINES_PER_CHUNK = 200;
 
@@ -158,8 +159,8 @@ async function resolveNoteFile(notePath: string): Promise<ResolveNoteOutcome> {
     return { type: "not_found" };
   }
 
-  const markdownFiles = app.vault.getMarkdownFiles?.() ?? [];
-  if (markdownFiles.length === 0) {
+  const vaultFiles = app.vault.getFiles?.() ?? app.vault.getMarkdownFiles?.() ?? [];
+  if (vaultFiles.length === 0) {
     return { type: "not_found" };
   }
 
@@ -172,7 +173,7 @@ async function resolveNoteFile(notePath: string): Promise<ResolveNoteOutcome> {
     }
   }
 
-  for (const file of markdownFiles) {
+  for (const file of vaultFiles) {
     const normalizedFilePath = normalizePathFragment(file.path);
     if (candidatePathForms.has(normalizedFilePath)) {
       return { type: "resolved", file };
@@ -182,7 +183,7 @@ async function resolveNoteFile(notePath: string): Promise<ResolveNoteOutcome> {
   const basename = resolutionTarget.split("/").pop();
   if (basename) {
     const normalizedBasename = basename.toLowerCase();
-    const basenameMatches = markdownFiles.filter(
+    const basenameMatches = vaultFiles.filter(
       (file) => file.basename.toLowerCase() === normalizedBasename
     );
 
@@ -200,7 +201,7 @@ async function resolveNoteFile(notePath: string): Promise<ResolveNoteOutcome> {
     return { type: "not_found" };
   }
 
-  const partialMatches = markdownFiles.filter((file) =>
+  const partialMatches = vaultFiles.filter((file) =>
     pathSegmentsMatchTail(file.path, targetSegments)
   );
 
@@ -217,7 +218,8 @@ async function resolveNoteFile(notePath: string): Promise<ResolveNoteOutcome> {
 
 async function readNoteText(file: TFile): Promise<string> {
   try {
-    return await app.vault.read(file);
+    const fileParserManager = new FileParserManager(app.vault);
+    return await fileParserManager.parseFile(file, app.vault);
   } catch (error) {
     logWarn(`readNote: failed to read ${file.path}`, error);
     return "";
@@ -226,7 +228,7 @@ async function readNoteText(file: TFile): Promise<string> {
 
 function buildBasenameIndex(): Map<string, TFile[]> {
   const index = new Map<string, TFile[]>();
-  const files = app.vault.getMarkdownFiles?.() ?? [];
+  const files = app.vault.getFiles?.() ?? app.vault.getMarkdownFiles?.() ?? [];
 
   for (const file of files) {
     if (file instanceof TFile) {

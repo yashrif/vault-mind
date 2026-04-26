@@ -1,4 +1,4 @@
-import { type CopilotSettings } from "@/settings/model";
+import { type CortexSettings } from "@/settings/model";
 import { Buffer } from "buffer";
 import { Platform } from "obsidian";
 
@@ -23,6 +23,7 @@ const ENCRYPTION_PREFIX = "enc_";
 const DECRYPTION_PREFIX = "dec_";
 
 // Add these constants for the Web Crypto implementation
+// Keep original key for backward compatibility with existing encrypted data
 const ENCRYPTION_KEY = new TextEncoder().encode("obsidian-copilot-v1");
 const ALGORITHM = { name: "AES-GCM", iv: new Uint8Array(12) };
 
@@ -34,8 +35,8 @@ async function getEncryptionKey(): Promise<CryptoKey> {
 }
 
 export async function encryptAllKeys(
-  settings: Readonly<CopilotSettings>
-): Promise<Readonly<CopilotSettings>> {
+  settings: Readonly<CortexSettings>
+): Promise<Readonly<CortexSettings>> {
   if (!settings.enableEncryption) {
     return settings;
   }
@@ -49,8 +50,8 @@ export async function encryptAllKeys(
   );
 
   for (const key of keysToEncrypt) {
-    const apiKey = settings[key as keyof CopilotSettings] as string;
-    (newSettings[key as keyof CopilotSettings] as any) = await getEncryptedKey(apiKey);
+    const apiKey = settings[key as keyof CortexSettings] as string;
+    (newSettings[key as keyof CortexSettings] as any) = await getEncryptedKey(apiKey);
   }
 
   if (Array.isArray(settings.activeModels)) {
@@ -146,7 +147,7 @@ export async function getDecryptedKey(apiKey: string): Promise<string> {
     return new TextDecoder().decode(decryptedData);
   } catch (err) {
     console.error("Decryption failed:", err);
-    return "Copilot failed to decrypt API keys!";
+    return "Cortex failed to decrypt API keys!";
   }
 }
 

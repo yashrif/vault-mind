@@ -1,5 +1,7 @@
 import { ABORT_REASON, AI_SENDER } from "@/constants";
 import { logError, logInfo } from "@/logger";
+import MemoryManager from "@/LLMProviders/memoryManager";
+import { RuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { ChatMessage, ResponseMetadata } from "@/types/message";
 import { err2String, formatDateTime } from "@/utils";
 import ChainManager from "../chainManager";
@@ -14,6 +16,8 @@ export interface ChainRunner {
       debug?: boolean;
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
+      memoryManager?: MemoryManager;
+      runtimePolicy?: RuntimeChainPolicy;
     }
   ): Promise<string>;
 }
@@ -34,8 +38,15 @@ export abstract class BaseChainRunner implements ChainRunner {
       debug?: boolean;
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
+      memoryManager?: MemoryManager;
+      runtimePolicy?: RuntimeChainPolicy;
     }
   ): Promise<string>;
+
+  /** Returns the request-scoped MemoryManager override if provided, otherwise the shared singleton. */
+  protected resolveMemory(options?: { memoryManager?: MemoryManager }): MemoryManager {
+    return options?.memoryManager ?? this.chainManager.memoryManager;
+  }
 
   /**
    * Handles a completed LLM response by saving conversation memory, updating the chat history, and logging summary details.
@@ -58,7 +69,8 @@ export abstract class BaseChainRunner implements ChainRunner {
     updateCurrentAiMessage: (message: string) => void,
     sources?: { title: string; path: string; score: number }[],
     llmFormattedOutput?: string,
-    responseMetadata?: ResponseMetadata
+    responseMetadata?: ResponseMetadata,
+    memoryOverride?: MemoryManager
   ) {
     // Save to memory and add message if we have a response
     // Skip only if it's a NEW_CHAT abort (clearing everything)
@@ -80,7 +92,7 @@ export abstract class BaseChainRunner implements ChainRunner {
       const inputForMemory = l5Text || userMessage.originalMessage || userMessage.message;
       const outputForMemory =
         llmFormattedOutput || fullAIResponse || "[Response truncated - no content generated]";
-      await this.chainManager.memoryManager.saveContext(
+      await (memoryOverride ?? this.chainManager.memoryManager).saveContext(
         { input: inputForMemory },
         { output: outputForMemory }
       );
@@ -110,8 +122,9 @@ export abstract class BaseChainRunner implements ChainRunner {
       updateCurrentAiMessage("");
     }
     // Log compact memory summary and a truncated final response (~300 chars)
-    const historyMessages = (this.chainManager.memoryManager.getMemory().chatHistory as any)
-      .messages;
+    const historyMessages = (
+      (memoryOverride ?? this.chainManager.memoryManager).getMemory().chatHistory as any
+    ).messages;
     logInfo("Chat memory updated:\n", {
       turns: Array.isArray(historyMessages) ? historyMessages.length : 0,
     });
@@ -154,9 +167,7 @@ export abstract class BaseChainRunner implements ChainRunner {
     let errorMessage = "";
 
     // Check for specific error messages
-    if (error?.message?.includes("Invalid license key")) {
-      errorMessage = "Invalid Copilot Plus license key. Please check your license key in settings.";
-    } else if (errorCode === "model_not_found") {
+    if (errorCode === "model_not_found") {
       errorMessage =
         "You do not have access to this model or the model does not exist, please check with your API provider.";
     } else {
@@ -184,7 +195,7 @@ export abstract class BaseChainRunner implements ChainRunner {
     if (this.isAuthenticationError(error, msg)) {
       errorMessage =
         "Something went wrong. Please check if you have set your API key." +
-        "\nPath: Settings > copilot plugin > Basic Tab > Set Keys." +
+        "\nPath: Settings > Cortex plugin > Basic Tab > Set Keys." +
         "\nOr check model config" +
         "\nError Details: " +
         errorMessage;

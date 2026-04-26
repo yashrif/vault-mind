@@ -7,6 +7,7 @@ import { useSettingsValue } from "@/settings/model";
 import { ChatMessage } from "@/types/message";
 import { App } from "obsidian";
 import React, { memo, useEffect, useState } from "react";
+import { ChatActionCapabilities } from "@/components/chat-components/ChatButtons";
 
 interface ChatMessagesProps {
   chatHistory: ChatMessage[];
@@ -21,6 +22,7 @@ interface ChatMessagesProps {
   onDelete: (messageIndex: number) => void;
   onReplaceChat: (prompt: string) => void;
   showHelperComponents: boolean;
+  actionCapabilities?: ChatActionCapabilities;
 }
 
 const ChatMessages = memo(
@@ -36,6 +38,7 @@ const ChatMessages = memo(
     onDelete,
     onReplaceChat,
     showHelperComponents = true,
+    actionCapabilities,
   }: ChatMessagesProps) => {
     const [loadingDots, setLoadingDots] = useState("");
 
@@ -108,6 +111,7 @@ const ChatMessages = memo(
                     onRegenerate={() => onRegenerate(index)}
                     onEdit={(newMessage) => onEdit(index, newMessage)}
                     onDelete={() => onDelete(index)}
+                    actionCapabilities={actionCapabilities}
                   />
                 </div>
               )

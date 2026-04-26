@@ -148,7 +148,7 @@ All chain runners call `loadAndAddChatHistory()` without any token budget:
 | Runner                     | File                                                         | Line |
 | -------------------------- | ------------------------------------------------------------ | ---- |
 | LLMChainRunner             | `src/LLMProviders/chainRunner/LLMChainRunner.ts`             | 45   |
-| CopilotPlusChainRunner     | `src/LLMProviders/chainRunner/CopilotPlusChainRunner.ts`     | 606  |
+| ToolChainRunner            | `src/LLMProviders/chainRunner/ToolChainRunner.ts`            | 606  |
 | AutonomousAgentChainRunner | `src/LLMProviders/chainRunner/AutonomousAgentChainRunner.ts` | 597  |
 | VaultQAChainRunner         | `src/LLMProviders/chainRunner/VaultQAChainRunner.ts`         | 191  |
 
@@ -229,7 +229,7 @@ Each chain runner calls `loadAndAddChatHistory()`. Update call sites to:
 **Files**:
 
 - `src/LLMProviders/chainRunner/LLMChainRunner.ts`
-- `src/LLMProviders/chainRunner/CopilotPlusChainRunner.ts`
+- `src/LLMProviders/chainRunner/ToolChainRunner.ts`
 - `src/LLMProviders/chainRunner/AutonomousAgentChainRunner.ts`
 - `src/LLMProviders/chainRunner/VaultQAChainRunner.ts`
 
@@ -298,7 +298,7 @@ Phase 1 (steps 1.1-1.4) is the **critical fix** that prevents the overflow. Phas
 | `src/LLMProviders/memoryManager.ts`                          | Memory save with compaction                     |
 | `src/LLMProviders/chainRunner/utils/chatHistoryUtils.ts`     | Chat history loading (no budget)                |
 | `src/LLMProviders/chainRunner/AutonomousAgentChainRunner.ts` | Agent message assembly                          |
-| `src/LLMProviders/chainRunner/CopilotPlusChainRunner.ts`     | CopilotPlus message assembly                    |
+| `src/LLMProviders/chainRunner/ToolChainRunner.ts`            | Tool message assembly                           |
 | `src/LLMProviders/chainRunner/LLMChainRunner.ts`             | Basic LLM message assembly                      |
 | `src/LLMProviders/chainRunner/VaultQAChainRunner.ts`         | VaultQA message assembly                        |
 | `src/LLMProviders/chatModelManager.ts`                       | Chat model management                           |

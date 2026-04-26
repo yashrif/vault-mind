@@ -11,7 +11,7 @@ import {
 import { ChainType } from "@/chainFactory";
 import { cn } from "@/lib/utils";
 import { updateSetting } from "@/settings/model";
-import { isPlusChain } from "@/utils";
+import { isAgentChain } from "@/utils";
 
 interface ChatToolControlsProps {
   // Tool toggle states
@@ -47,8 +47,10 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
   onComposerToggleOff,
   currentChain,
 }) => {
-  const isCopilotPlus = isPlusChain(currentChain);
-  const showAutonomousAgent = isCopilotPlus && currentChain !== ChainType.PROJECT_CHAIN;
+  const isAgentMode = isAgentChain(currentChain);
+  const canShowToolControls = isAgentMode;
+  const showAutonomousAgent = canShowToolControls && currentChain !== ChainType.PROJECT_CHAIN;
+  const areManualToolTogglesDisabled = autonomousAgentToggle;
 
   const handleAutonomousAgentToggle = () => {
     const newValue = !autonomousAgentToggle;
@@ -57,6 +59,7 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
   };
 
   const handleVaultToggle = () => {
+    if (areManualToolTogglesDisabled) return;
     const newValue = !vaultToggle;
     setVaultToggle(newValue);
     // If toggling off, remove pills
@@ -66,6 +69,7 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
   };
 
   const handleWebToggle = () => {
+    if (areManualToolTogglesDisabled) return;
     const newValue = !webToggle;
     setWebToggle(newValue);
     // If toggling off, remove pills
@@ -75,6 +79,7 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
   };
 
   const handleComposerToggle = () => {
+    if (areManualToolTogglesDisabled) return;
     const newValue = !composerToggle;
     setComposerToggle(newValue);
     // If toggling off, remove pills
@@ -83,8 +88,8 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
     }
   };
 
-  // If not Copilot Plus, don't show any tools
-  if (!isCopilotPlus) {
+  // If not agent mode, don't show any tools
+  if (!canShowToolControls) {
     return null;
   }
 
@@ -92,7 +97,7 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
     <TooltipProvider delayDuration={0}>
       {/* Desktop view - show all icons when container is wide enough */}
       <div className="tw-hidden tw-items-center tw-gap-1.5 @[420px]/chat-input:tw-flex">
-        {/* Autonomous Agent button - only show in Copilot Plus mode and NOT in Projects mode */}
+        {/* Autonomous Agent button - only show in agent mode and NOT in Projects mode */}
         {showAutonomousAgent && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -114,7 +119,6 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
           </Tooltip>
         )}
 
-        {/* Toggle buttons for vault, web search, and composer - show when Autonomous Agent is off */}
         {!autonomousAgentToggle && (
           <>
             <Tooltip>
@@ -183,10 +187,12 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="tw-w-56">
-            {/* Autonomous Agent option - only show in Copilot Plus mode and NOT in Projects mode */}
+            {/* Autonomous Agent option - only show in agent mode and NOT in Projects mode */}
             {showAutonomousAgent && (
               <DropdownMenuItem
-                onClick={handleAutonomousAgentToggle}
+                onSelect={() => {
+                  handleAutonomousAgentToggle();
+                }}
                 className="tw-flex tw-items-center tw-justify-between"
               >
                 <div className="tw-flex tw-items-center tw-gap-2">
@@ -197,7 +203,6 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
               </DropdownMenuItem>
             )}
 
-            {/* Tool options - show when Autonomous Agent is off */}
             {!autonomousAgentToggle && (
               <>
                 <DropdownMenuItem
@@ -236,38 +241,34 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
               </>
             )}
 
-            {/* Tool options - show when Autonomous Agent is on (disabled) */}
             {autonomousAgentToggle && (
               <>
                 <DropdownMenuItem
+                  onClick={handleVaultToggle}
                   disabled
-                  className="tw-flex tw-items-center tw-justify-between tw-opacity-50"
+                  className="tw-flex tw-items-center tw-gap-2"
                 >
-                  <div className="tw-flex tw-items-center tw-gap-2">
-                    <Database className="tw-size-4" />
-                    <span>Vault Search</span>
-                  </div>
+                  <Database className="tw-size-4" />
+                  <span>Vault Search</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  onClick={handleWebToggle}
                   disabled
-                  className="tw-flex tw-items-center tw-justify-between tw-opacity-50"
+                  className="tw-flex tw-items-center tw-gap-2"
                 >
-                  <div className="tw-flex tw-items-center tw-gap-2">
-                    <Globe className="tw-size-4" />
-                    <span>Web Search</span>
-                  </div>
+                  <Globe className="tw-size-4" />
+                  <span>Web Search</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  onClick={handleComposerToggle}
                   disabled
-                  className="tw-flex tw-items-center tw-justify-between tw-opacity-50"
+                  className="tw-flex tw-items-center tw-gap-2"
                 >
-                  <div className="tw-flex tw-items-center tw-gap-2">
-                    <span className="tw-flex tw-items-center tw-gap-0.5">
-                      <Sparkles className="tw-size-2" />
-                      <Pen className="tw-size-3" />
-                    </span>
-                    <span>Composer</span>
-                  </div>
+                  <span className="tw-flex tw-items-center tw-gap-0.5">
+                    <Sparkles className="tw-size-2" />
+                    <Pen className="tw-size-3" />
+                  </span>
+                  <span>Composer</span>
                 </DropdownMenuItem>
               </>
             )}

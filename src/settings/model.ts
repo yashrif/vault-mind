@@ -6,9 +6,10 @@ import { type ChainType } from "@/chainFactory";
 import { type SortStrategy, isSortStrategy } from "@/utils/recentUsageManager";
 import {
   AGENT_MAX_ITERATIONS_LIMIT,
+  BUILTIN_AUDIO_STT_MODELS,
   BUILTIN_CHAT_MODELS,
   BUILTIN_EMBEDDING_MODELS,
-  COPILOT_FOLDER_ROOT,
+  CORTEX_FOLDER_ROOT,
   DEFAULT_OPEN_AREA,
   DEFAULT_QA_EXCLUSIONS_SETTING,
   DEFAULT_SETTINGS,
@@ -45,9 +46,8 @@ export interface LegacyCommandSettings {
   showInContextMenu: boolean;
 }
 
-export interface CopilotSettings {
+export interface CortexSettings {
   userId: string;
-  plusLicenseKey: string;
   openAIApiKey: string;
   openAIOrgId: string;
   huggingfaceApiKey: string;
@@ -105,6 +105,8 @@ export interface CopilotSettings {
   groqApiKey: string;
   activeModels: Array<CustomModel>;
   activeEmbeddingModels: Array<CustomModel>;
+  activeAudioSTTModels: Array<CustomModel>;
+  audioSTTModelKey: string;
   promptUsageTimestamps: Record<string, number>;
   promptSortStrategy: string;
   chatHistorySortStrategy: SortStrategy;
@@ -118,8 +120,6 @@ export interface CopilotSettings {
   showRelevantNotes: boolean;
   numPartitions: number;
   defaultConversationNoteName: string;
-  // undefined means never checked
-  isPlusUser: boolean | undefined;
   inlineEditCommands: LegacyCommandSettings[] | undefined;
   projectList: Array<ProjectConfig>;
   passMarkdownImages: boolean;
@@ -127,22 +127,12 @@ export interface CopilotSettings {
   enableCustomPromptTemplating: boolean;
   /** Enable semantic search using Orama for meaning-based document retrieval */
   enableSemanticSearchV3: boolean;
-  /** Enable self-host mode (e.g., Miyo) - uses self-hosted services for search, LLMs, OCR, etc. */
+  /** Enable self-host mode — uses user-configured backends for search, YouTube transcripts, etc. */
   enableSelfHostMode: boolean;
-  /** Enable Miyo-backed indexing and semantic search when self-host mode is active */
-  enableMiyo: boolean;
-  /** When true, omit folder_name from Miyo search requests so all indexed content is searched */
-  miyoSearchAll: boolean;
-  /** Timestamp of last successful Believer validation for self-host mode (null if never validated) */
-  selfHostModeValidatedAt: number | null;
-  /** Count of successful periodic validations (3 = permanently valid) */
-  selfHostValidationCount: number;
   /** URL endpoint for the self-host mode backend */
   selfHostUrl: string;
   /** API key for the self-host mode backend (if required) */
   selfHostApiKey: string;
-  /** Custom Miyo server URL, e.g. "http://192.168.1.10:8742" (empty = use local service discovery) */
-  miyoServerUrl: string;
   /** Which provider to use for self-host web search */
   selfHostSearchProvider: "firecrawl" | "perplexity";
   /** Firecrawl API key for self-host web search */
@@ -195,44 +185,70 @@ export interface CopilotSettings {
    * Empty string means no custom system prompt (use builtin)
    */
   defaultSystemPromptTitle: string;
+  /**
+   * Telegram-specific persistent system prompt title.
+   * Empty string means Telegram falls back to the shared default prompt.
+   */
+  telegramSystemPromptTitle: string;
   /** Token threshold for auto-compacting large context (range: 64k-1M tokens, default: 128000) */
   autoCompactThreshold: number;
   /** Folder where converted document markdown files are saved */
   convertedDocOutputFolder: string;
+  /** Enable Telegram channel integration (desktop only) */
+  telegramEnabled: boolean;
+  /** Telegram bot API token (auto-encrypted when enableEncryption is on) */
+  telegramBotApiKey: string;
+  /** Comma-separated Telegram chat IDs allowed to bind and receive replies */
+  telegramAllowedChatIds: string;
 }
 
 export const settingsStore = createStore();
-export const settingsAtom = atom<CopilotSettings>(DEFAULT_SETTINGS);
+export const settingsAtom = atom<CortexSettings>(DEFAULT_SETTINGS);
 
 /**
  * Resolve a valid embedding model key for the current settings.
  *
- * @param settings - Current Copilot settings.
+ * @param settings - Current Cortex settings.
  * @returns A valid embedding model key.
  */
-function resolveEmbeddingModelKey(settings: CopilotSettings): string {
+function resolveEmbeddingModelKey(settings: CortexSettings): string {
+  const activeEmbeddingModels = settings.activeEmbeddingModels || [];
   const activeEmbeddingModelKeys = new Set(
-    (settings.activeEmbeddingModels || []).map((model) => getModelKeyFromModel(model))
+    activeEmbeddingModels.map((model) => getModelKeyFromModel(model))
   );
 
   if (settings.embeddingModelKey && activeEmbeddingModelKeys.has(settings.embeddingModelKey)) {
     return settings.embeddingModelKey;
   }
 
-  return DEFAULT_SETTINGS.embeddingModelKey;
+  const firstEnabled = activeEmbeddingModels.find((m) => m.enabled);
+  return firstEnabled ? getModelKeyFromModel(firstEnabled) : DEFAULT_SETTINGS.embeddingModelKey;
+}
+
+function resolveAudioSTTModelKey(settings: CortexSettings): string {
+  const activeSTTModels = settings.activeAudioSTTModels || [];
+  const activeSTTKeys = new Set(activeSTTModels.map((m) => getModelKeyFromModel(m)));
+
+  if (settings.audioSTTModelKey && activeSTTKeys.has(settings.audioSTTModelKey)) {
+    return settings.audioSTTModelKey;
+  }
+
+  const firstEnabled = activeSTTModels.find((m) => m.enabled);
+  return firstEnabled ? getModelKeyFromModel(firstEnabled) : DEFAULT_SETTINGS.audioSTTModelKey;
 }
 
 /**
  * Sets the settings in the atom.
  */
-export function setSettings(settings: Partial<CopilotSettings>) {
+export function setSettings(settings: Partial<CortexSettings>) {
   const newSettings = mergeAllActiveModelsWithCoreModels({ ...getSettings(), ...settings });
   newSettings.embeddingModelKey = resolveEmbeddingModelKey(newSettings);
+  newSettings.audioSTTModelKey = resolveAudioSTTModelKey(newSettings);
   settingsStore.set(settingsAtom, newSettings);
 }
 
 /**
- * Normalize QA exclusion patterns and guarantee the Copilot folder root is excluded.
+ * Normalize QA exclusion patterns and guarantee the Cortex folder root is excluded.
  * @param rawValue - Persisted QA exclusion setting value.
  * @returns Encoded QA exclusion patterns string.
  */
@@ -249,8 +265,8 @@ export function sanitizeQaExclusions(rawValue: unknown): string {
   decodedPatterns.forEach((pattern) => {
     const canonical = pattern.replace(/\/+$/, "");
     const canonicalKey = canonical.length > 0 ? canonical : pattern;
-    if (canonicalKey === COPILOT_FOLDER_ROOT) {
-      canonicalToOriginalPattern.set(COPILOT_FOLDER_ROOT, COPILOT_FOLDER_ROOT);
+    if (canonicalKey === CORTEX_FOLDER_ROOT) {
+      canonicalToOriginalPattern.set(CORTEX_FOLDER_ROOT, CORTEX_FOLDER_ROOT);
       return;
     }
     if (!canonicalToOriginalPattern.has(canonicalKey)) {
@@ -260,7 +276,7 @@ export function sanitizeQaExclusions(rawValue: unknown): string {
     }
   });
 
-  canonicalToOriginalPattern.set(COPILOT_FOLDER_ROOT, COPILOT_FOLDER_ROOT);
+  canonicalToOriginalPattern.set(CORTEX_FOLDER_ROOT, CORTEX_FOLDER_ROOT);
 
   return Array.from(canonicalToOriginalPattern.values())
     .map((pattern) => encodeURIComponent(pattern))
@@ -270,7 +286,7 @@ export function sanitizeQaExclusions(rawValue: unknown): string {
 /**
  * Sets a single setting in the atom.
  */
-export function updateSetting<K extends keyof CopilotSettings>(key: K, value: CopilotSettings[K]) {
+export function updateSetting<K extends keyof CortexSettings>(key: K, value: CortexSettings[K]) {
   const settings = getSettings();
   setSettings({ ...settings, [key]: value });
 }
@@ -279,7 +295,7 @@ export function updateSetting<K extends keyof CopilotSettings>(key: K, value: Co
  * Gets the settings from the atom. Use this if you don't need to subscribe to
  * changes.
  */
-export function getSettings(): Readonly<CopilotSettings> {
+export function getSettings(): Readonly<CortexSettings> {
   return settingsStore.get(settingsAtom);
 }
 
@@ -291,6 +307,7 @@ export function resetSettings(): void {
     ...DEFAULT_SETTINGS,
     activeModels: BUILTIN_CHAT_MODELS.map((model) => ({ ...model, enabled: true })),
     activeEmbeddingModels: BUILTIN_EMBEDDING_MODELS.map((model) => ({ ...model, enabled: true })),
+    activeAudioSTTModels: BUILTIN_AUDIO_STT_MODELS.map((model) => ({ ...model, enabled: true })),
   };
   setSettings(defaultSettingsWithBuiltIns);
 }
@@ -299,7 +316,7 @@ export function resetSettings(): void {
  * Subscribes to changes in the settings atom.
  */
 export function subscribeToSettingsChange(
-  callback: (prev: CopilotSettings, next: CopilotSettings) => void
+  callback: (prev: CortexSettings, next: CortexSettings) => void
 ): () => void {
   let previousValue = getSettings();
 
@@ -313,7 +330,7 @@ export function subscribeToSettingsChange(
 /**
  * Hook to get the settings value from the atom.
  */
-export function useSettingsValue(): Readonly<CopilotSettings> {
+export function useSettingsValue(): Readonly<CortexSettings> {
   return useAtomValue(settingsAtom, {
     store: settingsStore,
   });
@@ -323,7 +340,7 @@ export function useSettingsValue(): Readonly<CopilotSettings> {
  * Sanitizes the settings to ensure they are valid.
  * Note: This will be better handled by Zod in the future.
  */
-export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
+export function sanitizeSettings(settings: CortexSettings): CortexSettings {
   // If settings is null/undefined, use DEFAULT_SETTINGS
   const settingsToSanitize = settings || DEFAULT_SETTINGS;
   const rawSettings = settingsToSanitize as unknown as Record<string, unknown>;
@@ -331,7 +348,6 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
     enableSelfHostedSearch: legacyEnableSelfHostedSearch,
     selfHostedSearchUrl: legacySelfHostedSearchUrl,
     selfHostedSearchApiKey: legacySelfHostedSearchApiKey,
-    enableMiyoSearch: legacyEnableMiyoSearch,
   } = rawSettings;
 
   if (!settingsToSanitize.userId) {
@@ -354,11 +370,35 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
     });
   }
 
-  const sanitizedSettings: CopilotSettings = { ...settingsToSanitize };
-  const sanitizedSettingsRecord = sanitizedSettings as unknown as Record<string, unknown>;
-  delete sanitizedSettingsRecord.miyoRemoteVaultPath;
-  delete sanitizedSettingsRecord.miyoVaultName;
-  delete sanitizedSettingsRecord.enableMiyoSearch;
+  // Initialize STT models for installs that predate this feature.
+  if (!settingsToSanitize.activeAudioSTTModels) {
+    settingsToSanitize.activeAudioSTTModels = BUILTIN_AUDIO_STT_MODELS.map((model) => ({
+      ...model,
+      enabled: true,
+    }));
+  }
+
+  // Migration: populate modelType from the containing array when missing.
+  const migrateModelType = (
+    models: CustomModel[],
+    type: "chat" | "embedding" | "stt"
+  ): CustomModel[] =>
+    models.map((m) => {
+      if (m.modelType) return m;
+      return { ...m, modelType: type };
+    });
+
+  settingsToSanitize.activeModels = migrateModelType(settingsToSanitize.activeModels || [], "chat");
+  settingsToSanitize.activeEmbeddingModels = migrateModelType(
+    settingsToSanitize.activeEmbeddingModels,
+    "embedding"
+  );
+  settingsToSanitize.activeAudioSTTModels = migrateModelType(
+    settingsToSanitize.activeAudioSTTModels,
+    "stt"
+  );
+
+  const sanitizedSettings: CortexSettings = { ...settingsToSanitize };
 
   // Migration: Rename self-hosted search settings to self-host mode (v3.2.0+)
   if (
@@ -372,11 +412,6 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
   }
   if (legacySelfHostedSearchApiKey !== undefined && !sanitizedSettings.selfHostApiKey) {
     sanitizedSettings.selfHostApiKey = legacySelfHostedSearchApiKey as string;
-  }
-
-  // Migration: Rename legacy enableMiyoSearch to enableMiyo.
-  if (legacyEnableMiyoSearch !== undefined && sanitizedSettings.enableMiyo === undefined) {
-    sanitizedSettings.enableMiyo = legacyEnableMiyoSearch as boolean;
   }
 
   // Stuff in settings are string even when the interface has number type!
@@ -426,21 +461,6 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
   // Ensure generateAIChatTitleOnSave has a default value
   if (typeof sanitizedSettings.generateAIChatTitleOnSave !== "boolean") {
     sanitizedSettings.generateAIChatTitleOnSave = DEFAULT_SETTINGS.generateAIChatTitleOnSave;
-  }
-
-  // Ensure enableMiyo has a default value
-  if (typeof sanitizedSettings.enableMiyo !== "boolean") {
-    sanitizedSettings.enableMiyo = DEFAULT_SETTINGS.enableMiyo;
-  }
-
-  // Ensure miyoSearchAll has a default value
-  if (typeof sanitizedSettings.miyoSearchAll !== "boolean") {
-    sanitizedSettings.miyoSearchAll = DEFAULT_SETTINGS.miyoSearchAll;
-  }
-
-  // Ensure miyoServerUrl has a default value
-  if (typeof sanitizedSettings.miyoServerUrl !== "string") {
-    sanitizedSettings.miyoServerUrl = DEFAULT_SETTINGS.miyoServerUrl;
   }
 
   // Ensure selfHostSearchProvider is a valid value
@@ -582,6 +602,10 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
   sanitizedSettings.customPromptsFolder =
     promptsFolder.length > 0 ? promptsFolder : DEFAULT_SETTINGS.customPromptsFolder;
 
+  if (typeof sanitizedSettings.telegramSystemPromptTitle !== "string") {
+    sanitizedSettings.telegramSystemPromptTitle = DEFAULT_SETTINGS.telegramSystemPromptTitle;
+  }
+
   // Ensure chatHistorySortStrategy has a valid value (exclude "manual" which is only for custom commands)
   if (
     !isSortStrategy(sanitizedSettings.chatHistorySortStrategy) ||
@@ -609,11 +633,20 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
   return sanitizedSettings;
 }
 
-function mergeAllActiveModelsWithCoreModels(settings: CopilotSettings): CopilotSettings {
-  settings.activeModels = mergeActiveModels(settings.activeModels, BUILTIN_CHAT_MODELS);
-  settings.activeEmbeddingModels = filterUnsupportedEmbeddingModels(
-    mergeActiveModels(settings.activeEmbeddingModels, BUILTIN_EMBEDDING_MODELS)
-  );
+function mergeAllActiveModelsWithCoreModels(settings: CortexSettings): CortexSettings {
+  const categories = [
+    { field: "activeModels" as const, builtIns: BUILTIN_CHAT_MODELS },
+    { field: "activeEmbeddingModels" as const, builtIns: BUILTIN_EMBEDDING_MODELS },
+    { field: "activeAudioSTTModels" as const, builtIns: BUILTIN_AUDIO_STT_MODELS },
+  ];
+
+  for (const { field, builtIns } of categories) {
+    settings[field] = mergeActiveModels(settings[field] || [], builtIns) as CustomModel[];
+  }
+
+  // Embedding-specific: remove providers that are no longer supported.
+  settings.activeEmbeddingModels = filterUnsupportedEmbeddingModels(settings.activeEmbeddingModels);
+
   return settings;
 }
 
@@ -652,7 +685,6 @@ function mergeActiveModels(
           ...builtInModel,
           ...model,
           isBuiltIn: true,
-          believerExclusive: builtInModel.believerExclusive,
         });
       } else {
         modelMap.set(key, {

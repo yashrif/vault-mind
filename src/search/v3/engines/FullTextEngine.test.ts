@@ -399,11 +399,11 @@ describe("FullTextEngine", () => {
     });
 
     it("should not split hyphenated tags into partial word tokens", () => {
-      const tokens = (engine as any).tokenizeMixed("#copilot-conversation updates");
+      const tokens = (engine as any).tokenizeMixed("#cortex-conversation updates");
 
-      expect(tokens).toContain("#copilot-conversation");
-      expect(tokens).toContain("copilot-conversation");
-      expect(tokens).not.toContain("copilot");
+      expect(tokens).toContain("#cortex-conversation");
+      expect(tokens).toContain("cortex-conversation");
+      expect(tokens).not.toContain("Cortex");
       expect(tokens).not.toContain("conversation");
     });
 

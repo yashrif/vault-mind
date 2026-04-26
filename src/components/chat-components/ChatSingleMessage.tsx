@@ -1,7 +1,8 @@
-import { ChatButtons } from "@/components/chat-components/ChatButtons";
+import { ChatActionCapabilities, ChatButtons } from "@/components/chat-components/ChatButtons";
 import { SourcesModal } from "@/components/modals/SourcesModal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
+  ContextAttachedFileBadge,
   ContextFolderBadge,
   ContextNoteBadge,
   ContextSelectedTextBadge,
@@ -38,15 +39,30 @@ import { preprocessAIResponse } from "@/utils/markdownPreprocess";
 import { App, Component, MarkdownRenderer, MarkdownView, TFile } from "obsidian";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSettingsValue } from "@/settings/model";
+import { FileText, Mic, Music, Video } from "lucide-react";
 import {
-  buildCopilotCollapsibleDomId,
-  captureCopilotCollapsibleOpenStates,
-  getCopilotCollapsibleDetailsFromEvent,
+  buildCortexCollapsibleDomId,
+  captureCortexCollapsibleOpenStates,
+  getCortexCollapsibleDetailsFromEvent,
   getMessageCollapsibleStates,
   isEventWithinDetailsSummary,
 } from "@/components/chat-components/collapsibleStateUtils";
 
 const FOOTNOTE_SUFFIX_PATTERN = /^\d+-\d+$/;
+
+/** Maps Telegram media placeholder text to a display label + icon. */
+const TELEGRAM_MEDIA_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
+  "[voice]": { label: "Voice message", icon: <Mic className="tw-size-3.5" /> },
+  "[audio]": { label: "Audio", icon: <Music className="tw-size-3.5" /> },
+  "[video]": { label: "Video", icon: <Video className="tw-size-3.5" /> },
+  "[document]": { label: "Document", icon: <FileText className="tw-size-3.5" /> },
+  "[sticker]": { label: "Sticker", icon: <FileText className="tw-size-3.5" /> },
+  "[photo]": { label: "Photo", icon: <FileText className="tw-size-3.5" /> },
+  "[unsupported message type]": {
+    label: "Unsupported message",
+    icon: <FileText className="tw-size-3.5" />,
+  },
+};
 
 /**
  * Normalizes rendered markdown footnotes to align with inline citation UX.
@@ -88,19 +104,19 @@ const INLINE_CITATION_RE = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
 /**
  * Makes inline citation numbers (e.g., [1], [2]) clickable by linking them
  * to the corresponding source note. Reads the source mapping from the
- * rendered .copilot-sources section in the same message.
+ * rendered .cortex-sources section in the same message.
  */
 export const linkInlineCitations = (root: HTMLElement): void => {
   // Build citation number -> source anchor mapping from the rendered sources section.
   // We store the anchor element (not just the href) so we can copy Obsidian-specific
   // attributes like data-href and class="internal-link" onto the inline citation link.
-  const sourceItems = root.querySelectorAll(".copilot-sources__item");
+  const sourceItems = root.querySelectorAll(".cortex-sources__item");
   if (sourceItems.length === 0) return;
 
   const citationAnchors = new Map<number, HTMLAnchorElement>();
   sourceItems.forEach((item) => {
-    const indexEl = item.querySelector(".copilot-sources__index");
-    const textEl = item.querySelector(".copilot-sources__text");
+    const indexEl = item.querySelector(".cortex-sources__index");
+    const textEl = item.querySelector(".cortex-sources__text");
     if (!indexEl || !textEl) return;
 
     const indexMatch = indexEl.textContent?.match(/\[(\d+)\]/);
@@ -116,7 +132,7 @@ export const linkInlineCitations = (root: HTMLElement): void => {
   if (citationAnchors.size === 0) return;
 
   // Collect text nodes that contain citation patterns (outside sources section)
-  const sourcesEl = root.querySelector(".copilot-sources");
+  const sourcesEl = root.querySelector(".cortex-sources");
   const textNodes: Text[] = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -154,7 +170,7 @@ export const linkInlineCitations = (root: HTMLElement): void => {
 
       if (allResolved) {
         const span = document.createElement("span");
-        span.className = "copilot-citation-group";
+        span.className = "cortex-citation-group";
         span.appendChild(document.createTextNode("["));
         nums.forEach((num, i) => {
           if (i > 0) span.appendChild(document.createTextNode(", "));
@@ -166,7 +182,7 @@ export const linkInlineCitations = (root: HTMLElement): void => {
             link.setAttribute(attr.name, attr.value);
           }
           // Override class and add our citation-specific styling
-          link.className = `copilot-citation-link${sourceAnchor.className ? ` ${sourceAnchor.className}` : ""}`;
+          link.className = `cortex-citation-link${sourceAnchor.className ? ` ${sourceAnchor.className}` : ""}`;
           link.textContent = String(num);
           link.setAttribute("aria-label", `Source ${num}`);
           span.appendChild(link);
@@ -186,7 +202,7 @@ export const linkInlineCitations = (root: HTMLElement): void => {
 
     // If the text node is inside a placeholder span, replace the span itself
     // so the placeholder wrapper is cleanly removed.
-    const replaceTarget = node.parentElement?.classList.contains("copilot-citation-ref")
+    const replaceTarget = node.parentElement?.classList.contains("cortex-citation-ref")
       ? node.parentElement
       : node;
     replaceTarget.parentNode?.replaceChild(fragment, replaceTarget);
@@ -201,13 +217,24 @@ function MessageContext({ context }: { context: ChatMessage["context"] }) {
       !context.webTabs?.length &&
       !context.tags?.length &&
       !context.folders?.length &&
-      !context.selectedTextContexts?.length)
+      !context.selectedTextContexts?.length &&
+      !context.attachedFileContents?.length)
   ) {
     return null;
   }
 
   return (
     <div className="tw-flex tw-flex-wrap tw-gap-2">
+      {context.attachedFileContents?.map((file, index) => (
+        <Tooltip key={`file-${index}-${file.name}`}>
+          <TooltipTrigger asChild>
+            <div>
+              <ContextAttachedFileBadge file={file} />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="tw-max-w-sm tw-break-words">{file.name}</TooltipContent>
+        </Tooltip>
+      ))}
       {context.notes.map((note, index) => (
         <Tooltip key={`note-${index}-${note.path}`}>
           <TooltipTrigger asChild>
@@ -290,6 +317,7 @@ interface ChatSingleMessageProps {
   onRegenerate?: () => void;
   onEdit?: (newMessage: string) => void;
   onDelete: () => void;
+  actionCapabilities?: ChatActionCapabilities;
 }
 
 const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
@@ -299,6 +327,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
   onRegenerate,
   onEdit,
   onDelete,
+  actionCapabilities,
 }) => {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -380,7 +409,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
           content = content.replace(completeRegex, (_match, sectionContent) => {
             const sectionKey = `${tagName}-${sectionIndex}`;
             sectionIndex += 1;
-            const domId = buildCopilotCollapsibleDomId(messageId.current, sectionKey);
+            const domId = buildCortexCollapsibleDomId(messageId.current, sectionKey);
             // Check if user has explicitly set a state; if not, default to collapsed (original behavior)
             const openAttribute = collapsibleOpenStateMap.get(domId) ? " open" : "";
 
@@ -407,7 +436,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
         return content.replace(regex, (_match, sectionContent) => {
           const sectionKey = `${tagName}-${sectionIndex}`;
           sectionIndex += 1;
-          const domId = buildCopilotCollapsibleDomId(messageId.current, sectionKey);
+          const domId = buildCortexCollapsibleDomId(messageId.current, sectionKey);
           // Restore open state from previous render
           const openAttribute = collapsibleOpenStateMap.get(domId) ? " open" : "";
 
@@ -515,7 +544,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
       // interprets [^N] as footnote references and shows bare superscript numbers.
       const citationPlaceholderProcessed = sourcesSectionProcessed.replace(
         /\[\^(\d+)\](?!:)/g,
-        '<span class="copilot-citation-ref">[$1]</span>'
+        '<span class="cortex-citation-ref">[$1]</span>'
       );
 
       // Transform [[link]] to clickable format but exclude ![[]] image links
@@ -577,7 +606,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
         return;
       }
 
-      const details = getCopilotCollapsibleDetailsFromEvent(event, root);
+      const details = getCortexCollapsibleDetailsFromEvent(event, root);
       if (!details || !isEventWithinDetailsSummary(event, details)) {
         return;
       }
@@ -593,7 +622,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
      * Since we already handled the state change in pointerdown, block the default behavior.
      */
     const handleSummaryClick = (event: Event): void => {
-      const details = getCopilotCollapsibleDetailsFromEvent(event, root);
+      const details = getCortexCollapsibleDetailsFromEvent(event, root);
       if (!details || !isEventWithinDetailsSummary(event, details)) {
         return;
       }
@@ -604,7 +633,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
      * Captures actual open/closed state changes from native <details> interactions.
      */
     const handleDetailsToggle = (event: Event): void => {
-      const details = getCopilotCollapsibleDetailsFromEvent(event, root);
+      const details = getCortexCollapsibleDetailsFromEvent(event, root);
       if (!details) {
         return;
       }
@@ -635,7 +664,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
 
       // Capture open states of collapsible sections before re-rendering
       // During streaming, don't overwrite user's explicit state changes from pointerdown
-      captureCopilotCollapsibleOpenStates(contentRef.current, collapsibleOpenStateMap, {
+      captureCortexCollapsibleOpenStates(contentRef.current, collapsibleOpenStateMap, {
         overwriteExisting: !isStreaming,
       });
 
@@ -931,13 +960,23 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
     }
 
     // Fallback for messages without content array
-    return message.sender === USER_SENDER ? (
-      <div className="tw-whitespace-pre-wrap tw-break-words tw-text-[calc(var(--font-text-size)_-_2px)] tw-font-normal">
-        {message.message}
-      </div>
-    ) : (
-      <div ref={contentRef} className={message.isErrorMessage ? "tw-text-error" : ""}></div>
-    );
+    if (message.sender === USER_SENDER) {
+      const mediaLabel = TELEGRAM_MEDIA_LABELS[message.message];
+      if (mediaLabel) {
+        return (
+          <span className="tw-flex tw-items-center tw-gap-1.5 tw-text-xs tw-italic tw-text-muted">
+            {mediaLabel.icon}
+            <span>{mediaLabel.label}</span>
+          </span>
+        );
+      }
+      return (
+        <div className="tw-whitespace-pre-wrap tw-break-words tw-text-[calc(var(--font-text-size)_-_2px)] tw-font-normal">
+          {message.message}
+        </div>
+      );
+    }
+    return <div ref={contentRef} className={message.isErrorMessage ? "tw-text-error" : ""}></div>;
   };
 
   // If editing a user message, replace the entire message container with the inline editor
@@ -1000,6 +1039,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
                 onDelete={onDelete}
                 onShowSources={handleShowSources}
                 hasSources={message.sources && message.sources.length > 0 ? true : false}
+                actionCapabilities={actionCapabilities}
               />
             </div>
           )}

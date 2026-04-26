@@ -1,24 +1,22 @@
 import { CustomModel } from "@/aiParams";
-import { type CopilotSettings } from "@/settings/model";
+import { type CortexSettings } from "@/settings/model";
 import { v4 as uuidv4 } from "uuid";
 import { ChainType } from "./chainFactory";
 import { PromptSortStrategy } from "./types";
 
-export const BREVILABS_API_BASE_URL = "https://api.brevilabs.com/v1";
-export const BREVILABS_MODELS_BASE_URL = "https://models.brevilabs.com/v1";
-export const CHAT_VIEWTYPE = "copilot-chat-view";
+export const CHAT_VIEWTYPE = "cortex-chat-view";
 export const USER_SENDER = "user";
 export const AI_SENDER = "ai";
 
 // Default folder names
-export const COPILOT_FOLDER_ROOT = "copilot";
-export const DEFAULT_CHAT_HISTORY_FOLDER = `${COPILOT_FOLDER_ROOT}/copilot-conversations`;
-export const DEFAULT_CUSTOM_PROMPTS_FOLDER = `${COPILOT_FOLDER_ROOT}/copilot-custom-prompts`;
-export const DEFAULT_MEMORY_FOLDER = `${COPILOT_FOLDER_ROOT}/memory`;
-export const DEFAULT_SYSTEM_PROMPTS_FOLDER = `${COPILOT_FOLDER_ROOT}/system-prompts`;
+export const CORTEX_FOLDER_ROOT = "cortex";
+export const DEFAULT_CHAT_HISTORY_FOLDER = `${CORTEX_FOLDER_ROOT}/cortex-conversations`;
+export const DEFAULT_CUSTOM_PROMPTS_FOLDER = `${CORTEX_FOLDER_ROOT}/cortex-custom-prompts`;
+export const DEFAULT_MEMORY_FOLDER = `${CORTEX_FOLDER_ROOT}/memory`;
+export const DEFAULT_SYSTEM_PROMPTS_FOLDER = `${CORTEX_FOLDER_ROOT}/system-prompts`;
 export const DEFAULT_CONVERTED_DOC_OUTPUT_FOLDER = "";
-export const DEFAULT_QA_EXCLUSIONS_SETTING = COPILOT_FOLDER_ROOT;
-export const DEFAULT_SYSTEM_PROMPT = `You are Obsidian Copilot, a helpful assistant that integrates AI to Obsidian note-taking.
+export const DEFAULT_QA_EXCLUSIONS_SETTING = CORTEX_FOLDER_ROOT;
+export const DEFAULT_SYSTEM_PROMPT = `You are Obsidian Cortex, a helpful assistant that integrates AI to Obsidian note-taking.
   1. Never mention that you do not have access to something. Always rely on the user provided context.
   2. Always answer to the best of your knowledge. If you are unsure about something, say so and ask the user to provide more context.
   3. If the user mentions "note", it most likely means an Obsidian note in the vault, not the generic meaning of a note.
@@ -117,14 +115,14 @@ export const YOUTUBE_VIDEO_CONTEXT_TAG = "youtube_video_context";
 /** Marker text used as placeholder for active web tab in serialized content */
 export const ACTIVE_WEB_TAB_MARKER = "{activeWebTab}";
 export const EMPTY_INDEX_ERROR_MESSAGE =
-  "Copilot index does not exist. Please index your vault first!\n\n1. Set a working embedding model in QA settings. If it's not a local model, don't forget to set the API key. \n\n2. Click 'Refresh Index for Vault' and wait for indexing to complete. If you encounter the rate limiting error, please turn your request per second down in QA setting.";
+  "Cortex index does not exist. Please index your vault first!\n\n1. Set a working embedding model in QA settings. If it's not a local model, don't forget to set the API key. \n\n2. Click 'Refresh Index for Vault' and wait for indexing to complete. If you encounter the rate limiting error, please turn your request per second down in QA setting.";
 export const CHUNK_SIZE = 6000;
 export const TEXT_WEIGHT = 0.4;
 export const MAX_CHARS_FOR_LOCAL_SEARCH_CONTEXT = 448000;
 export const LLM_TIMEOUT_MS = 30000; // 30 seconds timeout for LLM operations
 export const DEFAULT_MAX_SOURCE_CHUNKS = 30; // Default max chunks for search results (with diverse top-K)
 export const AGENT_LOOP_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes timeout for agent loop
-export const AGENT_MAX_ITERATIONS_LIMIT = 16; // Maximum allowed value for agent iterations setting
+export const AGENT_MAX_ITERATIONS_LIMIT = 64; // Maximum allowed value for agent iterations setting
 export const LOADING_MESSAGES = {
   DEFAULT: "",
   READING_FILES: "Reading files",
@@ -132,13 +130,6 @@ export const LOADING_MESSAGES = {
   READING_FILE_TREE: "Reading file tree",
   COMPACTING: "Compacting",
 };
-export const PLUS_UTM_MEDIUMS = {
-  SETTINGS: "settings",
-  EXPIRED_MODAL: "expired_modal",
-  CHAT_MODE_SELECT: "chat_mode_select",
-  MODE_SELECT_TOOLTIP: "mode_select_tooltip",
-};
-export type PlusUtmMedium = (typeof PLUS_UTM_MEDIUMS)[keyof typeof PLUS_UTM_MEDIUMS];
 
 /**
  * Reasoning effort levels for OpenAI reasoning models
@@ -172,19 +163,12 @@ export const DEFAULT_MODEL_SETTING = {
 export const DEFAULT_OLLAMA_NUM_CTX = 131072;
 
 export enum ChatModels {
-  COPILOT_PLUS_FLASH = "copilot-plus-flash",
   GPT_5_4 = "gpt-5.4",
   GPT_5_mini = "gpt-5-mini",
   GPT_5_nano = "gpt-5-nano",
-  GPT_41 = "gpt-4.1",
-  GPT_41_mini = "gpt-4.1-mini",
-  GPT_41_nano = "gpt-4.1-nano",
-  O4_mini = "o4-mini",
   GEMINI_3_PRO_PREVIEW = "gemini-3.1-pro-preview",
   GEMINI_3_FLASH_PREVIEW = "gemini-3-flash-preview",
   GEMINI_3_FLASH_LITE_PREVIEW = "gemini-3.1-flash-lite-preview",
-  GEMINI_PRO = "gemini-2.5-pro",
-  GEMINI_FLASH = "gemini-2.5-flash",
   CLAUDE_OPUS_4_6 = "claude-opus-4-6",
   CLAUDE_SONNET_4_6 = "claude-sonnet-4-6",
   GROK_4_1_FAST = "grok-4-1-fast",
@@ -193,15 +177,11 @@ export enum ChatModels {
   MISTRAL_TINY = "mistral-tiny-latest",
   DEEPSEEK_REASONER = "deepseek-reasoner",
   DEEPSEEK_CHAT = "deepseek-chat",
-  OPENROUTER_GEMINI_3_FLASH_PREVIEW = "google/gemini-3-flash-preview",
   OPENROUTER_GEMINI_3_PRO_PREVIEW = "google/gemini-3.1-pro-preview",
-  OPENROUTER_GEMINI_2_5_FLASH = "google/gemini-2.5-flash",
-  OPENROUTER_GEMINI_2_5_PRO = "google/gemini-2.5-pro",
   OPENROUTER_GPT_5_4 = "openai/gpt-5.4",
-  OPENROUTER_GPT_5_MINI = "openai/gpt-5-mini",
-  OPENROUTER_GROK_4_1_FAST = "x-ai/grok-4.1-fast",
   SILICONFLOW_DEEPSEEK_V3 = "deepseek-ai/DeepSeek-V3",
   SILICONFLOW_DEEPSEEK_R1 = "deepseek-ai/DeepSeek-R1",
+  OPENROUTER_FREE = "openrouter/free",
 }
 
 // Model Providers
@@ -217,7 +197,6 @@ export enum ChatModelProviders {
   GROQ = "groq",
   OLLAMA = "ollama",
   LM_STUDIO = "lm-studio",
-  COPILOT_PLUS = "copilot-plus",
   MISTRAL = "mistralai",
   DEEPSEEK = "deepseek",
   COHEREAI = "cohereai",
@@ -237,201 +216,117 @@ export const MODEL_CAPABILITIES: Record<ModelCapability, string> = {
   websearch: "This model can access the internet.",
 };
 
+export enum STTModels {
+  WHISPER_LARGE_V3 = "whisper-large-v3",
+  WHISPER_LARGE_V3_TURBO = "whisper-large-v3-turbo",
+}
+
+export const BUILTIN_AUDIO_STT_MODELS: CustomModel[] = [
+  {
+    name: STTModels.WHISPER_LARGE_V3,
+    provider: ChatModelProviders.GROQ,
+    enabled: true,
+    isBuiltIn: true,
+    core: true,
+    enableCors: true,
+    modelType: "stt",
+  },
+  {
+    name: STTModels.WHISPER_LARGE_V3_TURBO,
+    provider: ChatModelProviders.GROQ,
+    enabled: true,
+    isBuiltIn: true,
+    core: false,
+    modelType: "stt",
+  },
+];
+
 export const BUILTIN_CHAT_MODELS: CustomModel[] = [
-  // Enabled models first
-  // {
-  //   name: ChatModels.COPILOT_PLUS_FLASH,
-  //   provider: ChatModelProviders.COPILOT_PLUS,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   core: true,
-  //   plusExclusive: true,
-  //   projectEnabled: false,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.OPENROUTER_GEMINI_2_5_FLASH,
-  //   provider: ChatModelProviders.OPENROUTERAI,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   core: true,
-  //   projectEnabled: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.GPT_5_4,
-  //   provider: ChatModelProviders.OPENAI,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   core: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.GPT_5_mini,
-  //   provider: ChatModelProviders.OPENAI,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   core: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.CLAUDE_SONNET_4_6,
-  //   provider: ChatModelProviders.ANTHROPIC,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   capabilities: [ModelCapability.VISION, ModelCapability.REASONING],
-  // },
-  // {
-  //   name: ChatModels.GEMINI_3_FLASH_LITE_PREVIEW,
-  //   provider: ChatModelProviders.GOOGLE,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   projectEnabled: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.GEMINI_FLASH,
-  //   provider: ChatModelProviders.GOOGLE,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   projectEnabled: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // // Disabled models
-  // {
-  //   name: ChatModels.OPENROUTER_GEMINI_3_FLASH_PREVIEW,
-  //   provider: ChatModelProviders.OPENROUTERAI,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   capabilities: [ModelCapability.VISION, ModelCapability.REASONING],
-  // },
-  // {
-  //   name: ChatModels.OPENROUTER_GEMINI_3_PRO_PREVIEW,
-  //   provider: ChatModelProviders.OPENROUTERAI,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   capabilities: [ModelCapability.VISION, ModelCapability.REASONING],
-  // },
-  // {
-  //   name: ChatModels.OPENROUTER_GEMINI_2_5_PRO,
-  //   provider: ChatModelProviders.OPENROUTERAI,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   core: false,
-  //   projectEnabled: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.OPENROUTER_GPT_5_4,
-  //   provider: ChatModelProviders.OPENROUTERAI,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   core: false,
-  //   projectEnabled: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.OPENROUTER_GPT_5_MINI,
-  //   provider: ChatModelProviders.OPENROUTERAI,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   core: false,
-  //   projectEnabled: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.GROK_4_1_FAST,
-  //   provider: ChatModelProviders.XAI,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   core: false,
-  //   projectEnabled: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.OPENROUTER_GROK_4_1_FAST,
-  //   provider: ChatModelProviders.OPENROUTERAI,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   core: false,
-  //   projectEnabled: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.GPT_41,
-  //   provider: ChatModelProviders.OPENAI,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   core: false,
-  //   projectEnabled: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.GPT_41_mini,
-  //   provider: ChatModelProviders.OPENAI,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   core: false,
-  //   projectEnabled: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.CLAUDE_OPUS_4_6,
-  //   provider: ChatModelProviders.ANTHROPIC,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   capabilities: [ModelCapability.VISION, ModelCapability.REASONING],
-  // },
-  // {
-  //   name: ChatModels.GEMINI_3_FLASH_PREVIEW,
-  //   provider: ChatModelProviders.GOOGLE,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   capabilities: [ModelCapability.VISION, ModelCapability.REASONING],
-  // },
-  // {
-  //   name: ChatModels.GEMINI_3_PRO_PREVIEW,
-  //   provider: ChatModelProviders.GOOGLE,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   capabilities: [ModelCapability.VISION, ModelCapability.REASONING],
-  // },
-  // {
-  //   name: ChatModels.GEMINI_PRO,
-  //   provider: ChatModelProviders.GOOGLE,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   projectEnabled: true,
-  //   capabilities: [ModelCapability.VISION],
-  // },
-  // {
-  //   name: ChatModels.DEEPSEEK_CHAT,
-  //   provider: ChatModelProviders.DEEPSEEK,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  // },
-  // {
-  //   name: ChatModels.DEEPSEEK_REASONER,
-  //   provider: ChatModelProviders.DEEPSEEK,
-  //   enabled: false,
-  //   isBuiltIn: true,
-  //   capabilities: [ModelCapability.REASONING],
-  // },
-  // {
-  //   name: ChatModels.SILICONFLOW_DEEPSEEK_V3,
-  //   provider: ChatModelProviders.SILICONFLOW,
-  //   enabled: false,
-  //   isBuiltIn: false,
-  //   baseUrl: "https://api.siliconflow.com/v1",
-  // },
-  // {
-  //   name: ChatModels.SILICONFLOW_DEEPSEEK_R1,
-  //   provider: ChatModelProviders.SILICONFLOW,
-  //   enabled: false,
-  //   isBuiltIn: false,
-  //   baseUrl: "https://api.siliconflow.com/v1",
-  //   capabilities: [ModelCapability.REASONING],
-  // },
+  {
+    name: ChatModels.GPT_5_4,
+    provider: ChatModelProviders.OPENAI,
+    enabled: true,
+    isBuiltIn: true,
+    core: false,
+    capabilities: [ModelCapability.VISION],
+  },
+  {
+    name: ChatModels.GPT_5_mini,
+    provider: ChatModelProviders.OPENAI,
+    enabled: true,
+    isBuiltIn: true,
+    core: false,
+    capabilities: [ModelCapability.VISION],
+  },
+  {
+    name: ChatModels.CLAUDE_SONNET_4_6,
+    provider: ChatModelProviders.ANTHROPIC,
+    enabled: true,
+    isBuiltIn: true,
+    capabilities: [ModelCapability.VISION, ModelCapability.REASONING],
+  },
+  {
+    name: ChatModels.GEMINI_3_FLASH_LITE_PREVIEW,
+    provider: ChatModelProviders.GOOGLE,
+    enabled: true,
+    isBuiltIn: true,
+    projectEnabled: true,
+    capabilities: [ModelCapability.VISION],
+  },
+  {
+    name: ChatModels.GROK_4_1_FAST,
+    provider: ChatModelProviders.XAI,
+    enabled: false,
+    isBuiltIn: true,
+    core: false,
+    projectEnabled: true,
+    capabilities: [ModelCapability.VISION],
+  },
+  {
+    name: ChatModels.OPENROUTER_GPT_5_4,
+    provider: ChatModelProviders.OPENROUTERAI,
+    enabled: false,
+    isBuiltIn: true,
+    core: false,
+    projectEnabled: true,
+    capabilities: [ModelCapability.VISION],
+  },
+  {
+    name: ChatModels.CLAUDE_OPUS_4_6,
+    provider: ChatModelProviders.ANTHROPIC,
+    enabled: false,
+    isBuiltIn: true,
+    capabilities: [ModelCapability.VISION, ModelCapability.REASONING],
+  },
+  {
+    name: ChatModels.DEEPSEEK_CHAT,
+    provider: ChatModelProviders.DEEPSEEK,
+    enabled: false,
+    isBuiltIn: true,
+  },
+  {
+    name: ChatModels.DEEPSEEK_REASONER,
+    provider: ChatModelProviders.DEEPSEEK,
+    enabled: false,
+    isBuiltIn: true,
+    capabilities: [ModelCapability.REASONING],
+  },
+  {
+    name: ChatModels.SILICONFLOW_DEEPSEEK_V3,
+    provider: ChatModelProviders.SILICONFLOW,
+    enabled: false,
+    isBuiltIn: false,
+    baseUrl: "https://api.siliconflow.com/v1",
+  },
+  {
+    name: ChatModels.OPENROUTER_FREE,
+    provider: ChatModelProviders.OPENROUTERAI,
+    enabled: true,
+    isBuiltIn: true,
+    core: true,
+    projectEnabled: true,
+    capabilities: [ModelCapability.VISION, ModelCapability.REASONING],
+  },
 ];
 
 export enum EmbeddingModelProviders {
@@ -443,8 +338,6 @@ export enum EmbeddingModelProviders {
   OLLAMA = "ollama",
   LM_STUDIO = "lm-studio",
   OPENAI_FORMAT = "3rd party (openai-format)",
-  COPILOT_PLUS = "copilot-plus",
-  COPILOT_PLUS_JINA = "copilot-plus-jina",
   SILICONFLOW = "siliconflow",
 }
 
@@ -457,113 +350,79 @@ export enum EmbeddingModels {
   GOOGLE_ENG = "text-embedding-004",
   GOOGLE_GEMINI_EMBEDDING = "gemini-embedding-001",
   GOOGLE_GEMINI_EMBEDDING_2_PREVIEW = "gemini-embedding-2-preview",
-  COPILOT_PLUS_SMALL = "copilot-plus-small",
-  COPILOT_PLUS_LARGE = "copilot-plus-large",
-  COPILOT_PLUS_MULTILINGUAL = "copilot-plus-multilingual",
   SILICONFLOW_QWEN3_EMBEDDING_0_6B = "Qwen/Qwen3-Embedding-0.6B",
   OPENROUTER_OPENAI_EMBEDDING_SMALL = "openai/text-embedding-3-small",
 }
 
 export const BUILTIN_EMBEDDING_MODELS: CustomModel[] = [
-  // {
-  //   name: EmbeddingModels.COPILOT_PLUS_SMALL,
-  //   provider: EmbeddingModelProviders.COPILOT_PLUS,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  //   core: true,
-  //   plusExclusive: true,
-  // },
-  // {
-  //   name: EmbeddingModels.COPILOT_PLUS_LARGE,
-  //   provider: EmbeddingModelProviders.COPILOT_PLUS_JINA,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  //   core: true,
-  //   plusExclusive: true,
-  //   believerExclusive: true,
-  //   dimensions: 1024,
-  // },
-  // {
-  //   name: EmbeddingModels.COPILOT_PLUS_MULTILINGUAL,
-  //   provider: EmbeddingModelProviders.COPILOT_PLUS_JINA,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  //   core: true,
-  //   plusExclusive: true,
-  //   dimensions: 512,
-  // },
-  // {
-  //   name: EmbeddingModels.OPENROUTER_OPENAI_EMBEDDING_SMALL,
-  //   provider: EmbeddingModelProviders.OPENROUTERAI,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  //   core: true,
-  // },
-  // {
-  //   name: EmbeddingModels.OPENAI_EMBEDDING_SMALL,
-  //   provider: EmbeddingModelProviders.OPENAI,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  //   core: true,
-  // },
-  // {
-  //   name: EmbeddingModels.OPENAI_EMBEDDING_LARGE,
-  //   provider: EmbeddingModelProviders.OPENAI,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  // },
-  // {
-  //   name: EmbeddingModels.COHEREAI_EMBED_MULTILINGUAL_LIGHT_V3_0,
-  //   provider: EmbeddingModelProviders.COHEREAI,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  // },
-  // {
-  //   name: EmbeddingModels.GOOGLE_ENG,
-  //   provider: EmbeddingModelProviders.GOOGLE,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  // },
-  // {
-  //   name: EmbeddingModels.GOOGLE_GEMINI_EMBEDDING,
-  //   provider: EmbeddingModelProviders.GOOGLE,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  //   core: true,
-  // },
-  // {
-  //   name: EmbeddingModels.GOOGLE_GEMINI_EMBEDDING_2_PREVIEW,
-  //   provider: EmbeddingModelProviders.GOOGLE,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  //   core: true,
-  // },
-  // {
-  //   name: EmbeddingModels.AZURE_OPENAI,
-  //   provider: EmbeddingModelProviders.AZURE_OPENAI,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  // },
-  // {
-  //   name: EmbeddingModels.SILICONFLOW_QWEN3_EMBEDDING_0_6B,
-  //   provider: EmbeddingModelProviders.SILICONFLOW,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  //   core: true,
-  //   baseUrl: "https://api.siliconflow.com/v1",
-  // },
+  {
+    name: EmbeddingModels.GOOGLE_GEMINI_EMBEDDING_2_PREVIEW,
+    provider: EmbeddingModelProviders.GOOGLE,
+    enabled: true,
+    isBuiltIn: true,
+    core: true,
+    enableCors: true,
+    modelType: "embedding",
+  },
+  {
+    name: EmbeddingModels.OPENROUTER_OPENAI_EMBEDDING_SMALL,
+    provider: EmbeddingModelProviders.OPENROUTERAI,
+    enabled: true,
+    isBuiltIn: true,
+    core: false,
+    modelType: "embedding",
+  },
+  {
+    name: EmbeddingModels.OPENAI_EMBEDDING_SMALL,
+    provider: EmbeddingModelProviders.OPENAI,
+    enabled: true,
+    isBuiltIn: true,
+    core: false,
+    modelType: "embedding",
+  },
+  {
+    name: EmbeddingModels.OPENAI_EMBEDDING_LARGE,
+    provider: EmbeddingModelProviders.OPENAI,
+    enabled: true,
+    isBuiltIn: true,
+    modelType: "embedding",
+  },
+  {
+    name: EmbeddingModels.COHEREAI_EMBED_MULTILINGUAL_LIGHT_V3_0,
+    provider: EmbeddingModelProviders.COHEREAI,
+    enabled: true,
+    isBuiltIn: true,
+    modelType: "embedding",
+  },
+  {
+    name: EmbeddingModels.GOOGLE_ENG,
+    provider: EmbeddingModelProviders.GOOGLE,
+    enabled: true,
+    isBuiltIn: true,
+    modelType: "embedding",
+  },
+  {
+    name: EmbeddingModels.GOOGLE_GEMINI_EMBEDDING,
+    provider: EmbeddingModelProviders.GOOGLE,
+    enabled: true,
+    isBuiltIn: true,
+    modelType: "embedding",
+  },
+  {
+    name: EmbeddingModels.AZURE_OPENAI,
+    provider: EmbeddingModelProviders.AZURE_OPENAI,
+    enabled: true,
+    isBuiltIn: true,
+    modelType: "embedding",
+  },
+  {
+    name: EmbeddingModels.SILICONFLOW_QWEN3_EMBEDDING_0_6B,
+    provider: EmbeddingModelProviders.SILICONFLOW,
+    enabled: true,
+    isBuiltIn: true,
+    modelType: "embedding",
+    baseUrl: "https://api.siliconflow.com/v1",
+  },
 ];
 
 // Embedding Models
@@ -602,7 +461,7 @@ export const ProviderInfo: Record<Provider, ProviderMetadata> = {
     curlBaseURL: "https://openrouter.ai/api/v1",
     keyManagementURL: "https://openrouter.ai/keys",
     listModelURL: "https://openrouter.ai/api/v1/models",
-    testModel: ChatModels.OPENROUTER_GPT_5_MINI,
+    testModel: ChatModels.OPENROUTER_GPT_5_4,
   },
   [ChatModelProviders.GOOGLE]: {
     label: "Gemini",
@@ -610,7 +469,7 @@ export const ProviderInfo: Record<Provider, ProviderMetadata> = {
     curlBaseURL: "https://generativelanguage.googleapis.com/v1beta",
     keyManagementURL: "https://makersuite.google.com/app/apikey",
     listModelURL: "https://generativelanguage.googleapis.com/v1beta/models",
-    testModel: ChatModels.GEMINI_FLASH,
+    testModel: ChatModels.GEMINI_3_PRO_PREVIEW,
   },
   [ChatModelProviders.ANTHROPIC]: {
     label: "Anthropic",
@@ -711,20 +570,6 @@ export const ProviderInfo: Record<Provider, ProviderMetadata> = {
     keyManagementURL: "https://console.aws.amazon.com/iam/home#/security_credentials",
     listModelURL: "",
   },
-  [EmbeddingModelProviders.COPILOT_PLUS]: {
-    label: "Copilot Plus",
-    host: BREVILABS_MODELS_BASE_URL,
-    curlBaseURL: BREVILABS_MODELS_BASE_URL,
-    keyManagementURL: "",
-    listModelURL: "",
-  },
-  [EmbeddingModelProviders.COPILOT_PLUS_JINA]: {
-    label: "Copilot Plus",
-    host: BREVILABS_MODELS_BASE_URL,
-    curlBaseURL: BREVILABS_MODELS_BASE_URL,
-    keyManagementURL: "",
-    listModelURL: "",
-  },
   [ChatModelProviders.GITHUB_COPILOT]: {
     label: "GitHub Copilot",
     host: "https://api.githubcopilot.com",
@@ -735,7 +580,7 @@ export const ProviderInfo: Record<Provider, ProviderMetadata> = {
 };
 
 // Map provider to its settings key for API key
-export const ProviderSettingsKeyMap: Record<SettingKeyProviders, keyof CopilotSettings> = {
+export const ProviderSettingsKeyMap: Record<SettingKeyProviders, keyof CortexSettings> = {
   anthropic: "anthropicApiKey",
   openai: "openAIApiKey",
   "azure openai": "azureOpenAIApiKey",
@@ -744,7 +589,6 @@ export const ProviderSettingsKeyMap: Record<SettingKeyProviders, keyof CopilotSe
   openrouterai: "openRouterAiApiKey",
   cohereai: "cohereApiKey",
   xai: "xaiApiKey",
-  "copilot-plus": "plusLicenseKey",
   mistralai: "mistralApiKey",
   deepseek: "deepseekApiKey",
   "amazon-bedrock": "amazonBedrockApiKey",
@@ -776,22 +620,22 @@ export enum SEND_SHORTCUT {
 
 export const COMMAND_IDS = {
   TRIGGER_QUICK_COMMAND: "trigger-quick-command",
-  CLEAR_LOCAL_COPILOT_INDEX: "clear-local-copilot-index",
-  CLEAR_COPILOT_CACHE: "clear-copilot-cache",
+  CLEAR_LOCAL_CORTEX_INDEX: "clear-local-cortex-index",
+  CLEAR_CORTEX_CACHE: "clear-cortex-cache",
   COUNT_WORD_AND_TOKENS_SELECTION: "count-word-and-tokens-selection",
   COUNT_TOTAL_VAULT_TOKENS: "count-total-vault-tokens",
   DEBUG_WORD_COMPLETION: "debug-word-completion",
-  FORCE_REINDEX_VAULT_TO_COPILOT_INDEX: "force-reindex-vault-to-copilot-index",
-  GARBAGE_COLLECT_COPILOT_INDEX: "garbage-collect-copilot-index",
-  INDEX_VAULT_TO_COPILOT_INDEX: "index-vault-to-copilot-index",
-  INSPECT_COPILOT_INDEX_BY_NOTE_PATHS: "copilot-inspect-index-by-note-paths",
-  LIST_INDEXED_FILES: "copilot-list-indexed-files",
-  LOAD_COPILOT_CHAT_CONVERSATION: "load-copilot-chat-conversation",
+  FORCE_REINDEX_VAULT_TO_CORTEX_INDEX: "force-reindex-vault-to-cortex-index",
+  GARBAGE_COLLECT_CORTEX_INDEX: "garbage-collect-cortex-index",
+  INDEX_VAULT_TO_CORTEX_INDEX: "index-vault-to-cortex-index",
+  INSPECT_CORTEX_INDEX_BY_NOTE_PATHS: "cortex-inspect-index-by-note-paths",
+  LIST_INDEXED_FILES: "cortex-list-indexed-files",
+  LOAD_CORTEX_CHAT_CONVERSATION: "load-cortex-chat-conversation",
   NEW_CHAT: "new-chat",
-  OPEN_COPILOT_CHAT_WINDOW: "chat-open-window",
-  REMOVE_FILES_FROM_COPILOT_INDEX: "remove-files-from-copilot-index",
-  SEARCH_ORAMA_DB: "copilot-search-orama-db",
-  TOGGLE_COPILOT_CHAT_WINDOW: "chat-toggle-window",
+  OPEN_CORTEX_CHAT_WINDOW: "chat-open-window",
+  REMOVE_FILES_FROM_CORTEX_INDEX: "remove-files-from-cortex-index",
+  SEARCH_ORAMA_DB: "cortex-search-orama-db",
+  TOGGLE_CORTEX_CHAT_WINDOW: "chat-toggle-window",
   ADD_SELECTION_TO_CHAT_CONTEXT: "add-selection-to-chat-context",
   ADD_WEB_SELECTION_TO_CHAT_CONTEXT: "add-web-selection-to-chat-context",
   ADD_CUSTOM_COMMAND: "add-custom-command",
@@ -804,30 +648,30 @@ export const COMMAND_IDS = {
 
 export const COMMAND_NAMES: Record<CommandId, string> = {
   [COMMAND_IDS.TRIGGER_QUICK_COMMAND]: "Trigger quick command",
-  [COMMAND_IDS.CLEAR_LOCAL_COPILOT_INDEX]: "Clear local Copilot index",
-  [COMMAND_IDS.CLEAR_COPILOT_CACHE]: "Clear Copilot cache",
+  [COMMAND_IDS.CLEAR_LOCAL_CORTEX_INDEX]: "Clear local Cortex index",
+  [COMMAND_IDS.CLEAR_CORTEX_CACHE]: "Clear Cortex cache",
   [COMMAND_IDS.COUNT_TOTAL_VAULT_TOKENS]: "Count total tokens in your vault",
   [COMMAND_IDS.COUNT_WORD_AND_TOKENS_SELECTION]: "Count words and tokens in selection",
   [COMMAND_IDS.DEBUG_WORD_COMPLETION]: "Word completion: Debug",
-  [COMMAND_IDS.FORCE_REINDEX_VAULT_TO_COPILOT_INDEX]: "Force reindex vault",
-  [COMMAND_IDS.GARBAGE_COLLECT_COPILOT_INDEX]:
-    "Garbage collect Copilot index (remove files that no longer exist in vault)",
-  [COMMAND_IDS.INDEX_VAULT_TO_COPILOT_INDEX]: "Index (refresh) vault",
-  [COMMAND_IDS.INSPECT_COPILOT_INDEX_BY_NOTE_PATHS]: "Inspect Copilot index by note paths (debug)",
+  [COMMAND_IDS.FORCE_REINDEX_VAULT_TO_CORTEX_INDEX]: "Force reindex vault",
+  [COMMAND_IDS.GARBAGE_COLLECT_CORTEX_INDEX]:
+    "Garbage collect Cortex index (remove files that no longer exist in vault)",
+  [COMMAND_IDS.INDEX_VAULT_TO_CORTEX_INDEX]: "Index (refresh) vault",
+  [COMMAND_IDS.INSPECT_CORTEX_INDEX_BY_NOTE_PATHS]: "Inspect Cortex index by note paths (debug)",
   [COMMAND_IDS.LIST_INDEXED_FILES]: "List all indexed files (debug)",
-  [COMMAND_IDS.LOAD_COPILOT_CHAT_CONVERSATION]: "Load Copilot chat conversation",
-  [COMMAND_IDS.NEW_CHAT]: "New Copilot Chat",
-  [COMMAND_IDS.OPEN_COPILOT_CHAT_WINDOW]: "Open Copilot Chat Window",
-  [COMMAND_IDS.REMOVE_FILES_FROM_COPILOT_INDEX]: "Remove files from Copilot index (debug)",
+  [COMMAND_IDS.LOAD_CORTEX_CHAT_CONVERSATION]: "Load Cortex chat conversation",
+  [COMMAND_IDS.NEW_CHAT]: "New Cortex Chat",
+  [COMMAND_IDS.OPEN_CORTEX_CHAT_WINDOW]: "Open Cortex Chat Window",
+  [COMMAND_IDS.REMOVE_FILES_FROM_CORTEX_INDEX]: "Remove files from Cortex index (debug)",
   [COMMAND_IDS.SEARCH_ORAMA_DB]: "Search semantic index (debug)",
-  [COMMAND_IDS.TOGGLE_COPILOT_CHAT_WINDOW]: "Toggle Copilot Chat Window",
+  [COMMAND_IDS.TOGGLE_CORTEX_CHAT_WINDOW]: "Toggle Cortex Chat Window",
   [COMMAND_IDS.ADD_SELECTION_TO_CHAT_CONTEXT]: "Add selection to chat context",
   [COMMAND_IDS.ADD_WEB_SELECTION_TO_CHAT_CONTEXT]: "Add web selection to chat context",
   [COMMAND_IDS.ADD_CUSTOM_COMMAND]: "Add new custom command",
   [COMMAND_IDS.APPLY_CUSTOM_COMMAND]: "Apply custom command",
   [COMMAND_IDS.OPEN_LOG_FILE]: "Create log file",
   [COMMAND_IDS.CLEAR_LOG_FILE]: "Clear log file",
-  [COMMAND_IDS.DOWNLOAD_YOUTUBE_SCRIPT]: "Download YouTube Script (plus)",
+  [COMMAND_IDS.DOWNLOAD_YOUTUBE_SCRIPT]: "Download YouTube Script",
   [COMMAND_IDS.TRIGGER_QUICK_ASK]: "Quick Ask",
 };
 
@@ -839,20 +683,20 @@ export type CommandId = (typeof COMMAND_IDS)[keyof typeof COMMAND_IDS];
  */
 export const COMMAND_ICONS: Partial<Record<CommandId, string>> = {
   [COMMAND_IDS.NEW_CHAT]: "message-square-plus",
-  [COMMAND_IDS.OPEN_COPILOT_CHAT_WINDOW]: "message-square",
-  [COMMAND_IDS.TOGGLE_COPILOT_CHAT_WINDOW]: "message-square",
-  [COMMAND_IDS.LOAD_COPILOT_CHAT_CONVERSATION]: "history",
+  [COMMAND_IDS.OPEN_CORTEX_CHAT_WINDOW]: "message-square",
+  [COMMAND_IDS.TOGGLE_CORTEX_CHAT_WINDOW]: "message-square",
+  [COMMAND_IDS.LOAD_CORTEX_CHAT_CONVERSATION]: "history",
   [COMMAND_IDS.TRIGGER_QUICK_COMMAND]: "terminal-square",
   [COMMAND_IDS.TRIGGER_QUICK_ASK]: "sparkles",
   [COMMAND_IDS.ADD_SELECTION_TO_CHAT_CONTEXT]: "text-cursor-input",
   [COMMAND_IDS.ADD_WEB_SELECTION_TO_CHAT_CONTEXT]: "globe",
   [COMMAND_IDS.ADD_CUSTOM_COMMAND]: "plus-circle",
   [COMMAND_IDS.APPLY_CUSTOM_COMMAND]: "play-circle",
-  [COMMAND_IDS.INDEX_VAULT_TO_COPILOT_INDEX]: "refresh-cw",
-  [COMMAND_IDS.FORCE_REINDEX_VAULT_TO_COPILOT_INDEX]: "rotate-cw",
-  [COMMAND_IDS.CLEAR_LOCAL_COPILOT_INDEX]: "trash-2",
-  [COMMAND_IDS.CLEAR_COPILOT_CACHE]: "eraser",
-  [COMMAND_IDS.GARBAGE_COLLECT_COPILOT_INDEX]: "filter-x",
+  [COMMAND_IDS.INDEX_VAULT_TO_CORTEX_INDEX]: "refresh-cw",
+  [COMMAND_IDS.FORCE_REINDEX_VAULT_TO_CORTEX_INDEX]: "rotate-cw",
+  [COMMAND_IDS.CLEAR_LOCAL_CORTEX_INDEX]: "trash-2",
+  [COMMAND_IDS.CLEAR_CORTEX_CACHE]: "eraser",
+  [COMMAND_IDS.GARBAGE_COLLECT_CORTEX_INDEX]: "filter-x",
   [COMMAND_IDS.COUNT_TOTAL_VAULT_TOKENS]: "calculator",
   [COMMAND_IDS.COUNT_WORD_AND_TOKENS_SELECTION]: "hash",
   [COMMAND_IDS.OPEN_LOG_FILE]: "file-text",
@@ -865,28 +709,64 @@ export const COMMAND_ICONS: Partial<Record<CommandId, string>> = {
  * These files can be read directly via `vault.read()` and don't require special parsers.
  * Add new text-based extensions here to enable them everywhere (active note, context, chain).
  */
-export const TEXT_READABLE_EXTENSIONS = ["md", "canvas", "base"];
+export const TEXT_READABLE_EXTENSIONS = [
+  "md",
+  "base",
+  "txt",
+  "xml",
+  "json",
+  "log",
+  "htm",
+  "html",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "py",
+  "css",
+  "yaml",
+  "yml",
+  "java",
+];
 
 /**
- * Valid file extensions for note context.
- * Includes text-readable files plus Plus-only formats like PDF.
- * This does NOT include images - images are handled separately in the UI.
+ * Audio file extensions supported for STT transcription.
+ * Also imported by FileParserManager to register AudioParser.
  */
-export const ALLOWED_NOTE_CONTEXT_EXTENSIONS = [...TEXT_READABLE_EXTENSIONS, "pdf"];
+export const AUDIO_EXTENSIONS = ["mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm"];
+
+/**
+ * Binary, heavy, or non-textual formats that require specialized parsers
+ * and should NEVER be previewed directly in the UI.
+ */
+export const NON_PREVIEWABLE_EXTENSIONS = [
+  "pdf",
+  "canvas",
+  // Word Docs
+  "doc",
+  "docx",
+  // Spreadsheets
+  "xls",
+  "xlsx",
+  "xlsm",
+  "xlsb",
+  "csv",
+  // Audio (transcribed via STT — not previewable as binary)
+  ...AUDIO_EXTENSIONS,
+];
+
+export const ALLOWED_NOTE_CONTEXT_EXTENSIONS = [
+  ...TEXT_READABLE_EXTENSIONS,
+  ...NON_PREVIEWABLE_EXTENSIONS,
+];
 
 export const RESTRICTION_MESSAGES = {
-  NON_MARKDOWN_FILES_RESTRICTED:
-    "Non-markdown files are only available in Copilot Plus mode. Please upgrade to access this file type.",
-  URL_PROCESSING_RESTRICTED:
-    "URL processing is only available in Copilot Plus mode. URLs will not be processed for context.",
   UNSUPPORTED_FILE_TYPE: (extension: string) =>
     `${extension.toUpperCase()} files are not supported in the current mode.`,
 } as const;
 
-export const DEFAULT_SETTINGS: CopilotSettings = {
+export const DEFAULT_SETTINGS: CortexSettings = {
   userId: uuidv4(),
-  isPlusUser: false,
-  plusLicenseKey: "",
   openAIApiKey: "",
   openAIOrgId: "",
   huggingfaceApiKey: "",
@@ -910,9 +790,9 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   githubCopilotToken: "",
   githubCopilotTokenExpiresAt: 0,
   defaultChainType: ChainType.LLM_CHAIN,
-  defaultModelKey: ChatModels.OPENROUTER_GEMINI_2_5_FLASH + "|" + ChatModelProviders.OPENROUTERAI,
+  defaultModelKey: ChatModels.OPENROUTER_FREE + "|" + ChatModelProviders.OPENROUTERAI,
   embeddingModelKey:
-    EmbeddingModels.OPENROUTER_OPENAI_EMBEDDING_SMALL + "|" + EmbeddingModelProviders.OPENROUTERAI,
+    EmbeddingModels.GOOGLE_GEMINI_EMBEDDING_2_PREVIEW + "|" + EmbeddingModelProviders.OPENROUTERAI,
   temperature: DEFAULT_MODEL_SETTING.TEMPERATURE,
   maxTokens: DEFAULT_MODEL_SETTING.MAX_TOKENS,
   contextTurns: 15,
@@ -921,7 +801,7 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   openAIEmbeddingProxyBaseUrl: "",
   stream: true,
   defaultSaveFolder: DEFAULT_CHAT_HISTORY_FOLDER,
-  defaultConversationTag: "copilot-conversation",
+  defaultConversationTag: "cortex-conversation",
   autosaveChat: true,
   generateAIChatTitleOnSave: true,
   autoAddActiveContentToContext: true,
@@ -962,13 +842,8 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   enableCustomPromptTemplating: true,
   enableSemanticSearchV3: false,
   enableSelfHostMode: false,
-  enableMiyo: false,
-  miyoSearchAll: false,
-  selfHostModeValidatedAt: null,
-  selfHostValidationCount: 0,
   selfHostUrl: "",
   selfHostApiKey: "",
-  miyoServerUrl: "",
   selfHostSearchProvider: "firecrawl",
   firecrawlApiKey: "",
   perplexityApiKey: "",
@@ -1000,8 +875,14 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   diffViewMode: "split",
   userSystemPromptsFolder: DEFAULT_SYSTEM_PROMPTS_FOLDER,
   defaultSystemPromptTitle: "",
+  telegramSystemPromptTitle: "",
   autoCompactThreshold: 128000,
   convertedDocOutputFolder: DEFAULT_CONVERTED_DOC_OUTPUT_FOLDER,
+  activeAudioSTTModels: BUILTIN_AUDIO_STT_MODELS,
+  audioSTTModelKey: "whisper-large-v3" + "|" + ChatModelProviders.GROQ,
+  telegramEnabled: false,
+  telegramBotApiKey: "",
+  telegramAllowedChatIds: "",
 };
 
 export const EVENT_NAMES = {

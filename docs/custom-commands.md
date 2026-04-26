@@ -9,6 +9,7 @@ Custom commands are preset AI prompts you define once and reuse on any note or s
 A custom command is like a template prompt. You write an instruction (with optional variables) and save it. From then on, you can apply it to any note or selected text with a single click.
 
 **Examples of what you might create:**
+
 - "Summarize this note in bullet points"
 - "Extract all action items as a task list"
 - "Rewrite this in a more formal tone"
@@ -21,7 +22,7 @@ A custom command is like a template prompt. You write an instruction (with optio
 
 ### From Settings
 
-1. Go to **Settings → Copilot → Command**
+1. Go to **Settings → Cortex → Command**
 2. Click **Add new command**
 3. Fill in the fields:
    - **Name** — What the command is called (also becomes its ID)
@@ -44,17 +45,18 @@ You can also create a command on the fly:
 
 Inside your prompt, you can use variables that get replaced with real content when the command runs:
 
-| Variable | What it inserts |
-|---|---|
-| `{}` or `{selected_text}` | The text currently selected in the editor |
-| `{activeNote}` | The full content of the currently active note |
-| `{[[Note Title]]}` | The content of a specific note by title |
-| `{FolderPath}` | All notes within a specific folder |
-| `{#tag1, #tag2}` | All notes with any of the specified tags |
+| Variable                  | What it inserts                               |
+| ------------------------- | --------------------------------------------- |
+| `{}` or `{selected_text}` | The text currently selected in the editor     |
+| `{activeNote}`            | The full content of the currently active note |
+| `{[[Note Title]]}`        | The content of a specific note by title       |
+| `{FolderPath}`            | All notes within a specific folder            |
+| `{#tag1, #tag2}`          | All notes with any of the specified tags      |
 
 > **Important**: Tags in `{#tag1, #tag2}` must be in the note's **properties (frontmatter)**, not inline tags within the note body.
 
 **Example — quiz generator using two variables:**
+
 ```
 Come up with multiple choice questions using {activeNote}, and follow
 the format of {[[Quiz Template]]} to start a quiz session.
@@ -65,16 +67,18 @@ Repeat until the user says STOP.
 ```
 
 **Example — comparison using specific notes:**
+
 ```
 Compare my notes on {[[Product Roadmap]]} and {[[Competitor Analysis]]} and identify gaps.
 ```
 
 **Example — acting on selected text:**
+
 ```
 Rewrite this in a more formal tone: {selected_text}
 ```
 
-Variable substitution must be enabled in **Settings → Copilot → Command → Enable custom prompt templating** (on by default).
+Variable substitution must be enabled in **Settings → Cortex → Command → Enable custom prompt templating** (on by default).
 
 ---
 
@@ -83,9 +87,10 @@ Variable substitution must be enabled in **Settings → Copilot → Command → 
 ### From the Right-Click Context Menu
 
 If a command has **Show in context menu** enabled:
+
 1. Select some text in a note (optional)
 2. Right-click to open the context menu
-3. Hover over **Copilot** → select your command
+3. Hover over **Cortex** → select your command
 4. The AI processes your selection or note and shows the result
 
 ### From the Command Palette
@@ -105,13 +110,11 @@ Inside the chat input, type `/` followed by the command name to run it:
 
 The command runs in the context of your current chat session and active note.
 
-> **Note**: The `@composer` mention (for AI note editing) requires Copilot Plus. In free modes, `@composer` will not be available.
-
 ---
 
 ## Managing Commands
 
-Go to **Settings → Copilot → Command** to manage all your custom commands:
+Go to **Settings → Cortex → Command** to manage all your custom commands:
 
 - **Edit** — Click the edit icon next to any command
 - **Reorder** — Drag commands to change their order (affects the context menu and command list)
@@ -121,7 +124,7 @@ Go to **Settings → Copilot → Command** to manage all your custom commands:
 
 ### Custom Prompts Folder
 
-Commands are stored as markdown files in your vault. The default folder is `copilot/copilot-custom-prompts/`. You can change this in **Settings → Copilot → Basic → Custom prompts folder**.
+Commands are stored as markdown files in your vault. The default folder is `cortex/cortex-custom-prompts/`. You can change this in **Settings → Cortex → Basic → Custom prompts folder**.
 
 ---
 
@@ -151,4 +154,4 @@ Quick Ask is great for things like "rephrase this sentence," "what does this ter
 
 - [Chat Interface](chat-interface.md) — Using slash commands in chat
 - [Context and Mentions](context-and-mentions.md) — How context is passed to commands
-- [Agent Mode and Tools](agent-mode-and-tools.md) — More powerful note editing with @composer
+- [Agent Mode and Tools](agent-mode-and-tools.md) — Autonomous note editing with `@composer`

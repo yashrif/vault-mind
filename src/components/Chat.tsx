@@ -16,7 +16,9 @@ import { ChainType } from "@/chainFactory";
 import { useProjectContextStatus } from "@/hooks/useProjectContextStatus";
 import { logInfo, logError } from "@/logger";
 import type { WebTabContext } from "@/types/message";
-
+import { mapTelegramMessagesToChatMessages } from "@/channels/telegram/TelegramMessageAdapter";
+import type { TelegramStore } from "@/channels/telegram/TelegramStore";
+import type { TelegramReplyState, TelegramStoredMessage } from "@/channels/telegram/TelegramTypes";
 import { ChatControls, reloadCurrentProject } from "@/components/chat-components/ChatControls";
 import ChatInput from "@/components/chat-components/ChatInput";
 import ChatMessages from "@/components/chat-components/ChatMessages";
@@ -24,14 +26,7 @@ import { NewVersionBanner } from "@/components/chat-components/NewVersionBanner"
 import { ProjectList } from "@/components/chat-components/ProjectList";
 import IndexingProgressCard from "@/components/IndexingProgressCard";
 import ProgressCard from "@/components/project/progress-card";
-import {
-  ABORT_REASON,
-  AI_SENDER,
-  EVENT_NAMES,
-  LOADING_MESSAGES,
-  RESTRICTION_MESSAGES,
-  USER_SENDER,
-} from "@/constants";
+import { ABORT_REASON, AI_SENDER, EVENT_NAMES, LOADING_MESSAGES, USER_SENDER } from "@/constants";
 import { AppContext, EventTargetContext } from "@/context";
 import { ChatInputProvider, useChatInput } from "@/context/ChatInputContext";
 import { useChatManager } from "@/hooks/useChatManager";
@@ -40,14 +35,14 @@ import { getAIResponse } from "@/langchainStream";
 import ChainManager from "@/LLMProviders/chainManager";
 import { clearRecordedPromptPayload } from "@/LLMProviders/chainRunner/utils/promptPayloadRecorder";
 import { logFileManager } from "@/logFileManager";
-import CopilotPlugin from "@/main";
-import { useIsPlusUser } from "@/plusUtils";
+import CortexPlugin from "@/main";
 import { updateSetting, useSettingsValue } from "@/settings/model";
 import { ChatUIState } from "@/state/ChatUIState";
 import { FileParserManager } from "@/tools/FileParserManager";
 import { ChatMessage } from "@/types/message";
-import { err2String, isPlusChain } from "@/utils";
+import { err2String, isAgentChain } from "@/utils";
 import { arrayBufferToBase64 } from "@/utils/base64";
+import { extractFileContent, isImageFile } from "@/utils/fileContentExtractor";
 import { Notice, TFile } from "obsidian";
 import { ContextManageModal } from "@/components/modals/project/context-manage-modal";
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -62,7 +57,7 @@ interface ChatProps {
   onSaveChat: (saveAsNote: () => Promise<void>) => void;
   updateUserMessageHistory: (newMessage: string) => void;
   fileParserManager: FileParserManager;
-  plugin: CopilotPlugin;
+  plugin: CortexPlugin;
   mode?: ChatMode;
   chatUIState: ChatUIState;
 }
@@ -121,7 +116,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   const [contextNotes, setContextNotes] = useState<TFile[]>([]);
   const [includeActiveNote, setIncludeActiveNote] = useState(false);
   const [includeActiveWebTab, setIncludeActiveWebTab] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showChatUI, setShowChatUI] = useState(false);
   const [chatHistoryItems, setChatHistoryItems] = useState<ChatHistoryItem[]>([]);
   // null: keep default behavior; true: show; false: hide
@@ -234,7 +229,16 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
   const [previousMode, setPreviousMode] = useState<ChainType | null>(null);
   const [selectedChain, setSelectedChain] = useChainType();
-  const isPlusUser = useIsPlusUser();
+  const telegramStore = (plugin as any).telegramChannelService?.store as TelegramStore | undefined;
+  const [telegramMessages, setTelegramMessages] = useState<TelegramStoredMessage[]>([]);
+  const [telegramReplyState, setTelegramReplyState] = useState<TelegramReplyState | null>(null);
+  const [telegramPrimaryChatId, setTelegramPrimaryChatId] = useState<number | null>(null);
+  const [telegramAllowlistConfigured, setTelegramAllowlistConfigured] = useState(false);
+
+  const telegramChatHistory = useMemo(
+    () => mapTelegramMessagesToChatMessages(telegramMessages, plugin.app),
+    [telegramMessages, plugin.app]
+  );
 
   const appContext = useContext(AppContext);
   const app = plugin.app || appContext;
@@ -244,10 +248,36 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     app,
     contextNotes,
     setContextNotes,
-    selectedImages,
-    onAddImage: (files) => setSelectedImages((prev) => [...prev, ...files]),
+    selectedFiles,
+    onAddFile: (files) => setSelectedFiles((prev) => [...prev, ...files]),
     containerRef: chatContainerRef,
   });
+
+  useEffect(() => {
+    if (!telegramStore) {
+      setTelegramMessages([]);
+      setTelegramReplyState(null);
+      setTelegramPrimaryChatId(null);
+      setTelegramAllowlistConfigured(false);
+      return;
+    }
+
+    const refresh = () => {
+      setTelegramMessages(telegramStore.getVisibleMessages());
+      setTelegramReplyState(telegramStore.getActiveReplyState());
+      setTelegramPrimaryChatId(telegramStore.getMeta().primary_chat_id);
+      setTelegramAllowlistConfigured(telegramStore.hasConfiguredAllowlist());
+    };
+
+    refresh();
+    const unsubscribe = telegramStore.subscribe(refresh);
+    return unsubscribe;
+  }, [
+    telegramStore,
+    settings.telegramEnabled,
+    settings.telegramAllowedChatIds,
+    settings.telegramBotApiKey,
+  ]);
 
   const handleSendMessage = async ({
     toolCalls,
@@ -264,15 +294,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     contextFolders?: string[];
     webTabs?: WebTabContext[];
   } = {}) => {
-    if (!inputMessage && selectedImages.length === 0) return;
-
-    // Check for URL restrictions in non-Plus chains and show notice, but continue processing
-    const hasUrlsInContext = urls && urls.length > 0;
-
-    if (hasUrlsInContext && !isPlusChain(currentChain)) {
-      // Show notice but continue processing the message without URL context
-      new Notice(RESTRICTION_MESSAGES.URL_PROCESSING_RESTRICTED);
-    }
+    if (!inputMessage && selectedFiles.length === 0) return;
 
     try {
       // Create message content array
@@ -286,16 +308,33 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
         });
       }
 
-      // Add images if present
-      for (const image of selectedImages) {
-        const imageData = await image.arrayBuffer();
-        const base64Image = arrayBufferToBase64(imageData);
-        content.push({
-          type: "image_url",
-          image_url: {
-            url: `data:${image.type};base64,${base64Image}`,
-          },
-        });
+      // Images → multimodal image_url in content[]; non-image files → context pipeline
+      const attachedFileContents: { name: string; content: string }[] = [];
+      for (const file of selectedFiles) {
+        if (isImageFile(file)) {
+          const imageData = await file.arrayBuffer();
+          const base64Image = arrayBufferToBase64(imageData);
+          const ext = (file.name.split(".").pop() ?? "").toLowerCase();
+          const EXT_MIME: Record<string, string> = {
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            png: "image/png",
+            gif: "image/gif",
+            webp: "image/webp",
+            svg: "image/svg+xml",
+            bmp: "image/bmp",
+            tiff: "image/tiff",
+            avif: "image/avif",
+          };
+          const mimeType = file.type || EXT_MIME[ext] || "image/png";
+          content.push({
+            type: "image_url",
+            image_url: { url: `data:${mimeType};base64,${base64Image}` },
+          });
+        } else {
+          const text = await extractFileContent(file);
+          attachedFileContents.push({ name: file.name, content: text });
+        }
       }
 
       // Prepare context notes and deduplicate by path
@@ -315,16 +354,17 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
       // Create message context - filter out URLs for non-Plus chains
       const context = {
         notes,
-        urls: isPlusChain(currentChain) ? urls || [] : [],
+        urls: isAgentChain(currentChain) ? urls || [] : [],
         tags: contextTags || [],
         folders: contextFolders || [],
         selectedTextContexts,
         webTabs: webTabs || [],
+        attachedFileContents: attachedFileContents.length > 0 ? attachedFileContents : undefined,
       };
 
-      // Clear input and images
+      // Clear input and attached files
       setInputMessage("");
-      setSelectedImages([]);
+      setSelectedFiles([]);
       streamingMessageIdRef.current = `msg-${uuidv4()}`;
       safeSet.setLoading(true);
       safeSet.setLoadingMessage(LOADING_MESSAGES.DEFAULT);
@@ -391,6 +431,34 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
       new Notice("Failed to save chat as note. Check console for details.");
     }
   }, [app, chatUIState, currentModelKey]);
+
+  /**
+   * Shared chain transition handler used by both top controls and composer-level selector.
+   */
+  const handleChainModeChange = useCallback(
+    async (newMode: ChainType) => {
+      if (newMode === selectedChain) {
+        return;
+      }
+
+      const isLeavingProjectMode =
+        selectedChain === ChainType.PROJECT_CHAIN && newMode !== ChainType.PROJECT_CHAIN;
+      if (isLeavingProjectMode && settings.autosaveChat) {
+        await handleSaveAsNote();
+      }
+
+      setPreviousMode(selectedChain);
+      setSelectedChain(newMode);
+
+      if (newMode === ChainType.PROJECT_CHAIN) {
+        setShowChatUI(false);
+        return;
+      }
+
+      setCurrentProject(null);
+    },
+    [handleSaveAsNote, selectedChain, setSelectedChain, settings.autosaveChat]
+  );
 
   const handleStopGenerating = useCallback(
     (reason?: ABORT_REASON) => {
@@ -683,6 +751,13 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   );
 
   const handleNewChat = useCallback(async () => {
+    // Telegram "New" resets the view by advancing the reset_at cursor.
+    if (selectedChain === ChainType.TELEGRAM_CHAIN) {
+      const service = (plugin as any).telegramChannelService;
+      await service?.store?.resetView();
+      return;
+    }
+
     clearRecordedPromptPayload();
     await logFileManager.clear();
     handleStopGenerating(ABORT_REASON.NEW_CHAT);
@@ -808,8 +883,9 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
   // Event listener for abort stream events
   useEffect(() => {
-    const handleAbortStream = (event: CustomEvent) => {
-      const reason = event.detail?.reason || ABORT_REASON.NEW_CHAT;
+    const handleAbortStream = (event: Event) => {
+      const customEvent = event as CustomEvent<{ reason?: ABORT_REASON }>;
+      const reason = customEvent.detail?.reason || ABORT_REASON.NEW_CHAT;
       handleStopGenerating(reason);
     };
 
@@ -838,106 +914,177 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   // Note: pendingMessages loading has been removed as ChatManager now handles
   // message persistence and loading automatically based on project context
 
-  const renderChatComponents = () => (
-    <>
-      <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
-        <NewVersionBanner currentVersion={plugin.manifest.version} />
-        <ChatMessages
-          chatHistory={chatHistory}
-          currentAiMessage={currentAiMessage}
-          streamingMessageId={streamingMessageIdRef.current}
-          loading={loading}
-          loadingMessage={loadingMessage}
-          app={app}
-          onRegenerate={handleRegenerate}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onReplaceChat={setInputMessage}
-          showHelperComponents={selectedChain !== ChainType.PROJECT_CHAIN}
-        />
-        {shouldShowProgressCard() ? (
-          <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl">
-            <ProgressCard
-              plugin={plugin}
-              setHiddenCard={() => {
-                setProgressCardVisible(false);
-              }}
-              onEditContext={() => {
-                const currentProject = getCurrentProject();
-                if (currentProject) {
-                  // Open the context management modal for editing the project
-                  new ContextManageModal(
-                    app,
-                    (updatedProject) => {
-                      handleEditProject(currentProject, updatedProject);
-                    },
-                    currentProject
-                  ).open();
-                }
-              }}
-            />
-          </div>
-        ) : shouldShowIndexingCard() ? (
-          <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl">
-            <IndexingProgressCard
-              onClose={handleIndexingCardClose}
-              onPause={handleIndexingPause}
-              onResume={handleIndexingResume}
-              onStop={handleIndexingStop}
-            />
-          </div>
-        ) : (
-          <>
+  const renderChatComponents = () => {
+    if (selectedChain === ChainType.TELEGRAM_CHAIN) {
+      return (
+        <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
+          <div className="tw-flex tw-h-full tw-flex-1 tw-flex-col tw-overflow-hidden">
             <ChatControls
               onNewChat={handleNewChat}
               onSaveAsNote={() => handleSaveAsNote()}
               onLoadHistory={handleLoadChatHistory}
-              onModeChange={(newMode) => {
-                setPreviousMode(selectedChain);
-                // Hide chat UI when switching to project mode
-                if (newMode === ChainType.PROJECT_CHAIN) {
-                  setShowChatUI(false);
-                }
-              }}
+              onModeChange={handleChainModeChange}
+              selectedChain={selectedChain}
               chatHistory={chatHistoryItems}
               onUpdateChatTitle={handleUpdateChatTitle}
               onDeleteChat={handleDeleteChat}
               onLoadChat={handleLoadChat}
               onOpenSourceFile={handleOpenSourceFile}
-              latestTokenCount={latestTokenCount}
+              latestTokenCount={null}
             />
-            <ChatInput
-              inputMessage={inputMessage}
-              setInputMessage={setInputMessage}
-              handleSendMessage={handleSendMessage}
-              isGenerating={loading}
-              onStopGenerating={() => handleStopGenerating(ABORT_REASON.USER_STOPPED)}
-              app={app}
-              contextNotes={contextNotes}
-              setContextNotes={setContextNotes}
-              includeActiveNote={includeActiveNote}
-              setIncludeActiveNote={setIncludeActiveNote}
-              includeActiveWebTab={includeActiveWebTab}
-              setIncludeActiveWebTab={setIncludeActiveWebTab}
-              activeWebTab={currentActiveWebTab}
-              selectedImages={selectedImages}
-              onAddImage={(files: File[]) => setSelectedImages((prev) => [...prev, ...files])}
-              setSelectedImages={setSelectedImages}
-              disableModelSwitch={selectedChain === ChainType.PROJECT_CHAIN}
-              selectedTextContexts={selectedTextContexts}
-              onRemoveSelectedText={handleRemoveSelectedText}
-              showProgressCard={() => {
-                setProgressCardVisible(true);
-              }}
-              showIndexingCard={() => {
-                setIndexingCardVisible(true);
-              }}
-            />
-          </>
-        )}
-      </div>
-    </>
-  );
+
+            {telegramChatHistory.length > 0 || telegramReplyState ? (
+              <ChatMessages
+                chatHistory={telegramChatHistory}
+                currentAiMessage={telegramReplyState?.partialText ?? ""}
+                streamingMessageId={telegramReplyState?.streamingMessageId}
+                loading={!!telegramReplyState}
+                loadingMessage={telegramReplyState?.loadingMessage}
+                app={app}
+                onRegenerate={() => {}}
+                onEdit={() => {}}
+                onDelete={() => {}}
+                onReplaceChat={() => {}}
+                showHelperComponents={false}
+                actionCapabilities={{
+                  allowUserEdit: false,
+                  allowDelete: false,
+                  allowRegenerate: false,
+                  allowInsert: false,
+                  allowShowSources: false,
+                }}
+              />
+            ) : (
+              <div className="tw-flex tw-flex-1 tw-flex-col tw-items-center tw-justify-center tw-gap-3 tw-p-6 tw-text-center">
+                <span className="tw-text-2xl">✈️</span>
+                {!telegramStore ? (
+                  <>
+                    <p className="tw-text-sm tw-font-medium tw-text-normal">Telegram</p>
+                    <p className="tw-text-xs tw-text-muted">
+                      Enable Telegram in Settings and enter your bot token.
+                    </p>
+                  </>
+                ) : !telegramAllowlistConfigured ? (
+                  <>
+                    <p className="tw-text-sm tw-font-medium tw-text-normal">
+                      Get started with Telegram
+                    </p>
+                    <ol className="tw-list-none tw-space-y-1 tw-text-left tw-text-xs tw-text-muted">
+                      <li>1. Open Settings -&gt; Cortex -&gt; Telegram -&gt; Allowed Chat IDs</li>
+                      <li>2. Add your chat ID, then DM the bot from that chat to bind it</li>
+                      <li>3. Once bound, inbound messages and replies appear in this thread</li>
+                    </ol>
+                  </>
+                ) : (
+                  <p className="tw-text-sm tw-text-muted">
+                    {telegramPrimaryChatId === null
+                      ? "DM your bot to begin. The first allowlisted chat you message will become the primary thread."
+                      : "No messages yet. Send a message to your bot in Telegram to start."}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
+          <NewVersionBanner currentVersion={plugin.manifest.version} />
+          <ChatMessages
+            chatHistory={chatHistory}
+            currentAiMessage={currentAiMessage}
+            streamingMessageId={streamingMessageIdRef.current}
+            loading={loading}
+            loadingMessage={loadingMessage}
+            app={app}
+            onRegenerate={handleRegenerate}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onReplaceChat={setInputMessage}
+            showHelperComponents={selectedChain !== ChainType.PROJECT_CHAIN}
+          />
+          {shouldShowProgressCard() ? (
+            <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl">
+              <ProgressCard
+                plugin={plugin}
+                setHiddenCard={() => {
+                  setProgressCardVisible(false);
+                }}
+                onEditContext={() => {
+                  const currentProject = getCurrentProject();
+                  if (currentProject) {
+                    // Open the context management modal for editing the project
+                    new ContextManageModal(
+                      app,
+                      (updatedProject) => {
+                        handleEditProject(currentProject, updatedProject);
+                      },
+                      currentProject
+                    ).open();
+                  }
+                }}
+              />
+            </div>
+          ) : shouldShowIndexingCard() ? (
+            <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl">
+              <IndexingProgressCard
+                onClose={handleIndexingCardClose}
+                onPause={handleIndexingPause}
+                onResume={handleIndexingResume}
+                onStop={handleIndexingStop}
+              />
+            </div>
+          ) : (
+            <>
+              <ChatControls
+                onNewChat={handleNewChat}
+                onSaveAsNote={() => handleSaveAsNote()}
+                onLoadHistory={handleLoadChatHistory}
+                onModeChange={handleChainModeChange}
+                selectedChain={selectedChain}
+                chatHistory={chatHistoryItems}
+                onUpdateChatTitle={handleUpdateChatTitle}
+                onDeleteChat={handleDeleteChat}
+                onLoadChat={handleLoadChat}
+                onOpenSourceFile={handleOpenSourceFile}
+                latestTokenCount={latestTokenCount}
+              />
+              <ChatInput
+                inputMessage={inputMessage}
+                setInputMessage={setInputMessage}
+                handleSendMessage={handleSendMessage}
+                isGenerating={loading}
+                onStopGenerating={() => handleStopGenerating(ABORT_REASON.USER_STOPPED)}
+                app={app}
+                contextNotes={contextNotes}
+                setContextNotes={setContextNotes}
+                includeActiveNote={includeActiveNote}
+                setIncludeActiveNote={setIncludeActiveNote}
+                includeActiveWebTab={includeActiveWebTab}
+                setIncludeActiveWebTab={setIncludeActiveWebTab}
+                activeWebTab={currentActiveWebTab}
+                selectedFiles={selectedFiles}
+                onAddFile={(files: File[]) => setSelectedFiles((prev) => [...prev, ...files])}
+                setSelectedFiles={setSelectedFiles}
+                disableModelSwitch={selectedChain === ChainType.PROJECT_CHAIN}
+                selectedTextContexts={selectedTextContexts}
+                onRemoveSelectedText={handleRemoveSelectedText}
+                showProgressCard={() => {
+                  setProgressCardVisible(true);
+                }}
+                showIndexingCard={() => {
+                  setIndexingCardVisible(true);
+                }}
+              />
+            </>
+          )}
+        </div>
+      </>
+    );
+  };
 
   return (
     <div
@@ -967,10 +1114,8 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                     setSelectedChain(previousMode);
                     setPreviousMode(null);
                   } else {
-                    // default back to chat or plus mode
-                    setSelectedChain(
-                      isPlusUser ? ChainType.COPILOT_PLUS_CHAIN : ChainType.LLM_CHAIN
-                    );
+                    // default back to tool chain mode
+                    setSelectedChain(ChainType.TOOL_CHAIN);
                   }
                 }}
                 showChatUI={(v) => setShowChatUI(v)}

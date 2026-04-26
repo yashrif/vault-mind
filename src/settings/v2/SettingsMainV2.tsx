@@ -3,18 +3,19 @@ import { Button } from "@/components/ui/button";
 import { TabContent, TabItem, type TabItem as TabItemType } from "@/components/ui/setting-tabs";
 import { TabProvider, useTab } from "@/contexts/TabContext";
 import { useLatestVersion } from "@/hooks/useLatestVersion";
-import CopilotPlugin from "@/main";
+import CortexPlugin from "@/main";
 import { resetSettings } from "@/settings/model";
 import { CommandSettings } from "@/settings/v2/components/CommandSettings";
-import { Cog, Command, Cpu, Database, Sparkles, Wrench } from "lucide-react";
+import { Cog, Command, Cpu, Database, Send, Sparkles, Wrench } from "lucide-react";
 import React from "react";
 import { AdvancedSettings } from "./components/AdvancedSettings";
 import { BasicSettings } from "./components/BasicSettings";
-import { CopilotPlusSettings } from "./components/CopilotPlusSettings";
+import { CortexPlusSettings } from "./components/CortexPlusSettings";
 import { ModelSettings } from "./components/ModelSettings";
 import { QASettings } from "./components/QASettings";
+import { TelegramSettings } from "./components/TelegramSettings";
 
-const TAB_IDS = ["basic", "model", "QA", "command", "plus", "advanced"] as const;
+const TAB_IDS = ["basic", "model", "QA", "command", "tools", "advanced", "telegram"] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 // tab icons
@@ -23,8 +24,9 @@ const icons: Record<TabId, JSX.Element> = {
   model: <Cpu className="tw-size-5" />,
   QA: <Database className="tw-size-5" />,
   command: <Command className="tw-size-5" />,
-  plus: <Sparkles className="tw-size-5" />,
+  tools: <Sparkles className="tw-size-5" />,
   advanced: <Wrench className="tw-size-5" />,
+  telegram: <Send className="tw-size-5" />,
 };
 
 // tab components
@@ -33,8 +35,9 @@ const components: Record<TabId, React.FC> = {
   model: () => <ModelSettings />,
   QA: () => <QASettings />,
   command: () => <CommandSettings />,
-  plus: () => <CopilotPlusSettings />,
+  tools: () => <CortexPlusSettings />,
   advanced: () => <AdvancedSettings />,
+  telegram: () => <TelegramSettings />,
 };
 
 // tabs
@@ -78,7 +81,7 @@ const SettingsContent: React.FC = () => {
 };
 
 interface SettingsMainV2Props {
-  plugin: CopilotPlugin;
+  plugin: CortexPlugin;
 }
 
 const SettingsMainV2: React.FC<SettingsMainV2Props> = ({ plugin }) => {
@@ -101,14 +104,14 @@ const SettingsMainV2: React.FC<SettingsMainV2Props> = ({ plugin }) => {
         <div className="tw-flex tw-flex-col tw-gap-2">
           <h1 className="tw-flex tw-flex-col tw-gap-2 sm:tw-flex-row sm:tw-items-center sm:tw-justify-between">
             <div className="tw-flex tw-items-center tw-gap-2">
-              <span>Copilot Settings</span>
+              <span>Cortex Settings</span>
               <div className="tw-flex tw-items-center tw-gap-1">
                 <span className="tw-text-xs tw-text-muted">v{plugin.manifest.version}</span>
                 {latestVersion && (
                   <>
                     {hasUpdate ? (
                       <a
-                        href="obsidian://show-plugin?id=copilot"
+                        href="obsidian://show-plugin?id=Cortex"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="tw-text-xs tw-text-accent hover:tw-underline"

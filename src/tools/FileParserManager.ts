@@ -1,15 +1,13 @@
-import { BrevilabsClient } from "@/LLMProviders/brevilabsClient";
 import { ProjectConfig } from "@/aiParams";
 import { PDFCache } from "@/cache/pdfCache";
 import { ProjectContextCache } from "@/cache/projectContextCache";
+import { AUDIO_EXTENSIONS } from "@/constants";
 import { logError, logInfo, logWarn } from "@/logger";
-import { MiyoClient } from "@/miyo/MiyoClient";
-import { getMiyoCustomUrl } from "@/miyo/miyoUtils";
-import { isSelfHostModeValid } from "@/plusUtils";
 import { getSettings } from "@/settings/model";
+import { AudioTranscriptionService } from "@/services/audioTranscriptionService";
 import { saveConvertedDocOutput as saveConvertedDocOutputCore } from "@/utils/convertedDocOutput";
-import { extractRetryTime, isRateLimitError } from "@/utils/rateLimitUtils";
-import { Notice, TFile, Vault } from "obsidian";
+import { TFile, Vault } from "obsidian";
+import TurndownService from "turndown";
 import { CanvasLoader } from "./CanvasLoader";
 
 interface FileParser {
@@ -29,51 +27,167 @@ export async function saveConvertedDocOutput(
   await saveConvertedDocOutputCore(file, content, vault, outputFolder);
 }
 
-/** Result from SelfHostPdfParser: null = not applicable, { content } = success, { error } = tried and failed. */
-type MiyoParseResult = { content: string } | { error: string } | null;
+const PDF_EXTENSIONS = ["pdf"];
+const DOCX_EXTENSIONS = ["doc", "docx", "docm", "dot", "dotm", "rtf"];
+const SPREADSHEET_EXTENSIONS = [
+  "xlsx",
+  "xls",
+  "xlsm",
+  "xlsb",
+  "xlw",
+  "ods",
+  "fods",
+  "csv",
+  "tsv",
+  "dif",
+  "slk",
+  "sylk",
+  "prn",
+];
+const PLAIN_TEXT_EXTENSIONS = [
+  "txt",
+  "xml",
+  "json",
+  "log",
+  "htm",
+  "html",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "py",
+  "css",
+  "yaml",
+  "yml",
+  "java",
+];
+
+const UNSUPPORTED_EXTENSIONS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "bmp",
+  "svg",
+  "tiff",
+  "webp",
+  // audio extensions removed — handled by AudioParser via STT
+  "ppt",
+  "pptx",
+  "pptm",
+  "pot",
+  "potx",
+  "potm",
+  "pages",
+  "numbers",
+  "key",
+  "hwp",
+  "cwk",
+  "abw",
+  "wpd",
+  "wps",
+  "wk1",
+  "wk2",
+  "wk3",
+  "wk4",
+  "wks",
+  "123",
+  "wq1",
+  "wq2",
+  "wb1",
+  "wb2",
+  "wb3",
+  "qpw",
+  "xlr",
+  "eth",
+];
 
 /**
- * Self-host PDF parser bridge using Miyo parse-doc endpoint.
+ * Extract text from a PDF binary using pdfjs-dist (loaded lazily).
  */
-class SelfHostPdfParser {
-  private miyoClient: MiyoClient;
+export async function parsePdfLocal(binary: ArrayBuffer): Promise<string> {
+  const pdfjs: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
-  /**
-   * Create a new self-host PDF parser.
-   */
-  constructor() {
-    this.miyoClient = new MiyoClient();
+  if (!pdfjs.GlobalWorkerOptions.workerPort) {
+    // @ts-ignore - The module exists but has no type definitions
+    await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
   }
 
-  /**
-   * Parse a PDF via Miyo when self-host mode is active.
-   *
-   * @param file - PDF file to parse.
-   * @param vault - Obsidian vault instance.
-   * @returns Content on success, error reason on failure, or null when not applicable.
-   */
-  public async parsePdf(file: TFile, vault: Vault): Promise<MiyoParseResult> {
-    const settings = getSettings();
-    if (!settings.enableMiyo || file.extension.toLowerCase() !== "pdf") {
-      return null;
-    }
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(binary).slice(0), // Ensure a fresh copy of bytes
+    useWorkerFetch: false,
+    useSystemFonts: true,
+    isEvalSupported: false,
+  }).promise;
 
-    try {
-      const baseUrl = await this.miyoClient.resolveBaseUrl(getMiyoCustomUrl(settings));
-      const folderName = vault.getName();
-      const response = await this.miyoClient.parseDoc(baseUrl, folderName, file.path);
-      if (typeof response.text !== "string" || response.text.trim().length === 0) {
-        return { error: "Miyo parse-doc returned empty text" };
-      }
-
-      logInfo(`[SelfHostPdfParser] Parsed PDF via Miyo: ${file.path}`);
-      return { content: response.text };
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      logWarn(`[SelfHostPdfParser] Failed to parse ${file.path} via Miyo parse-doc: ${reason}`);
-      return { error: reason };
+  const parts: string[] = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const content = await page.getTextContent();
+    const text = content.items.map((it: any) => ("str" in it ? it.str : "")).join(" ");
+    parts.push(text);
+    if (typeof page.cleanup === "function") {
+      page.cleanup();
     }
   }
+  if (typeof doc.cleanup === "function") {
+    await doc.cleanup();
+  }
+  return parts.join("\n\n").trim();
+}
+
+/**
+ * Convert DOCX/RTF to markdown using mammoth (loaded lazily). RTF uses a minimal control-word strip.
+ */
+export async function parseDocxLocal(binary: ArrayBuffer, extension: string): Promise<string> {
+  if (extension === "rtf") {
+    const text = new TextDecoder("utf-8").decode(binary);
+    return text
+      .replace(/\\'[0-9a-fA-F]{2}/g, "")
+      .replace(/\\[a-zA-Z]+-?\d* ?/g, "")
+      .replace(/[{}]/g, "")
+      .trim();
+  }
+  const mammoth: any = await import("mammoth");
+  const result = await mammoth.convertToMarkdown({ arrayBuffer: binary });
+  return (result.value ?? "").trim();
+}
+
+/**
+ * Parse spreadsheet bytes into a per-sheet tab-delimited block using xlsx (loaded lazily).
+ */
+export async function parseSpreadsheetLocal(
+  binary: ArrayBuffer,
+  _extension: string
+): Promise<string> {
+  const XLSX: any = await import("xlsx");
+  const workbook = XLSX.read(new Uint8Array(binary), { type: "array" });
+  const parts: string[] = [];
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    const csv = XLSX.utils.sheet_to_csv(sheet, { FS: "\t" });
+    parts.push(`## Sheet: ${sheetName}\n\n${csv}`);
+  }
+  return parts.join("\n\n").trim();
+}
+
+/**
+ * Decode plain-text formats. Synchronous. HTML is passed through turndown.
+ */
+export function parsePlainText(binary: ArrayBuffer, extension: string): string {
+  const text = new TextDecoder("utf-8").decode(binary);
+  if (extension === "htm" || extension === "html") {
+    const turndown = new TurndownService({ headingStyle: "atx" });
+    return turndown.turndown(text);
+  }
+  return text;
+}
+
+/**
+ * Inline message returned for file types we cannot parse locally yet.
+ */
+function makeUnsupportedMessage(file: TFile): string {
+  return `[Format .${file.extension} is not supported for parsing. Supported formats include PDF, DOCX, XLSX, TXT, MD, Canvas, and audio files (MP3, M4A, WAV, WebM).]`;
 }
 
 export class MarkdownParser implements FileParser {
@@ -84,57 +198,53 @@ export class MarkdownParser implements FileParser {
   }
 }
 
-export class PDFParser implements FileParser {
-  supportedExtensions = ["pdf"];
-  private brevilabsClient: BrevilabsClient;
-  private pdfCache: PDFCache;
-  private selfHostPdfParser: SelfHostPdfParser;
+export class CanvasParser implements FileParser {
+  supportedExtensions = ["canvas"];
 
-  constructor(brevilabsClient: BrevilabsClient) {
-    this.brevilabsClient = brevilabsClient;
+  async parseFile(file: TFile, vault: Vault): Promise<string> {
+    try {
+      logInfo("Parsing Canvas file:", file.path);
+      const canvasLoader = new CanvasLoader(vault);
+      const canvasData = await canvasLoader.load(file);
+      return canvasLoader.buildPrompt(canvasData);
+    } catch (error) {
+      logError(`Error parsing Canvas file ${file.path}:`, error);
+      return `[Error: Could not parse Canvas file ${file.basename}]`;
+    }
+  }
+}
+
+/**
+ * Chat-mode PDF parser. Reads bytes locally via pdfjs-dist and caches results in PDFCache.
+ */
+export class PDFParser implements FileParser {
+  supportedExtensions = PDF_EXTENSIONS;
+  private pdfCache: PDFCache;
+
+  constructor() {
     this.pdfCache = PDFCache.getInstance();
-    this.selfHostPdfParser = new SelfHostPdfParser();
   }
 
   async parseFile(file: TFile, vault: Vault): Promise<string> {
     try {
       logInfo("Parsing PDF file:", file.path);
 
-      // Try to get from cache first
-      const cachedResponse = await this.pdfCache.get(file);
-      if (cachedResponse) {
+      const cached = await this.pdfCache.get(file);
+      if (cached) {
         logInfo("Using cached PDF content for:", file.path);
-        // Ensure output file exists even on cache hit (user may have just enabled the setting)
-        await saveConvertedDocOutput(file, cachedResponse.response, vault);
-        return cachedResponse.response;
+        await saveConvertedDocOutput(file, cached.response, vault);
+        return cached.response;
       }
 
-      const settings = getSettings();
-      if (isSelfHostModeValid() && settings.enableMiyo && file.extension.toLowerCase() === "pdf") {
-        const miyoResult = await this.selfHostPdfParser.parsePdf(file, vault);
-        if (miyoResult && "content" in miyoResult) {
-          await this.pdfCache.set(file, {
-            response: miyoResult.content,
-            elapsed_time_ms: 0,
-          });
-          await saveConvertedDocOutput(file, miyoResult.content, vault);
-          return miyoResult.content;
-        }
-
-        if (miyoResult && "error" in miyoResult) {
-          // Self-host mode: do NOT fall back to cloud API to preserve privacy.
-          logWarn(`[PDFParser] Miyo parse failed for ${file.path}: ${miyoResult.error}`);
-          return `[Error: Could not extract content from PDF ${file.basename}. ${miyoResult.error}]`;
-        }
-      }
-
-      // If not in cache, read the file and call the API
-      const binaryContent = await vault.readBinary(file);
-      logInfo("Calling pdf4llm API for:", file.path);
-      const pdf4llmResponse = await this.brevilabsClient.pdf4llm(binaryContent);
-      await this.pdfCache.set(file, pdf4llmResponse);
-      await saveConvertedDocOutput(file, pdf4llmResponse.response, vault);
-      return pdf4llmResponse.response;
+      const start = Date.now();
+      const binary = await vault.readBinary(file);
+      const content = await parsePdfLocal(binary);
+      await this.pdfCache.set(file, {
+        response: content,
+        elapsed_time_ms: Date.now() - start,
+      });
+      await saveConvertedDocOutput(file, content, vault);
+      return content;
     } catch (error) {
       logError(`Error extracting content from PDF ${file.path}:`, error);
       return `[Error: Could not extract content from PDF ${file.basename}]`;
@@ -147,156 +257,113 @@ export class PDFParser implements FileParser {
   }
 }
 
-export class CanvasParser implements FileParser {
-  supportedExtensions = ["canvas"];
+/**
+ * Parses DOCX/DOC/RTF locally using mammoth.
+ */
+export class DocxParser implements FileParser {
+  supportedExtensions = DOCX_EXTENSIONS;
 
   async parseFile(file: TFile, vault: Vault): Promise<string> {
     try {
-      logInfo("Parsing Canvas file:", file.path);
-      const canvasLoader = new CanvasLoader(vault);
-      const canvasData = await canvasLoader.load(file);
-
-      // Use the specialized buildPrompt method to create LLM-friendly format
-      return canvasLoader.buildPrompt(canvasData);
+      const binary = await vault.readBinary(file);
+      return await parseDocxLocal(binary, file.extension.toLowerCase());
     } catch (error) {
-      logError(`Error parsing Canvas file ${file.path}:`, error);
-      return `[Error: Could not parse Canvas file ${file.basename}]`;
+      logError(`Error parsing ${file.extension} file ${file.path}:`, error);
+      return `[Error: Could not parse ${file.basename}: ${(error as Error).message}]`;
     }
   }
 }
 
-export class Docs4LLMParser implements FileParser {
-  // Support various document and media file types
-  supportedExtensions = [
-    // Base types
-    "pdf",
+/**
+ * Parses spreadsheet formats (XLSX, ODS, CSV, etc.) locally using xlsx.
+ */
+export class SpreadsheetParser implements FileParser {
+  supportedExtensions = SPREADSHEET_EXTENSIONS;
 
-    // Documents and presentations
-    "602",
-    "abw",
-    "cgm",
-    "cwk",
-    "doc",
-    "docx",
-    "docm",
-    "dot",
-    "dotm",
-    "hwp",
-    "key",
-    "lwp",
-    "mw",
-    "mcw",
-    "pages",
-    "pbd",
-    "ppt",
-    "pptm",
-    "pptx",
-    "pot",
-    "potm",
-    "potx",
-    "rtf",
-    "sda",
-    "sdd",
-    "sdp",
-    "sdw",
-    "sgl",
-    "sti",
-    "sxi",
-    "sxw",
-    "stw",
-    "sxg",
-    "txt",
-    "uof",
-    "uop",
-    "uot",
-    "vor",
-    "wpd",
-    "wps",
-    "xml",
-    "zabw",
-    "epub",
+  async parseFile(file: TFile, vault: Vault): Promise<string> {
+    try {
+      const binary = await vault.readBinary(file);
+      return await parseSpreadsheetLocal(binary, file.extension.toLowerCase());
+    } catch (error) {
+      logError(`Error parsing spreadsheet ${file.path}:`, error);
+      return `[Error: Could not parse ${file.basename}: ${(error as Error).message}]`;
+    }
+  }
+}
 
-    // Images
-    "jpg",
-    "jpeg",
-    "png",
-    "gif",
-    "bmp",
-    "svg",
-    "tiff",
-    "webp",
-    "web",
-    "htm",
-    "html",
+/**
+ * Reads plain-text / lightly-structured formats (txt, json, xml, log, html) directly from bytes.
+ */
+export class PlainTextParser implements FileParser {
+  supportedExtensions = PLAIN_TEXT_EXTENSIONS;
 
-    // Spreadsheets
-    "xlsx",
-    "xls",
-    "xlsm",
-    "xlsb",
-    "xlw",
-    "csv",
-    "dif",
-    "sylk",
-    "slk",
-    "prn",
-    "numbers",
-    "et",
-    "ods",
-    "fods",
-    "uos1",
-    "uos2",
-    "dbf",
-    "wk1",
-    "wk2",
-    "wk3",
-    "wk4",
-    "wks",
-    "123",
-    "wq1",
-    "wq2",
-    "wb1",
-    "wb2",
-    "wb3",
-    "qpw",
-    "xlr",
-    "eth",
-    "tsv",
+  async parseFile(file: TFile, vault: Vault): Promise<string> {
+    try {
+      const binary = await vault.readBinary(file);
+      return parsePlainText(binary, file.extension.toLowerCase());
+    } catch (error) {
+      logError(`Error reading text file ${file.path}:`, error);
+      return `[Error: Could not read ${file.basename}]`;
+    }
+  }
+}
 
-    // Audio (limited to 20MB)
-    "mp3",
-    "mp4",
-    "mpeg",
-    "mpga",
-    "m4a",
-    "wav",
-    "webm",
-  ];
-  private brevilabsClient: BrevilabsClient;
-  private projectContextCache: ProjectContextCache;
-  private selfHostPdfParser: SelfHostPdfParser;
-  private currentProject: ProjectConfig | null;
-  private static lastRateLimitNoticeTime: number = 0;
+/**
+ * Returns a human-readable message for formats we don't parse locally yet.
+ */
+export class UnsupportedFormatParser implements FileParser {
+  supportedExtensions: string[];
 
-  public static resetRateLimitNoticeTimer(): void {
-    Docs4LLMParser.lastRateLimitNoticeTime = 0;
+  constructor(extensions: string[]) {
+    this.supportedExtensions = extensions;
   }
 
-  constructor(brevilabsClient: BrevilabsClient, project: ProjectConfig | null = null) {
-    this.brevilabsClient = brevilabsClient;
+  async parseFile(file: TFile): Promise<string> {
+    logWarn(`[UnsupportedFormatParser] Unsupported file type: ${file.path}`);
+    return makeUnsupportedMessage(file);
+  }
+}
+
+/**
+ * Transcribes audio files via the configured STT service (e.g. Groq whisper-large-v3).
+ * Results are cached in AudioTranscriptionCache so repeated attaches are free.
+ */
+export class AudioParser implements FileParser {
+  supportedExtensions = AUDIO_EXTENSIONS;
+
+  async parseFile(file: TFile, vault: Vault): Promise<string> {
+    logInfo("Transcribing audio file:", file.path);
+    return AudioTranscriptionService.getInstance().transcribe(file, vault);
+  }
+}
+
+/**
+ * Project-mode parser: dispatches all supported formats to local parsers, caches via ProjectContextCache.
+ */
+export class ProjectFileParser implements FileParser {
+  supportedExtensions = [
+    ...PDF_EXTENSIONS,
+    ...DOCX_EXTENSIONS,
+    ...SPREADSHEET_EXTENSIONS,
+    ...PLAIN_TEXT_EXTENSIONS,
+    ...AUDIO_EXTENSIONS,
+  ];
+  private projectContextCache: ProjectContextCache;
+  private currentProject: ProjectConfig | null;
+
+  constructor(project: ProjectConfig | null = null) {
     this.projectContextCache = ProjectContextCache.getInstance();
-    this.selfHostPdfParser = new SelfHostPdfParser();
     this.currentProject = project;
   }
 
   async parseFile(file: TFile, vault: Vault): Promise<string> {
     try {
       logInfo(
-        `[Docs4LLMParser] Project ${this.currentProject?.name}: Parsing ${file.extension} file: ${file.path}`
+        `[ProjectFileParser] Project ${this.currentProject?.name}: Parsing ${file.extension} file: ${file.path}`
       );
 
       if (!this.currentProject) {
-        logError("[Docs4LLMParser] No project context for parsing file: ", file.path);
+        logError("[ProjectFileParser] No project context for parsing file: ", file.path);
         throw new Error("No project context provided for file parsing");
       }
 
@@ -306,166 +373,68 @@ export class Docs4LLMParser implements FileParser {
       );
       if (cachedContent) {
         logInfo(
-          `[Docs4LLMParser] Project ${this.currentProject.name}: Using cached content for: ${file.path}`
+          `[ProjectFileParser] Project ${this.currentProject.name}: Using cached content for: ${file.path}`
         );
-        // Ensure output file exists even on cache hit (user may have just enabled the setting)
         await saveConvertedDocOutput(file, cachedContent, vault);
         return cachedContent;
       }
-      logInfo(
-        `[Docs4LLMParser] Project ${this.currentProject.name}: Cache miss for: ${file.path}. Proceeding to API call.`
-      );
 
-      // For PDFs, try Miyo first when self-host mode is active
-      if (
-        isSelfHostModeValid() &&
-        getSettings().enableMiyo &&
-        file.extension.toLowerCase() === "pdf"
-      ) {
-        const miyoResult = await this.selfHostPdfParser.parsePdf(file, vault);
-        if (miyoResult && "content" in miyoResult) {
-          await this.projectContextCache.setFileContext(
-            this.currentProject,
-            file.path,
-            miyoResult.content
-          );
-          await saveConvertedDocOutput(file, miyoResult.content, vault);
-          logInfo(
-            `[Docs4LLMParser] Project ${this.currentProject.name}: Parsed PDF via Miyo: ${file.path}`
-          );
-          return miyoResult.content;
-        }
-        if (miyoResult && "error" in miyoResult) {
-          // Self-host mode: do NOT fall back to cloud API to preserve privacy.
-          // Throw so executeWithProcessTracking marks this file as failed/retriable.
-          throw new Error(`Miyo failed to parse ${file.basename}: ${miyoResult.error}`);
-        }
-      }
-
-      const binaryContent = await vault.readBinary(file);
-
-      logInfo(
-        `[Docs4LLMParser] Project ${this.currentProject.name}: Calling docs4llm API for: ${file.path}`
-      );
-      const docs4llmResponse = await this.brevilabsClient.docs4llm(binaryContent, file.extension);
-
-      if (!docs4llmResponse || !docs4llmResponse.response) {
-        throw new Error("Empty response from docs4llm API");
-      }
-
-      // Extract markdown content from response
-      let content = "";
-      if (typeof docs4llmResponse.response === "string") {
-        content = docs4llmResponse.response;
-      } else if (Array.isArray(docs4llmResponse.response)) {
-        // Handle array of documents from docs4llm
-        const markdownParts: string[] = [];
-        for (const doc of docs4llmResponse.response) {
-          if (doc.content) {
-            // Prioritize markdown content, then fallback to text content
-            if (doc.content.md) {
-              markdownParts.push(doc.content.md);
-            } else if (doc.content.text) {
-              markdownParts.push(doc.content.text);
-            }
-          }
-        }
-        content = markdownParts.join("\n\n");
-      } else if (typeof docs4llmResponse.response === "object") {
-        // Handle single object response (backward compatibility)
-        if (docs4llmResponse.response.md) {
-          content = docs4llmResponse.response.md;
-        } else if (docs4llmResponse.response.text) {
-          content = docs4llmResponse.response.text;
-        } else if (docs4llmResponse.response.content) {
-          content = docs4llmResponse.response.content;
-        } else {
-          // If no markdown/text/content field, stringify the entire response
-          content = JSON.stringify(docs4llmResponse.response, null, 2);
-        }
+      const ext = file.extension.toLowerCase();
+      let content: string;
+      if (AUDIO_EXTENSIONS.includes(ext)) {
+        // Audio transcription uses its own cache keyed on model; skip the project cache.
+        content = await AudioTranscriptionService.getInstance().transcribe(file, vault);
       } else {
-        content = String(docs4llmResponse.response);
+        const binary = await vault.readBinary(file);
+        if (PDF_EXTENSIONS.includes(ext)) {
+          content = await parsePdfLocal(binary);
+        } else if (DOCX_EXTENSIONS.includes(ext)) {
+          content = await parseDocxLocal(binary, ext);
+        } else if (SPREADSHEET_EXTENSIONS.includes(ext)) {
+          content = await parseSpreadsheetLocal(binary, ext);
+        } else if (PLAIN_TEXT_EXTENSIONS.includes(ext)) {
+          content = parsePlainText(binary, ext);
+        } else {
+          content = makeUnsupportedMessage(file);
+        }
       }
 
-      // Cache the converted content
       await this.projectContextCache.setFileContext(this.currentProject, file.path, content);
       await saveConvertedDocOutput(file, content, vault);
 
       logInfo(
-        `[Docs4LLMParser] Project ${this.currentProject.name}: Successfully processed and cached: ${file.path}`
+        `[ProjectFileParser] Project ${this.currentProject.name}: Successfully processed and cached: ${file.path}`
       );
       return content;
     } catch (error) {
       logError(
-        `[Docs4LLMParser] Project ${this.currentProject?.name}: Error processing file ${file.path}:`,
+        `[ProjectFileParser] Project ${this.currentProject?.name}: Error processing file ${file.path}:`,
         error
       );
-
-      // Check if this is a rate limit error and show user-friendly notice
-      if (isRateLimitError(error)) {
-        this.showRateLimitNotice(error);
-      }
-
-      throw error; // Propagate the error up
+      const msg = error instanceof Error ? error.message : String(error);
+      return `[Error: Could not parse ${file.basename}: ${msg}]`;
     }
   }
-
-  private showRateLimitNotice(error: any): void {
-    const now = Date.now();
-
-    // Only show one rate limit notice per minute to avoid spam
-    if (now - Docs4LLMParser.lastRateLimitNoticeTime < 60000) {
-      return;
-    }
-
-    Docs4LLMParser.lastRateLimitNoticeTime = now;
-
-    const retryTime = extractRetryTime(error);
-
-    new Notice(
-      `⚠️ Rate limit exceeded for document processing. Please try again in ${retryTime}. Having fewer non-markdown files in the project will help.`,
-      10000 // Show notice for 10 seconds
-    );
-  }
-
-  async clearCache(): Promise<void> {
-    // This method is no longer needed as cache clearing is handled at the project level
-    logInfo("Cache clearing is now handled at the project level");
-  }
 }
-
-// Future parsers can be added like this:
-/*
-class DocxParser implements FileParser {
-  supportedExtensions = ["docx", "doc"];
-
-  async parseFile(file: TFile, vault: Vault): Promise<string> {
-    // Implementation for Word documents
-  }
-}
-*/
 
 export class FileParserManager {
   private parsers: Map<string, FileParser> = new Map();
 
-  constructor(
-    brevilabsClient: BrevilabsClient,
-    _vault: Vault,
-    isProjectMode: boolean = false,
-    project: ProjectConfig | null = null
-  ) {
-    // Register parsers
+  constructor(_vault: Vault, isProjectMode: boolean = false, project: ProjectConfig | null = null) {
     this.registerParser(new MarkdownParser());
+    this.registerParser(new CanvasParser());
 
-    // In project mode, use Docs4LLMParser for all supported files including PDFs
-    this.registerParser(new Docs4LLMParser(brevilabsClient, project));
-
-    // Only register PDFParser when not in project mode
-    if (!isProjectMode) {
-      this.registerParser(new PDFParser(brevilabsClient));
+    if (isProjectMode) {
+      this.registerParser(new ProjectFileParser(project));
+    } else {
+      this.registerParser(new PDFParser());
+      this.registerParser(new DocxParser());
+      this.registerParser(new SpreadsheetParser());
+      this.registerParser(new PlainTextParser());
+      this.registerParser(new AudioParser());
     }
 
-    this.registerParser(new CanvasParser());
+    this.registerParser(new UnsupportedFormatParser(UNSUPPORTED_EXTENSIONS));
   }
 
   registerParser(parser: FileParser) {
@@ -475,15 +444,16 @@ export class FileParserManager {
   }
 
   async parseFile(file: TFile, vault: Vault): Promise<string> {
-    const parser = this.parsers.get(file.extension);
+    const parser = this.parsers.get(file.extension.toLowerCase());
     if (!parser) {
-      throw new Error(`No parser found for file type: ${file.extension}`);
+      logWarn(`[FileParserManager] No parser for extension: ${file.extension}`);
+      return makeUnsupportedMessage(file);
     }
     return await parser.parseFile(file, vault);
   }
 
   supportsExtension(extension: string): boolean {
-    return this.parsers.has(extension);
+    return this.parsers.has(extension.toLowerCase());
   }
 
   async clearPDFCache(): Promise<void> {

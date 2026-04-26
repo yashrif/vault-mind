@@ -3,8 +3,7 @@ import { TEXT_WEIGHT } from "@/constants";
 import { BrevilabsClient } from "@/LLMProviders/brevilabsClient";
 import { hasSelfHostSearchKey, selfHostWebSearch } from "@/LLMProviders/selfHostServices";
 import { logInfo } from "@/logger";
-import { shouldUseMiyo } from "@/miyo/miyoUtils";
-import { isSelfHostModeValid } from "@/plusUtils";
+import { isSelfHostModeValid } from "@/selfHostUtils";
 import { RetrieverFactory } from "@/search/RetrieverFactory";
 import { getSettings } from "@/settings/model";
 import { z } from "zod";
@@ -374,80 +373,6 @@ function validateTimeRange(timeRange?: {
   return { startTime, endTime };
 }
 
-/**
- * Run Miyo search: FilterRetriever (local tag/title) + MiyoSemanticRetriever (server-side).
- * Miyo replaces local lexical/semantic search entirely.
- */
-async function performMiyoSearch({
-  query,
-  salientTerms,
-  timeRange,
-}: {
-  query: string;
-  salientTerms: string[];
-  timeRange?: { startTime: number; endTime: number };
-}) {
-  const tagTerms = salientTerms.filter((term) => term.startsWith("#"));
-  const needsExpandedLimits = timeRange !== undefined || tagTerms.length > 0;
-  const effectiveMaxK = needsExpandedLimits ? RETURN_ALL_LIMIT : getSettings().maxSourceChunks;
-
-  // FilterRetriever for local tag/title/time-range matches
-  const filterRetriever = new FilterRetriever(app, {
-    salientTerms,
-    timeRange,
-    maxK: effectiveMaxK,
-    returnAll: needsExpandedLimits,
-  });
-  const filterDocs = await filterRetriever.getRelevantDocuments(query);
-
-  // When timeRange is set, filter results are the complete set — skip Miyo search
-  // (mirrors the non-Miyo path where main retriever is skipped for time-range queries)
-  let miyoDocs: import("@langchain/core/documents").Document[] = [];
-  if (!filterRetriever.hasTimeRange()) {
-    const miyoRetriever = RetrieverFactory.createMiyoRetriever(app, {
-      minSimilarityScore: needsExpandedLimits ? 0.0 : 0.1,
-      maxK: effectiveMaxK,
-      salientTerms,
-      textWeight: TEXT_WEIGHT,
-      returnAll: needsExpandedLimits,
-      useRerankerThreshold: 0.5,
-      tagTerms,
-    });
-    miyoDocs = await miyoRetriever.getRelevantDocuments(query);
-  }
-
-  logInfo(
-    `miyoSearch: ${filterDocs.length} filter + ${miyoDocs.length} miyo docs for query: "${query}"`
-  );
-
-  // Merge: filter results first, then Miyo results (deduped)
-  const { filterResults, searchResults } = mergeFilterAndSearchResults(filterDocs, miyoDocs);
-
-  const mapDoc = (doc: import("@langchain/core/documents").Document, isFilter: boolean) => ({
-    title: doc.metadata.title || "Untitled",
-    content: doc.pageContent,
-    path: doc.metadata.path || "",
-    score: doc.metadata.rerank_score ?? doc.metadata.score ?? 0,
-    rerank_score: doc.metadata.rerank_score ?? doc.metadata.score ?? 0,
-    includeInContext: doc.metadata.includeInContext ?? true,
-    source: doc.metadata.source,
-    mtime: doc.metadata.mtime ?? null,
-    ctime: doc.metadata.ctime ?? null,
-    chunkId: (doc.metadata as any).chunkId ?? null,
-    isChunk: (doc.metadata as any).isChunk ?? false,
-    explanation: doc.metadata.explanation ?? null,
-    isFilterResult: isFilter,
-    matchType: isFilter ? doc.metadata.source || "filter" : (undefined as string | undefined),
-  });
-
-  const allDocs = [
-    ...filterResults.map((doc) => mapDoc(doc, true)),
-    ...searchResults.map((doc) => mapDoc(doc, false)),
-  ].slice(0, effectiveMaxK);
-
-  return { type: "local_search", documents: allDocs };
-}
-
 // Smart wrapper that uses RetrieverFactory for unified retriever selection
 const localSearchTool = createLangChainTool({
   name: "localSearch",
@@ -457,16 +382,6 @@ const localSearchTool = createLangChainTool({
   func: async ({ timeRange: rawTimeRange, query, salientTerms, _preExpandedQuery }) => {
     // Validate time range to prevent LLM hallucinations (e.g., {startTime: 0, endTime: 0})
     const timeRange = validateTimeRange(rawTimeRange);
-
-    // Miyo handles search server-side — use separate path (no local lexical search)
-    if (RetrieverFactory.isMiyoActive()) {
-      logInfo("localSearch: Using Miyo search path");
-      return await performMiyoSearch({
-        query,
-        salientTerms,
-        timeRange,
-      });
-    }
 
     const tagTerms = salientTerms.filter((term) => term.startsWith("#"));
     const shouldForceLexical = timeRange !== undefined || tagTerms.length > 0;
@@ -501,7 +416,7 @@ const localSearchTool = createLangChainTool({
 // Note: indexTool behavior depends on which retriever is active
 const indexTool = createLangChainTool({
   name: "indexVault",
-  description: "Index the vault to the Copilot index",
+  description: "Index the vault to the Cortex index",
   schema: z.object({}), // No parameters
   func: async () => {
     const settings = getSettings();
@@ -510,17 +425,9 @@ const indexTool = createLangChainTool({
       try {
         const VectorStoreManager = (await import("@/search/vectorStoreManager")).default;
         const count = await VectorStoreManager.getInstance().indexVaultToVectorStore();
-        const usingMiyo = shouldUseMiyo(settings);
-        const indexResultPrompt = usingMiyo
-          ? "Requested a Miyo folder scan for this vault.\n"
-          : `Semantic search index refreshed with ${count} documents.\n`;
         return {
           success: true,
-          message: usingMiyo
-            ? indexResultPrompt +
-              "Miyo will handle chunking and indexing for the registered folder."
-            : indexResultPrompt +
-              `Semantic search index has been refreshed with ${count} documents.`,
+          message: `Semantic search index has been refreshed with ${count} documents.`,
           documentCount: count,
         };
       } catch (error: any) {

@@ -48,8 +48,8 @@ const SUGGESTED_PROMPTS: Record<string, NotePrompt> = {
       `Based on my notes on <topic>, what is the question that I should be asking, but am not?`,
     ],
   },
-  copilotPlus: {
-    title: "Copilot Plus",
+  agentMode: {
+    title: "Agent Mode",
     prompts: [
       `Give me a recap of last week @vault`,
       `What are the key takeaways from my notes on <topic> @vault`,
@@ -65,8 +65,9 @@ const SUGGESTED_PROMPTS: Record<string, NotePrompt> = {
 const PROMPT_KEYS: Record<ChainType, Array<keyof typeof SUGGESTED_PROMPTS>> = {
   [ChainType.LLM_CHAIN]: ["activeNote", "quoteNote", "fun"],
   [ChainType.VAULT_QA_CHAIN]: ["qaVault", "qaVault", "quoteNote"],
-  [ChainType.COPILOT_PLUS_CHAIN]: ["copilotPlus", "copilotPlus", "copilotPlus"],
-  [ChainType.PROJECT_CHAIN]: ["copilotPlus", "copilotPlus", "copilotPlus"],
+  [ChainType.TOOL_CHAIN]: ["agentMode", "agentMode", "agentMode"],
+  [ChainType.PROJECT_CHAIN]: ["agentMode", "agentMode", "agentMode"],
+  [ChainType.TELEGRAM_CHAIN]: ["activeNote", "quoteNote", "fun"],
 };
 
 function getRandomPrompt(chainType: ChainType = ChainType.LLM_CHAIN) {
@@ -146,7 +147,7 @@ export const SuggestedPrompts: React.FC<SuggestedPromptsProps> = ({ onClick }) =
               <TriangleAlert className="tw-size-4" /> Your auto-index strategy is set to{" "}
               <b>NEVER</b>. Before proceeding, click the{" "}
               <span className="tw-text-accent">Refresh Index</span> button below or run the{" "}
-              <span className="tw-text-accent">Copilot command: Index (refresh) vault for QA</span>{" "}
+              <span className="tw-text-accent">Cortex command: Index (refresh) vault for QA</span>{" "}
               to update the index.
             </div>
           </div>

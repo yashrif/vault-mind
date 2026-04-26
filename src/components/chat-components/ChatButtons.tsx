@@ -15,6 +15,14 @@ import {
 import { Platform } from "obsidian";
 import React from "react";
 
+export interface ChatActionCapabilities {
+  allowUserEdit?: boolean;
+  allowDelete?: boolean;
+  allowRegenerate?: boolean;
+  allowInsert?: boolean;
+  allowShowSources?: boolean;
+}
+
 interface ChatButtonsProps {
   message: ChatMessage;
   onCopy: () => void;
@@ -25,6 +33,7 @@ interface ChatButtonsProps {
   onDelete: () => void;
   onShowSources?: () => void;
   hasSources: boolean;
+  actionCapabilities?: ChatActionCapabilities;
 }
 
 export const ChatButtons: React.FC<ChatButtonsProps> = ({
@@ -37,7 +46,16 @@ export const ChatButtons: React.FC<ChatButtonsProps> = ({
   onDelete,
   onShowSources,
   hasSources,
+  actionCapabilities,
 }) => {
+  const capabilities: Required<ChatActionCapabilities> = {
+    allowUserEdit: actionCapabilities?.allowUserEdit ?? true,
+    allowDelete: actionCapabilities?.allowDelete ?? true,
+    allowRegenerate: actionCapabilities?.allowRegenerate ?? true,
+    allowInsert: actionCapabilities?.allowInsert ?? true,
+    allowShowSources: actionCapabilities?.allowShowSources ?? true,
+  };
+
   return (
     <div
       className={cn("tw-flex tw-gap-1", {
@@ -54,26 +72,30 @@ export const ChatButtons: React.FC<ChatButtonsProps> = ({
             </TooltipTrigger>
             <TooltipContent>Copy</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={onEdit} variant="ghost2" size="fit" title="Edit">
-                <PenSquare className="tw-size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Edit</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={onDelete} variant="ghost2" size="fit" title="Delete">
-                <Trash2 className="tw-size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Delete</TooltipContent>
-          </Tooltip>
+          {capabilities.allowUserEdit && onEdit && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={onEdit} variant="ghost2" size="fit" title="Edit">
+                  <PenSquare className="tw-size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Edit</TooltipContent>
+            </Tooltip>
+          )}
+          {capabilities.allowDelete && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={onDelete} variant="ghost2" size="fit" title="Delete">
+                  <Trash2 className="tw-size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete</TooltipContent>
+            </Tooltip>
+          )}
         </>
       ) : (
         <>
-          {hasSources && (
+          {capabilities.allowShowSources && hasSources && onShowSources && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button onClick={onShowSources} variant="ghost2" size="fit" title="Show Sources">
@@ -83,19 +105,21 @@ export const ChatButtons: React.FC<ChatButtonsProps> = ({
               <TooltipContent>Show Sources</TooltipContent>
             </Tooltip>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={onInsertIntoEditor}
-                variant="ghost2"
-                size="fit"
-                title="Insert / Replace at cursor"
-              >
-                <TextCursorInput className="tw-size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Insert / Replace at cursor</TooltipContent>
-          </Tooltip>
+          {capabilities.allowInsert && onInsertIntoEditor && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={onInsertIntoEditor}
+                  variant="ghost2"
+                  size="fit"
+                  title="Insert / Replace at cursor"
+                >
+                  <TextCursorInput className="tw-size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Insert / Replace at cursor</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost2" size="fit" onClick={onCopy} title="Copy">
@@ -104,22 +128,26 @@ export const ChatButtons: React.FC<ChatButtonsProps> = ({
             </TooltipTrigger>
             <TooltipContent>Copy</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={onRegenerate} variant="ghost2" size="fit" title="Regenerate">
-                <RotateCw className="tw-size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Regenerate</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button onClick={onDelete} variant="ghost2" size="fit" title="Delete">
-                <Trash2 className="tw-size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Delete</TooltipContent>
-          </Tooltip>
+          {capabilities.allowRegenerate && onRegenerate && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={onRegenerate} variant="ghost2" size="fit" title="Regenerate">
+                  <RotateCw className="tw-size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Regenerate</TooltipContent>
+            </Tooltip>
+          )}
+          {capabilities.allowDelete && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={onDelete} variant="ghost2" size="fit" title="Delete">
+                  <Trash2 className="tw-size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete</TooltipContent>
+            </Tooltip>
+          )}
         </>
       )}
     </div>

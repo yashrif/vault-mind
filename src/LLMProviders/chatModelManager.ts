@@ -1,6 +1,5 @@
 import { CustomModel, getModelKey, ModelConfig } from "@/aiParams";
 import {
-  BREVILABS_MODELS_BASE_URL,
   BUILTIN_CHAT_MODELS,
   ChatModelProviders,
   DEFAULT_OLLAMA_NUM_CTX,
@@ -9,9 +8,9 @@ import {
 } from "@/constants";
 import { getDecryptedKey } from "@/encryptionService";
 import { logError, logInfo } from "@/logger";
-import { isPlusEnabled } from "@/plusUtils";
+
 import {
-  CopilotSettings,
+  CortexSettings,
   getModelKeyFromModel,
   getSettings,
   subscribeToSettingsChange,
@@ -36,7 +35,7 @@ import { ChatMistralAI } from "@langchain/mistralai";
 import { ChatOllama } from "@langchain/ollama";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatXAI } from "@langchain/xai";
-import { MissingApiKeyError, MissingPlusLicenseError } from "@/error";
+import { MissingApiKeyError } from "@/error";
 import { Notice } from "obsidian";
 import { ChatOpenRouter } from "./ChatOpenRouter";
 import { ChatLMStudio } from "./ChatLMStudio";
@@ -75,7 +74,6 @@ const CHAT_PROVIDER_CONSTRUCTORS = {
   [ChatModelProviders.GROQ]: ChatGroq,
   [ChatModelProviders.OPENAI_FORMAT]: ChatOpenAI,
   [ChatModelProviders.SILICONFLOW]: ChatOpenAI,
-  [ChatModelProviders.COPILOT_PLUS]: ChatOpenRouter,
   [ChatModelProviders.MISTRAL]: ChatMistralAI,
   [ChatModelProviders.DEEPSEEK]: ChatDeepSeek,
   [ChatModelProviders.AMAZON_BEDROCK]: BedrockChatModel,
@@ -139,7 +137,6 @@ export default class ChatModelManager {
     [ChatModelProviders.OLLAMA]: () => "default-key",
     [ChatModelProviders.LM_STUDIO]: () => "default-key",
     [ChatModelProviders.OPENAI_FORMAT]: () => "default-key",
-    [ChatModelProviders.COPILOT_PLUS]: () => getSettings().plusLicenseKey,
     [ChatModelProviders.MISTRAL]: () => getSettings().mistralApiKey,
     [ChatModelProviders.DEEPSEEK]: () => getSettings().deepseekApiKey,
     [ChatModelProviders.AMAZON_BEDROCK]: () => getSettings().amazonBedrockApiKey,
@@ -172,7 +169,7 @@ export default class ChatModelManager {
   private getTemperatureForModel(
     modelInfo: ModelInfo,
     customModel: CustomModel,
-    settings: CopilotSettings
+    settings: CortexSettings
   ): number | undefined {
     // Thinking-enabled models don't accept temperature
     if (modelInfo.isThinkingEnabled) {
@@ -317,8 +314,8 @@ export default class ChatModelManager {
           baseURL: customModel.baseUrl || "https://openrouter.ai/api/v1",
           fetch: customModel.enableCors ? safeFetch : undefined,
           defaultHeaders: {
-            "HTTP-Referer": "https://obsidiancopilot.com",
-            "X-Title": "Obsidian Copilot",
+            "HTTP-Referer": "https://obsidianCortex.com",
+            "X-Title": "Obsidian Cortex",
           },
         },
         // Enable reasoning if the model has the reasoning capability
@@ -398,14 +395,6 @@ export default class ChatModelManager {
           customModel
         ),
       },
-      [ChatModelProviders.COPILOT_PLUS]: {
-        modelName: modelName,
-        apiKey: await getDecryptedKey(settings.plusLicenseKey),
-        configuration: {
-          baseURL: BREVILABS_MODELS_BASE_URL,
-          fetch: safeFetch,
-        },
-      },
       [ChatModelProviders.MISTRAL]: {
         model: modelName,
         apiKey: await getDecryptedKey(customModel.apiKey || settings.mistralApiKey),
@@ -427,7 +416,7 @@ export default class ChatModelManager {
         // WARNING: AbortSignal/timeout will NOT work when enableCors is true
         // because Obsidian's requestUrl doesn't support cancellation.
         // Reason: fetchImplementation is passed to the authed fetch wrapper inside
-        // GitHubCopilotChatModel, which injects Copilot token and headers per request.
+        // GitHubCopilotChatModel, which injects Cortex token and headers per request.
         fetchImplementation: customModel.enableCors ? safeFetchNoThrow : undefined,
       },
     };
@@ -522,14 +511,14 @@ export default class ChatModelManager {
    * Builds configuration for Amazon Bedrock models by merging custom overrides with global defaults.
    * @param customModel - The model definition provided by the user.
    * @param modelName - The resolved Bedrock model identifier to invoke.
-   * @param settings - Current Copilot settings.
+   * @param settings - Current Cortex settings.
    * @param maxTokens - Maximum completion tokens requested for the invocation.
    * @param temperature - Optional temperature override for the invocation.
    */
   private async buildBedrockConfig(
     customModel: CustomModel,
     modelName: string,
-    settings: CopilotSettings,
+    settings: CortexSettings,
     maxTokens: number,
     temperature: number | undefined
   ): Promise<BedrockChatModelFields> {
@@ -693,20 +682,14 @@ export default class ChatModelManager {
   }
 
   /**
-   * Helper to validate a model config has valid credentials and meets entitlement requirements.
-   * Does NOT check believerExclusive - that's validated at usage time, not selection time.
+   * Helper to validate a model config has valid credentials.
    */
-  private isModelConfigValid(model: CustomModel, settings: CopilotSettings): boolean {
+  private isModelConfigValid(model: CustomModel, settings: CortexSettings): boolean {
     const modelKey = getModelKeyFromModel(model);
     const modelInfo = ChatModelManager.modelMap[modelKey];
 
     // Check if model exists in map and has API key
     if (!modelInfo || !modelInfo.hasApiKey) {
-      return false;
-    }
-
-    // Check Copilot Plus entitlement requirements (bypassed in self-host mode)
-    if (model.plusExclusive && !isPlusEnabled()) {
       return false;
     }
 
@@ -717,9 +700,6 @@ export default class ChatModelManager {
    * Resolves the active chat model for temperature override operations.
    * Uses a single source of truth: getModelKey() -> findCustomModel()
    * Falls back to first valid model in settings.activeModels if current selection is invalid.
-   *
-   * Note: believerExclusive models are trusted if explicitly selected by the user,
-   * but skipped in fallback to avoid selecting them for non-Believer users.
    */
   private resolveModelForTemperatureOverride(): CustomModel {
     const settings = getSettings();
@@ -730,7 +710,6 @@ export default class ChatModelManager {
       if (currentModelKey) {
         const model = findCustomModel(currentModelKey, settings.activeModels);
 
-        // Validate it (trust believerExclusive if user selected it)
         if (this.isModelConfigValid(model, settings)) {
           return model;
         }
@@ -740,9 +719,8 @@ export default class ChatModelManager {
     }
 
     // Fallback: Find first valid model in settings.activeModels
-    // Skip believerExclusive models in fallback to avoid selecting them for non-Believer users
     for (const model of settings.activeModels) {
-      if (model.enabled && !model.believerExclusive && this.isModelConfigValid(model, settings)) {
+      if (model.enabled && this.isModelConfigValid(model, settings)) {
         return model;
       }
     }
@@ -799,11 +777,6 @@ export default class ChatModelManager {
     }
     if (!selectedModel.hasApiKey) {
       const errorMessage = `API key is not provided for the model: ${modelKey}.`;
-      if (model.provider === ChatModelProviders.COPILOT_PLUS) {
-        throw new MissingPlusLicenseError(
-          "Copilot Plus license key is not configured. Please enter your license key in the Copilot Plus section at the top of Basic Settings."
-        );
-      }
       throw new MissingApiKeyError(errorMessage);
     }
 

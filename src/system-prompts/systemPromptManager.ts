@@ -19,9 +19,9 @@ import {
   setSelectedPromptTitle,
 } from "@/system-prompts/state";
 import {
-  COPILOT_SYSTEM_PROMPT_CREATED,
-  COPILOT_SYSTEM_PROMPT_MODIFIED,
-  COPILOT_SYSTEM_PROMPT_LAST_USED,
+  Cortex_SYSTEM_PROMPT_CREATED,
+  Cortex_SYSTEM_PROMPT_MODIFIED,
+  Cortex_SYSTEM_PROMPT_LAST_USED,
 } from "@/system-prompts/constants";
 import { logInfo } from "@/logger";
 import { ensureFolderExists } from "@/utils";
@@ -148,9 +148,9 @@ export class SystemPromptManager {
         // Update frontmatter - write back ALL fields since vault.modify clears frontmatter
         // Reference: Command module writes all fields in processFrontMatter
         await app.fileManager.processFrontMatter(file, (frontmatter) => {
-          frontmatter[COPILOT_SYSTEM_PROMPT_CREATED] = newPrompt.createdMs;
-          frontmatter[COPILOT_SYSTEM_PROMPT_MODIFIED] = newPrompt.modifiedMs;
-          frontmatter[COPILOT_SYSTEM_PROMPT_LAST_USED] = newPrompt.lastUsedMs;
+          frontmatter[Cortex_SYSTEM_PROMPT_CREATED] = newPrompt.createdMs;
+          frontmatter[Cortex_SYSTEM_PROMPT_MODIFIED] = newPrompt.modifiedMs;
+          frontmatter[Cortex_SYSTEM_PROMPT_LAST_USED] = newPrompt.lastUsedMs;
         });
       }
 
@@ -165,6 +165,10 @@ export class SystemPromptManager {
           if (settings.defaultSystemPromptTitle === oldTitle) {
             updateSetting("defaultSystemPromptTitle", newPrompt.title);
             logInfo(`Updated defaultSystemPromptTitle: ${oldTitle} -> ${newPrompt.title}`);
+          }
+          if (settings.telegramSystemPromptTitle === oldTitle) {
+            updateSetting("telegramSystemPromptTitle", newPrompt.title);
+            logInfo(`Updated telegramSystemPromptTitle: ${oldTitle} -> ${newPrompt.title}`);
           }
         }
         upsertCachedSystemPrompt(newPrompt);
@@ -200,6 +204,10 @@ export class SystemPromptManager {
       if (settings.defaultSystemPromptTitle === title) {
         updateSetting("defaultSystemPromptTitle", "");
         logInfo(`Cleared defaultSystemPromptTitle (deleted: ${title})`);
+      }
+      if (settings.telegramSystemPromptTitle === title) {
+        updateSetting("telegramSystemPromptTitle", "");
+        logInfo(`Cleared telegramSystemPromptTitle (deleted: ${title})`);
       }
 
       if (getSelectedPromptTitle() === title) {

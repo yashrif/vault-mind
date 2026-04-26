@@ -1,6 +1,7 @@
 import { StructuredTool } from "@langchain/core/tools";
 
 const mockRead = jest.fn();
+const mockParseFile = jest.fn();
 
 // Helper to invoke tool and parse JSON result
 const invokeReadNoteTool = async (tool: StructuredTool, args: any) => {
@@ -25,11 +26,18 @@ jest.mock("obsidian", () => ({
   TFile: MockTFile,
 }));
 
+jest.mock("./FileParserManager", () => ({
+  FileParserManager: jest.fn().mockImplementation(() => ({
+    parseFile: mockParseFile,
+  })),
+}));
+
 describe("readNoteTool", () => {
   let readNoteTool: StructuredTool;
   let originalApp: any;
   let getAbstractFileByPathMock: jest.Mock;
   let getMarkdownFilesMock: jest.Mock;
+  let getFilesMock: jest.Mock;
   let getFirstLinkpathDestMock: jest.Mock;
 
   beforeEach(async () => {
@@ -38,14 +46,23 @@ describe("readNoteTool", () => {
     originalApp = global.app;
     getAbstractFileByPathMock = jest.fn();
     getMarkdownFilesMock = jest.fn().mockReturnValue([]);
+    getFilesMock = jest.fn().mockReturnValue([]);
     getFirstLinkpathDestMock = jest.fn().mockReturnValue(null);
     mockRead.mockReset();
     mockRead.mockResolvedValue("");
+    mockParseFile.mockReset();
+    mockParseFile.mockImplementation(async (file: MockTFile) => {
+      if (file.path.toLowerCase().endsWith(".pdf")) {
+        return "[Parsed PDF content]";
+      }
+      return await mockRead(file);
+    });
 
     global.app = {
       vault: {
         getAbstractFileByPath: getAbstractFileByPathMock,
         getMarkdownFiles: getMarkdownFilesMock,
+        getFiles: getFilesMock,
         read: mockRead,
       },
       metadataCache: {
@@ -176,6 +193,7 @@ describe("readNoteTool", () => {
       link === "Project Plan" ? candidatePrimary : null
     );
     getMarkdownFilesMock.mockReturnValue([candidatePrimary, candidateDuplicate, file]);
+    getFilesMock.mockReturnValue([candidatePrimary, candidateDuplicate, file]);
     mockRead.mockResolvedValue("Intro [[Project Plan]] details");
 
     const result = await invokeReadNoteTool(readNoteTool, { notePath });
@@ -203,6 +221,7 @@ describe("readNoteTool", () => {
       link === "Docs/Guide" ? guideFile : null
     );
     getMarkdownFilesMock.mockReturnValue([guideFile, file]);
+    getFilesMock.mockReturnValue([guideFile, file]);
     mockRead.mockResolvedValue("See [[Docs/Guide#Setup|Quick Start]] for steps.");
 
     const result = await invokeReadNoteTool(readNoteTool, { notePath });
@@ -267,6 +286,7 @@ describe("readNoteTool", () => {
     getAbstractFileByPathMock.mockReturnValue(null);
     getFirstLinkpathDestMock.mockReturnValue(null);
     getMarkdownFilesMock.mockReturnValue([targetFile]);
+    getFilesMock.mockReturnValue([targetFile]);
     mockRead.mockResolvedValue("Content");
 
     const result = await invokeReadNoteTool(readNoteTool, { notePath: requestedPath });
@@ -283,6 +303,7 @@ describe("readNoteTool", () => {
     getAbstractFileByPathMock.mockReturnValue(null);
     getFirstLinkpathDestMock.mockReturnValue(null);
     getMarkdownFilesMock.mockReturnValue([projectFile, archiveFile]);
+    getFilesMock.mockReturnValue([projectFile, archiveFile]);
 
     const result = await invokeReadNoteTool(readNoteTool, { notePath: requestedPath });
 
@@ -306,11 +327,26 @@ describe("readNoteTool", () => {
     getAbstractFileByPathMock.mockReturnValue(null);
     getFirstLinkpathDestMock.mockReturnValue(null);
     getMarkdownFilesMock.mockReturnValue([targetFile, duplicateFile]);
+    getFilesMock.mockReturnValue([targetFile, duplicateFile]);
     mockRead.mockResolvedValue("Content");
 
     const result = await invokeReadNoteTool(readNoteTool, { notePath: requestedPath });
 
     expect(result.notePath).toBe(targetFile.path);
     expect(mockRead).toHaveBeenCalledWith(targetFile);
+  });
+
+  it("reads supported non-markdown files like PDFs through the shared file parser", async () => {
+    const notePath = "Lectures/Lecture _03.pdf";
+    const file = new MockTFile(notePath);
+
+    getAbstractFileByPathMock.mockReturnValue(file);
+
+    const result = await invokeReadNoteTool(readNoteTool, { notePath });
+
+    expect(result.notePath).toBe(notePath);
+    expect(result.content).toBe("[Parsed PDF content]");
+    expect(mockParseFile).toHaveBeenCalledWith(file, global.app.vault);
+    expect(mockRead).not.toHaveBeenCalled();
   });
 });

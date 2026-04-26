@@ -36,7 +36,7 @@ export const InlineMessageEditor: React.FC<InlineMessageEditorProps> = ({
   );
   const [includeActiveNote, setIncludeActiveNote] = useState(false);
   const [includeActiveWebTab, setIncludeActiveWebTab] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { activeWebTabForMentions: currentActiveWebTab } = useActiveWebTabState();
 
   // Handle saving the edited message
@@ -78,8 +78,8 @@ export const InlineMessageEditor: React.FC<InlineMessageEditorProps> = ({
     // Not used in edit mode
   }, []);
 
-  const handleAddImage = useCallback((files: File[]) => {
-    setSelectedImages((prev) => [...prev, ...files]);
+  const handleAddFile = useCallback((files: File[]) => {
+    setSelectedFiles((prev) => [...prev, ...files]);
   }, []);
 
   const handleRemoveSelectedText = useCallback((id: string) => {
@@ -113,9 +113,9 @@ export const InlineMessageEditor: React.FC<InlineMessageEditorProps> = ({
       includeActiveWebTab={includeActiveWebTab}
       setIncludeActiveWebTab={setIncludeActiveWebTab}
       activeWebTab={currentActiveWebTab}
-      selectedImages={selectedImages}
-      onAddImage={handleAddImage}
-      setSelectedImages={setSelectedImages}
+      selectedFiles={selectedFiles}
+      onAddFile={handleAddFile}
+      setSelectedFiles={setSelectedFiles}
       disableModelSwitch={false}
       selectedTextContexts={initialContext?.selectedTextContexts}
       onRemoveSelectedText={handleRemoveSelectedText}

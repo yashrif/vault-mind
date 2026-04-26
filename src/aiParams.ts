@@ -133,13 +133,16 @@ export interface SetChainOptions {
   refreshIndex?: boolean;
 }
 
+export type ModelType = "chat" | "embedding" | "stt";
+
 export interface CustomModel {
   name: string;
   provider: string;
   baseUrl?: string;
   apiKey?: string;
   enabled: boolean;
-  isEmbeddingModel?: boolean;
+  /** Discriminates chat / embedding / stt model families. */
+  modelType?: ModelType;
   isBuiltIn?: boolean;
   enableCors?: boolean;
   core?: boolean;
@@ -160,8 +163,6 @@ export interface CustomModel {
   enablePromptCaching?: boolean;
 
   projectEnabled?: boolean;
-  plusExclusive?: boolean;
-  believerExclusive?: boolean;
   capabilities?: ModelCapability[];
   displayName?: string;
 
@@ -182,6 +183,10 @@ export interface CustomModel {
   // OpenAI GPT-5 and O-series specific fields
   reasoningEffort?: ReasoningEffort;
   verbosity?: Verbosity;
+}
+
+export function getModelType(model: CustomModel): ModelType {
+  return model.modelType ?? "chat";
 }
 
 export function setModelKey(modelKey: string) {

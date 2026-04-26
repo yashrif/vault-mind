@@ -15,7 +15,10 @@ export class LLMChainRunner extends BaseChainRunner {
    * Construct messages array using envelope-based context (L1-L5 layers)
    * Requires context envelope - throws error if unavailable
    */
-  private async constructMessages(userMessage: ChatMessage): Promise<any[]> {
+  private async constructMessages(
+    userMessage: ChatMessage,
+    memoryOverride?: import("@/LLMProviders/memoryManager").default
+  ): Promise<any[]> {
     // Require envelope for LLM chain
     if (!userMessage.contextEnvelope) {
       throw new Error(
@@ -41,7 +44,7 @@ export class LLMChainRunner extends BaseChainRunner {
     }
 
     // Add chat history (L4)
-    const memory = this.chainManager.memoryManager.getMemory();
+    const memory = this.resolveMemory({ memoryManager: memoryOverride }).getMemory();
     await loadAndAddChatHistory(memory, messages);
 
     // Add user message (L2+L3+L5 merged)
@@ -50,12 +53,18 @@ export class LLMChainRunner extends BaseChainRunner {
       // Handle multimodal content if present
       if (userMessage.content && Array.isArray(userMessage.content)) {
         // Merge envelope text with multimodal content (images)
+        const hasTextItem = userMessage.content.some((item: any) => item.type === "text");
         const updatedContent = userMessage.content.map((item: any) => {
           if (item.type === "text") {
             return { ...item, text: userMessageContent.content };
           }
           return item;
         });
+        // If the user sent only images (no text typed), inject the envelope text so the
+        // LLM always receives at least one text part — required by most providers.
+        if (!hasTextItem && userMessageContent.content) {
+          updatedContent.unshift({ type: "text", text: userMessageContent.content });
+        }
         messages.push({
           role: "user",
           content: updatedContent,
@@ -77,6 +86,8 @@ export class LLMChainRunner extends BaseChainRunner {
       debug?: boolean;
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
+      memoryManager?: import("@/LLMProviders/memoryManager").default;
+      runtimePolicy?: import("@/runtime/RuntimeChainPolicy").RuntimeChainPolicy;
     }
   ): Promise<string> {
     // Check if the current model has reasoning capability
@@ -100,7 +111,7 @@ export class LLMChainRunner extends BaseChainRunner {
 
     try {
       // Construct messages using envelope or legacy approach
-      const messages = await this.constructMessages(userMessage);
+      const messages = await this.constructMessages(userMessage, options.memoryManager);
 
       // Record the payload for debugging (includes layered view if envelope available)
       const chatModel = this.chainManager.chatModelManager.getChatModel();
@@ -159,7 +170,8 @@ export class LLMChainRunner extends BaseChainRunner {
       updateCurrentAiMessage,
       undefined,
       undefined,
-      responseMetadata
+      responseMetadata,
+      this.resolveMemory(options)
     );
 
     return result.content;

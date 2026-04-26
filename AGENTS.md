@@ -4,7 +4,7 @@ This file provides guidance to any coding agent when working with code in this r
 
 ## Overview
 
-Copilot for Obsidian is an AI-powered assistant plugin that integrates various LLM providers (OpenAI, Anthropic, Google, etc.) with Obsidian. It provides chat interfaces, autocomplete, semantic search, and various AI-powered commands for note-taking and knowledge management.
+Cortex for Obsidian is an AI-powered assistant plugin that integrates various LLM providers (OpenAI, Anthropic, Google, etc.) with Obsidian. It provides chat interfaces, autocomplete, semantic search, and various AI-powered commands for note-taking and knowledge management.
 
 ## Development Commands
 
@@ -27,6 +27,38 @@ Copilot for Obsidian is an AI-powered assistant plugin that integrates various L
 - `npm run test:integration` - Run integration tests (requires API keys)
 - Run single test: `npm test -- -t "test name"`
 
+### Obsidian CLI (Live Testing)
+
+The Obsidian desktop app includes a CLI for plugin development. `obsidian` is available directly in the terminal:
+
+```powershell
+obsidian <command>
+```
+
+**Plugin reload** (after `npm run build`):
+
+```powershell
+obsidian plugin:reload id=cortex
+```
+
+**Console debugging** (requires attaching debugger first):
+
+```powershell
+obsidian dev:debug on
+obsidian dev:console limit=30
+obsidian dev:console level=error limit=10
+obsidian dev:errors
+```
+
+**Other useful dev commands**:
+
+- `dev:dom selector=<css>` — Query DOM elements
+- `dev:screenshot path=<file>` — Take a screenshot
+- `eval code=<js>` — Execute JS in the app context
+- `plugin:disable id=cortex` / `plugin:enable id=cortex`
+
+Run `obsidian help` for the full command list.
+
 ## High-Level Architecture
 
 ### Core Systems
@@ -40,7 +72,7 @@ Copilot for Obsidian is an AI-powered assistant plugin that integrates various L
 
 2. **Chain Factory Pattern** (`src/chainFactory.ts`)
 
-   - Different chain types for various AI operations (chat, copilot, adhoc prompts)
+   - Different chain types for various AI operations (chat, agent, adhoc prompts)
    - LangChain integration for complex workflows
    - Memory management for conversation context
    - Tool integration (search, file operations, time queries)
@@ -76,7 +108,7 @@ Copilot for Obsidian is an AI-powered assistant plugin that integrates various L
        - Non-project chats use `defaultProjectKey` repository
    - **ChatUIState** (`src/state/ChatUIState.ts`): Clean UI-only state manager
      - Delegates all business logic to ChatManager
-     - Provides React integration with subscription mechanism
+     - Provides React integration with reactive mechanism
      - Replaces legacy SharedState with minimal, focused approach
    - **ContextManager** (`src/core/ContextManager.ts`): Handles context processing
      - Processes message context (notes, URLs, selected text)
@@ -193,6 +225,15 @@ For detailed architecture diagrams and documentation, see [`MESSAGE_ARCHITECTURE
 - Import from logger: `import { logInfo, logWarn, logError } from "@/logger"`
 - These utilities already respect the debug flag internally — never wrap them in `if (getSettings().debug)`
 
+### CSS & Styling
+
+- **NEVER edit `styles.css` directly** - This is a generated file
+- **Source file**: `src/styles/tailwind.css` - Edit this file for custom CSS
+- **Build process**: `npm run build:tailwind` compiles `src/styles/tailwind.css` → `styles.css`
+- **Tailwind classes**: Use Tailwind utility classes in components (see `tailwind.config.js` for available classes)
+- **Custom CSS**: Add custom styles to `src/styles/tailwind.css` after the `@import` statements
+- After editing CSS, always run `npm run build` to regenerate `styles.css`
+
 ## Testing Guidelines
 
 - Unit tests use Jest with TypeScript support
@@ -200,6 +241,17 @@ For detailed architecture diagrams and documentation, see [`MESSAGE_ARCHITECTURE
 - Integration tests require API keys in `.env.test`
 - Test files adjacent to implementation (`.test.ts`)
 - Use `@testing-library/react` for component testing
+
+### Avoiding Deep Dependency Chains in Tests
+
+This codebase has deep transitive import chains (e.g. a utility → cache → searchUtils → embeddingManager → Modal). Importing any module in this chain from a test requires mocking the entire tree, which is brittle and verbose.
+
+**Rules for new code:**
+
+1. **Pass data, not services** — If a function only needs a string (like `outputFolder`), accept it as a parameter. Don't give it access to the entire settings singleton.
+2. **Singletons at the edges only** — `getSettings()`, `PDFCache.getInstance()` should only be called in top-level orchestration (constructors, main entry points). Inner functions receive what they need as parameters.
+3. **Pure logic in leaf modules** — Extract testable logic into small files with minimal imports. The orchestration file (which has heavy imports) calls the leaf function and passes in the dependencies. See `src/tools/convertedDocOutput.ts` as an example.
+4. **Litmus test before writing a function** — "Can I test this by calling it directly with plain arguments?" If the answer is no because of an import, that dependency should be a parameter instead.
 
 ## Development Session Planning
 
@@ -274,8 +326,25 @@ The TODO.md should be:
 - **Context Always Fresh**: Context is reprocessed when messages are edited to ensure accuracy
 - **Chat History Loading**: Uses pending message mechanism through CopilotView → Chat component props
 - **Project Chat Isolation**: Each project now has completely isolated chat history
+
   - Automatic detection of project switches via `ProjectManager.getCurrentProjectId()`
   - Separate MessageRepository instances per project ID
   - Non-project chats stored in default repository
   - Backwards compatible - loads existing messages from ProjectManager cache
   - Zero configuration required - works automatically
+
+- Check @tailwind.config.js to understand what tailwind css classnames are available
+
+## User-Facing Documentation
+
+- **When modifying user-facing behavior** (new features, changed settings, removed functionality), **update the corresponding doc in `docs/`**. The doc filenames match their topics (e.g., `llm-providers.md` for provider changes, `agent-mode-and-tools.md` for tool changes).
+- Docs are written for non-technical users — no source code references, explain behavior and concepts.
+- If a change affects multiple docs, update all of them.
+- If you're unsure which doc to update, check `docs/index.md` for the full list with descriptions.
+
+<!-- SPECKIT START -->
+
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+
+<!-- SPECKIT END -->

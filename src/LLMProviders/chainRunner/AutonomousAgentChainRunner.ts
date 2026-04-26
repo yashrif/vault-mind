@@ -2,8 +2,10 @@ import { AGENT_LOOP_TIMEOUT_MS } from "@/constants";
 import { MessageContent } from "@/imageProcessing/imageProcessor";
 import { logError, logInfo, logWarn } from "@/logger";
 import { UserMemoryManager } from "@/memory/UserMemoryManager";
-import { checkIsPlusUser } from "@/plusUtils";
+import { getChainType } from "@/aiParams";
+
 import { getSettings } from "@/settings/model";
+import { resolveRuntimeChainPolicy, RuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { getSystemPromptWithMemory } from "@/system-prompts/systemPromptBuilder";
 import { initializeBuiltinTools } from "@/tools/builtinTools";
 import { ToolRegistry } from "@/tools/ToolRegistry";
@@ -12,7 +14,7 @@ import { Runnable } from "@langchain/core/runnables";
 import { ChatMessage, ResponseMetadata, StreamingResult } from "@/types/message";
 import { err2String, withSuppressedTokenWarnings } from "@/utils";
 import { AIMessage, BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { CopilotPlusChainRunner } from "./CopilotPlusChainRunner";
+import { ToolChainRunner } from "./ToolChainRunner";
 import { loadAndAddChatHistory } from "./utils/chatHistoryUtils";
 import { ModelAdapter, ModelAdapterFactory } from "./utils/modelAdapter";
 import { ThinkBlockStreamer } from "./utils/ThinkBlockStreamer";
@@ -114,7 +116,7 @@ interface ReActLoopResult {
   responseMetadata?: ResponseMetadata;
 }
 
-export class AutonomousAgentChainRunner extends CopilotPlusChainRunner {
+export class AutonomousAgentChainRunner extends ToolChainRunner {
   private llmFormattedMessages: string[] = []; // Track LLM-formatted messages for memory
   private lastDisplayedContent = ""; // Track the last content displayed to user for error recovery
 
@@ -125,7 +127,7 @@ export class AutonomousAgentChainRunner extends CopilotPlusChainRunner {
   private allReasoningSteps: Array<{ timestamp: number; summary: string; toolName?: string }> = []; // Full history of all steps
   private abortHandledByTimer = false; // Flag to prevent duplicate interrupted messages
 
-  private getAvailableTools(): StructuredTool[] {
+  private getAvailableTools(runtimePolicy?: RuntimeChainPolicy): StructuredTool[] {
     const settings = getSettings();
     const registry = ToolRegistry.getInstance();
 
@@ -134,11 +136,18 @@ export class AutonomousAgentChainRunner extends CopilotPlusChainRunner {
       initializeBuiltinTools(this.chainManager.app?.vault);
     }
 
-    // Get enabled tool IDs from settings
-    const enabledToolIds = new Set(settings.autonomousAgentEnabledToolIds || []);
+    const effectivePolicy = runtimePolicy ?? resolveRuntimeChainPolicy(getChainType());
+    const vaultAvailable = !!this.chainManager.app?.vault;
 
-    // Get all enabled tools from registry
-    return registry.getEnabledTools(enabledToolIds, !!this.chainManager.app?.vault);
+    if (effectivePolicy.autonomousToolPolicy === "full_builtin") {
+      return registry
+        .getAllTools()
+        .filter((definition) => !definition.metadata.requiresVault || vaultAvailable)
+        .map((definition) => definition.tool);
+    }
+
+    const enabledToolIds = new Set(settings.autonomousAgentEnabledToolIds || []);
+    return registry.getEnabledTools(enabledToolIds, vaultAvailable);
   }
 
   /**
@@ -379,35 +388,17 @@ export class AutonomousAgentChainRunner extends CopilotPlusChainRunner {
       ignoreSystemMessage?: boolean;
       updateLoading?: (loading: boolean) => void;
       updateLoadingMessage?: (message: string) => void;
+      memoryManager?: import("@/LLMProviders/memoryManager").default;
+      runtimePolicy?: import("@/runtime/RuntimeChainPolicy").RuntimeChainPolicy;
     }
   ): Promise<string> {
     this.llmFormattedMessages = [];
     this.lastDisplayedContent = "";
 
-    const isPlusUser = await checkIsPlusUser({
-      isAutonomousAgent: true,
-    });
-
     const chatModel = this.chainManager.chatModelManager.getChatModel();
     const adapter = ModelAdapterFactory.createAdapter(chatModel);
     // Agent mode should never show thinking tokens in the response
     const thinkStreamer = new ThinkBlockStreamer(updateCurrentAiMessage, true);
-
-    if (!isPlusUser) {
-      await this.handleError(
-        new Error("Invalid license key"),
-        thinkStreamer.processErrorChunk.bind(thinkStreamer)
-      );
-      const errorResponse = thinkStreamer.close().content;
-      return this.handleResponse(
-        errorResponse,
-        userMessage,
-        abortController,
-        addMessage,
-        updateCurrentAiMessage,
-        undefined
-      );
-    }
 
     const modelNameForLog = (chatModel as { modelName?: string } | undefined)?.modelName;
 
@@ -423,7 +414,9 @@ export class AutonomousAgentChainRunner extends CopilotPlusChainRunner {
     const context = await this.prepareAgentConversation(
       userMessage,
       chatModel,
-      options.updateLoadingMessage
+      options.updateLoadingMessage,
+      options.memoryManager,
+      options.runtimePolicy
     );
 
     try {
@@ -469,7 +462,8 @@ export class AutonomousAgentChainRunner extends CopilotPlusChainRunner {
         updateCurrentAiMessage,
         uniqueSources.length > 0 ? uniqueSources : undefined,
         this.llmFormattedMessages.join("\n\n"),
-        loopResult.responseMetadata
+        loopResult.responseMetadata,
+        options.memoryManager
       );
 
       this.lastDisplayedContent = "";
@@ -487,7 +481,7 @@ export class AutonomousAgentChainRunner extends CopilotPlusChainRunner {
 
       logError("Autonomous agent failed, falling back to regular Plus mode:", error);
       try {
-        const fallbackRunner = new CopilotPlusChainRunner(this.chainManager);
+        const fallbackRunner = new ToolChainRunner(this.chainManager);
         return await fallbackRunner.run(
           userMessage,
           abortController,
@@ -519,7 +513,9 @@ export class AutonomousAgentChainRunner extends CopilotPlusChainRunner {
           addMessage,
           updateCurrentAiMessage,
           undefined,
-          fullAIResponse
+          fullAIResponse,
+          undefined,
+          options.memoryManager
         );
       }
     }
@@ -537,10 +533,12 @@ export class AutonomousAgentChainRunner extends CopilotPlusChainRunner {
   private async prepareAgentConversation(
     userMessage: ChatMessage,
     chatModel: any,
-    _updateLoadingMessage?: (message: string) => void // Unused, kept for potential future use
+    _updateLoadingMessage?: (message: string) => void, // Unused, kept for potential future use
+    memoryOverride?: import("@/LLMProviders/memoryManager").default,
+    runtimePolicy?: RuntimeChainPolicy
   ): Promise<AgentRunContext> {
     const messages: BaseMessage[] = [];
-    const availableTools = this.getAvailableTools();
+    const availableTools = this.getAvailableTools(runtimePolicy);
 
     // Bind tools to the model for native function calling
     const modelName = (chatModel as any).modelName || (chatModel as any).model || "unknown";
@@ -570,7 +568,7 @@ export class AutonomousAgentChainRunner extends CopilotPlusChainRunner {
     });
 
     // Get memory for chat history loading
-    const memory = this.chainManager.memoryManager.getMemory();
+    const memory = (memoryOverride ?? this.chainManager.memoryManager).getMemory();
 
     // Build system message: L1+L2 from envelope + tool guidelines from metadata
     const systemMessage = baseMessages.find((m) => m.role === "system");

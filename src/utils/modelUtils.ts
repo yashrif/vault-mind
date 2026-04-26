@@ -50,10 +50,7 @@ export function getApiKeyForProvider(provider: SettingKeyProviders, model?: Cust
  * Uses a getter function to avoid circular dependency issues.
  */
 function getRequiredModels(): ReadonlyArray<{ name: string; provider: string }> {
-  return [
-    { name: ChatModels.COPILOT_PLUS_FLASH, provider: ChatModelProviders.COPILOT_PLUS },
-    { name: ChatModels.OPENROUTER_GEMINI_2_5_FLASH, provider: ChatModelProviders.OPENROUTERAI },
-  ];
+  return [{ name: ChatModels.OPENROUTER_FREE, provider: ChatModelProviders.OPENROUTERAI }];
 }
 
 /**

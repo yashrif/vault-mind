@@ -20,7 +20,7 @@ import {
 // Instance (isolated from Chat highlight)
 // ============================================================================
 
-const selectionHighlight = createPersistentHighlight("copilot-selection-highlight");
+const selectionHighlight = createPersistentHighlight("cortex-selection-highlight");
 
 // ============================================================================
 // Public Types

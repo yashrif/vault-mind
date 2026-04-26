@@ -137,6 +137,30 @@ describe("System Prompts State Management", () => {
 
       expect(result).toBe("This is default prompt content");
     });
+
+    it("uses telegram prompt selection before the shared default", () => {
+      setSelectedPromptTitle("Session Prompt");
+      jest.spyOn(settingsModel, "getSettings").mockReturnValue({
+        defaultSystemPromptTitle: "Default Prompt",
+        telegramSystemPromptTitle: "Another Prompt",
+      } as any);
+
+      const result = getEffectiveSystemPromptContent("telegram");
+
+      expect(result).toBe("This is another prompt content");
+    });
+
+    it("falls back to the shared default for telegram when telegram selection is empty", () => {
+      setSelectedPromptTitle("Session Prompt");
+      jest.spyOn(settingsModel, "getSettings").mockReturnValue({
+        defaultSystemPromptTitle: "Default Prompt",
+        telegramSystemPromptTitle: "",
+      } as any);
+
+      const result = getEffectiveSystemPromptContent("telegram");
+
+      expect(result).toBe("This is default prompt content");
+    });
   });
 
   describe("resetSessionSystemPromptSettings", () => {

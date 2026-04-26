@@ -58,7 +58,7 @@ If your plugin does not need CSS, delete this file.
   text-align: center;
 }
 
-.copilot-setting-item-name {
+.cortex-setting-item-name {
   font-weight: bold;
   display: block;
   color: var(--inline-title-color);
@@ -66,23 +66,23 @@ If your plugin does not need CSS, delete this file.
   margin-bottom: 10px;
 }
 
-.copilot-setting-item-description {
+.cortex-setting-item-description {
   display: block;
   margin-top: 10px;
   margin-bottom: 10px;
 }
 
-.copilot-setting-item-control {
+.cortex-setting-item-control {
   width: 50%; /* Adjust the width as needed */
   max-width: 100%; /* Ensures it doesn't exceed the parent width */
 }
 
-.copilot-setting-item-control::placeholder {
+.cortex-setting-item-control::placeholder {
   color: gray;
   opacity: 0.5;
 }
 
-.copilot-setting-item-control[type="range"] {
+.cortex-setting-item-control[type="range"] {
   width: 70%;
 }
 
@@ -474,7 +474,7 @@ If your plugin does not need CSS, delete this file.
   border: 1px solid var(--background-modifier-border);
 }
 
-.copilot-command-modal {
+.cortex-command-modal {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -491,31 +491,31 @@ If your plugin does not need CSS, delete this file.
   }
 }
 
-.copilot-command-input-container {
+.cortex-command-input-container {
   width: 90%;
   margin: auto;
 }
 
-.copilot-command-input-container input,
-.copilot-command-input-container textarea {
+.cortex-command-input-container input,
+.cortex-command-input-container textarea {
   display: block;
   width: 100%;
   margin-top: 10px;
 }
 
-.copilot-command-input-container textarea {
+.cortex-command-input-container textarea {
   height: 150px;
   resize: vertical;
 }
 
-.copilot-command-save-btn-container {
+.cortex-command-save-btn-container {
   display: flex;
   justify-content: center;
   align-items: center;
   text-align: center;
 }
 
-.copilot-command-save-btn {
+.cortex-command-save-btn {
   margin-top: 15px;
 }
 
@@ -556,7 +556,7 @@ If your plugin does not need CSS, delete this file.
 }
 
 /* Add specific styles for toggle cells */
-.model-settings-table td .copilot-setting-item {
+.model-settings-table td .cortex-setting-item {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -632,7 +632,7 @@ If your plugin does not need CSS, delete this file.
   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
-.copilot-notice-container {
+.cortex-notice-container {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -641,11 +641,11 @@ If your plugin does not need CSS, delete this file.
   box-sizing: border-box;
 }
 
-.copilot-notice-message {
+.cortex-notice-message {
   margin-bottom: 16px;
 }
 
-.copilot-notice-container button {
+.cortex-notice-container button {
   align-self: flex-end;
   margin-top: 16px;
   margin-left: auto;
@@ -897,18 +897,18 @@ If your plugin does not need CSS, delete this file.
 }
 
 /* use 'important' to prevent ob default css style from being third-party theme overridden */
-/* --copilot-status-bar-clearance is set dynamically by ChatViewLayout */
+/* --cortex-status-bar-clearance is set dynamically by ChatViewLayout */
 
-.workspace-leaf-content[data-type="copilot-chat-view"] .view-content {
+.workspace-leaf-content[data-type="cortex-chat-view"] .view-content {
   padding-bottom: calc(
-    var(--safe-area-inset-bottom, 0px) + var(--copilot-status-bar-clearance, 0px) + var(--size-4-1)
+    var(--safe-area-inset-bottom, 0px) + var(--cortex-status-bar-clearance, 0px) + var(--size-4-1)
   ) !important;
 }
 
 /* Editor mode for mobile - legacy (no bottom navbar): minimal padding */
 body.is-mobile
   .workspace-tab-container
-  .workspace-leaf-content[data-type="copilot-chat-view"]
+  .workspace-leaf-content[data-type="cortex-chat-view"]
   .view-content {
   padding-bottom: var(--size-4-1) !important;
 }
@@ -917,7 +917,7 @@ body.is-mobile
 @supports selector(body:has(*)) {
   body.is-mobile:has(.mobile-navbar):not(.is-hidden-nav)
     .workspace-tab-container
-    .workspace-leaf-content[data-type="copilot-chat-view"]
+    .workspace-leaf-content[data-type="cortex-chat-view"]
     .view-content {
     padding-bottom: calc(
       var(--navbar-height, 50px) + max(var(--safe-area-inset-bottom, 0px), var(--size-4-3)) +
@@ -930,7 +930,7 @@ body.is-mobile
 @supports selector(body:has(*)) {
   body.is-mobile:has(.mobile-navbar):not(.is-hidden-nav)
     .workspace-tab-container
-    .workspace-leaf-content[data-type="obsidian-copilot-apply-view"]
+    .workspace-leaf-content[data-type="obsidian-cortex-apply-view"]
     .view-content {
     padding-bottom: calc(
       var(--navbar-height, 50px) + max(var(--safe-area-inset-bottom, 0px), var(--size-4-3)) +
@@ -941,7 +941,7 @@ body.is-mobile
   /* Lift the fixed Accept/Reject button bar above the navbar */
   body.is-mobile:has(.mobile-navbar):not(.is-hidden-nav)
     .workspace-tab-container
-    .workspace-leaf-content[data-type="obsidian-copilot-apply-view"]
+    .workspace-leaf-content[data-type="obsidian-cortex-apply-view"]
     .tw-fixed.tw-bottom-4 {
     bottom: calc(
       var(--navbar-height, 50px) + max(var(--safe-area-inset-bottom, 0px), var(--size-4-3)) +
@@ -951,13 +951,13 @@ body.is-mobile
 }
 
 /* Hide drawer header and tab-options when keyboard is open in Copilot's drawer */
-body.is-mobile .workspace-drawer.copilot-keyboard-open .workspace-drawer-header,
-body.is-mobile .workspace-drawer.copilot-keyboard-open .workspace-drawer-tab-options {
+body.is-mobile .workspace-drawer.cortex-keyboard-open .workspace-drawer-header,
+body.is-mobile .workspace-drawer.cortex-keyboard-open .workspace-drawer-tab-options {
   display: none !important;
 }
 
 /* Collapsible sources styling */
-.copilot-sources {
+.cortex-sources {
   margin-top: var(--size-4-1);
   padding: calc(var(--size-4-2) / 2) var(--size-4-2);
   border-radius: var(--radius-s);
@@ -970,7 +970,7 @@ body.is-mobile .workspace-drawer.copilot-keyboard-open .workspace-drawer-tab-opt
   width: min(100%, 32rem);
 }
 
-.copilot-sources__summary {
+.cortex-sources__summary {
   font-size: var(--font-ui-smaller);
   color: color-mix(in srgb, var(--text-muted) 90%, transparent);
   cursor: pointer;
@@ -984,26 +984,26 @@ body.is-mobile .workspace-drawer.copilot-keyboard-open .workspace-drawer-tab-opt
   margin: 0;
 }
 
-.copilot-sources__summary::-webkit-details-marker {
+.cortex-sources__summary::-webkit-details-marker {
   color: color-mix(in srgb, var(--text-muted) 80%, transparent);
 }
 
-.copilot-sources__summary::after {
+.cortex-sources__summary::after {
   content: ">";
   font-size: var(--font-ui-smaller);
   color: color-mix(in srgb, var(--text-muted) 70%, transparent);
   transition: transform 0.15s ease;
 }
 
-.copilot-sources[open] .copilot-sources__summary {
+.cortex-sources[open] .cortex-sources__summary {
   margin-bottom: calc(var(--size-4-2) / 2);
 }
 
-.copilot-sources[open] .copilot-sources__summary::after {
+.cortex-sources[open] .cortex-sources__summary::after {
   transform: rotate(90deg);
 }
 
-.copilot-sources__list {
+.cortex-sources__list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1016,13 +1016,13 @@ body.is-mobile .workspace-drawer.copilot-keyboard-open .workspace-drawer-tab-opt
   color: color-mix(in srgb, var(--text-muted) 85%, transparent);
 }
 
-.copilot-sources__item {
+.cortex-sources__item {
   display: flex;
   gap: var(--size-4-2);
   align-items: baseline;
 }
 
-.copilot-sources__index {
+.cortex-sources__index {
   color: color-mix(in srgb, var(--text-muted) 65%, transparent);
   font-weight: var(--font-medium);
   min-width: var(--size-4-3);
@@ -1030,17 +1030,17 @@ body.is-mobile .workspace-drawer.copilot-keyboard-open .workspace-drawer-tab-opt
   white-space: nowrap;
 }
 
-.copilot-sources__text {
+.cortex-sources__text {
   color: color-mix(in srgb, var(--text-muted) 90%, transparent);
   line-height: 1.4;
 }
 
-.copilot-sources__text a {
+.cortex-sources__text a {
   color: var(--text-accent);
 }
 
 /* Inline citation links */
-.copilot-citation-ref {
+.cortex-citation-ref {
   display: inline-block;
   color: var(--text-muted);
   font-size: 0.7em;
@@ -1051,7 +1051,7 @@ body.is-mobile .workspace-drawer.copilot-keyboard-open .workspace-drawer-tab-opt
   line-height: 1.4;
   cursor: default;
 }
-.copilot-citation-group {
+.cortex-citation-group {
   display: inline-block;
   font-size: 0.7em;
   vertical-align: super;
@@ -1060,12 +1060,12 @@ body.is-mobile .workspace-drawer.copilot-keyboard-open .workspace-drawer-tab-opt
   padding: 0 4px;
   line-height: 1.4;
 }
-.copilot-citation-link {
+.cortex-citation-link {
   color: var(--text-accent);
   cursor: pointer;
   text-decoration: none;
 }
-.copilot-citation-link:hover {
+.cortex-citation-link:hover {
   text-decoration: underline;
 }
 
@@ -1136,50 +1136,50 @@ body.is-mobile div[data-radix-popper-content-wrapper] {
  * Sequence: center(4) → right(5) → top(1) → left(3) → bottom(7) → dim → dim → repeat
  * 7 total phases (5 dots + 2 dim intervals), 1s cycle
  */
-.copilot-spinner {
+.cortex-spinner {
   display: block;
 }
 
-.copilot-spinner-dot {
+.cortex-spinner-dot {
   fill: var(--text-faint);
 }
 
 /* Animation for each dot (7 dots, 1.4s cycle for smooth motion)
  * Staggered delays create the snake trail effect
  */
-.copilot-spinner-dot-0 {
-  animation: copilot-dot-chase 1.4s ease-in-out infinite;
+.cortex-spinner-dot-0 {
+  animation: cortex-dot-chase 1.4s ease-in-out infinite;
   animation-delay: 0ms;
 }
-.copilot-spinner-dot-1 {
-  animation: copilot-dot-chase 1.4s ease-in-out infinite;
+.cortex-spinner-dot-1 {
+  animation: cortex-dot-chase 1.4s ease-in-out infinite;
   animation-delay: 155ms;
 }
-.copilot-spinner-dot-2 {
-  animation: copilot-dot-chase 1.4s ease-in-out infinite;
+.cortex-spinner-dot-2 {
+  animation: cortex-dot-chase 1.4s ease-in-out infinite;
   animation-delay: 310ms;
 }
-.copilot-spinner-dot-3 {
-  animation: copilot-dot-chase 1.4s ease-in-out infinite;
+.cortex-spinner-dot-3 {
+  animation: cortex-dot-chase 1.4s ease-in-out infinite;
   animation-delay: 465ms;
 }
-.copilot-spinner-dot-4 {
-  animation: copilot-dot-chase 1.4s ease-in-out infinite;
+.cortex-spinner-dot-4 {
+  animation: cortex-dot-chase 1.4s ease-in-out infinite;
   animation-delay: 620ms;
 }
-.copilot-spinner-dot-5 {
-  animation: copilot-dot-chase 1.4s ease-in-out infinite;
+.cortex-spinner-dot-5 {
+  animation: cortex-dot-chase 1.4s ease-in-out infinite;
   animation-delay: 775ms;
 }
-.copilot-spinner-dot-6 {
-  animation: copilot-dot-chase 1.4s ease-in-out infinite;
+.cortex-spinner-dot-6 {
+  animation: cortex-dot-chase 1.4s ease-in-out infinite;
   animation-delay: 930ms;
 }
 
 /* Smooth chase animation - gradual fade through brightness levels
  * Uses smooth transitions between states instead of abrupt steps
  */
-@keyframes copilot-dot-chase {
+@keyframes cortex-dot-chase {
   0% {
     fill: var(--text-normal);
     opacity: 1;
@@ -1224,12 +1224,12 @@ body.is-mobile div[data-radix-popper-content-wrapper] {
 }
 
 /* Quick Ask Overlay Styles */
-.copilot-quick-ask-overlay-host {
+.cortex-quick-ask-overlay-host {
   position: relative;
 }
 
 /* Override Obsidian's default contenteditable border */
-.copilot-quick-ask-overlay [contenteditable] {
+.cortex-quick-ask-overlay [contenteditable] {
   border: none !important;
   box-shadow: none !important;
   outline: none !important;
@@ -1239,13 +1239,13 @@ body.is-mobile div[data-radix-popper-content-wrapper] {
    selection handling that prevents normal text selection in child elements.
    Only target message text containers (marked with data-quick-ask-selectable)
    to avoid overriding user-select on buttons and other interactive controls. */
-.copilot-quick-ask-overlay [data-quick-ask-selectable],
-.copilot-quick-ask-overlay [data-quick-ask-selectable] * {
+.cortex-quick-ask-overlay [data-quick-ask-selectable],
+.cortex-quick-ask-overlay [data-quick-ask-selectable] * {
   user-select: text !important;
   -webkit-user-select: text !important;
 }
 
-.copilot-quick-ask-overlay-root {
+.cortex-quick-ask-overlay-root {
   position: absolute;
   top: 0;
   left: 0;
@@ -1255,18 +1255,18 @@ body.is-mobile div[data-radix-popper-content-wrapper] {
   z-index: var(--layer-popover);
 }
 
-.copilot-quick-ask-overlay {
+.cortex-quick-ask-overlay {
   position: absolute;
   pointer-events: auto;
   z-index: var(--layer-popover);
-  animation: copilot-quick-ask-fade-in 0.2s ease-out;
+  animation: cortex-quick-ask-fade-in 0.2s ease-out;
 }
 
-.copilot-quick-ask-overlay.closing {
-  animation: copilot-quick-ask-fade-out 0.2s ease-in forwards;
+.cortex-quick-ask-overlay.closing {
+  animation: cortex-quick-ask-fade-out 0.2s ease-in forwards;
 }
 
-@keyframes copilot-quick-ask-fade-in {
+@keyframes cortex-quick-ask-fade-in {
   from {
     opacity: 0;
     transform: translateY(-8px);
@@ -1277,7 +1277,7 @@ body.is-mobile div[data-radix-popper-content-wrapper] {
   }
 }
 
-@keyframes copilot-quick-ask-fade-out {
+@keyframes cortex-quick-ask-fade-out {
   from {
     opacity: 1;
     transform: translateY(0);
@@ -1333,6 +1333,6 @@ body.is-mobile div[data-radix-popper-content-wrapper] {
 }
 
 /* Gradient fade mask for truncated content */
-.copilot-fade-mask-bottom {
+.cortex-fade-mask-bottom {
   background: linear-gradient(to top, var(--background-primary), transparent);
 }
