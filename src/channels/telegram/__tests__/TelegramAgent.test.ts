@@ -526,7 +526,7 @@ describe("TelegramAgent", () => {
       update_id: 10,
       stored_at: 500,
       text: "[document]",
-      mediaPath: ".copilot/telegram-state/media/10_lecture_03.pdf",
+      mediaPath: ".Cortex/telegram-state/media/10_lecture_03.pdf",
       mediaType: "application/pdf",
       mediaName: "lecture_03.pdf",
     });
@@ -578,7 +578,7 @@ describe("TelegramAgent", () => {
     const mediaMsg = makeUserMsg({
       local_id: "current-doc",
       text: "[document]",
-      mediaPath: ".copilot/telegram-state/media/11_lecture_03.pdf",
+      mediaPath: ".Cortex/telegram-state/media/11_lecture_03.pdf",
       mediaType: "application/pdf",
       mediaName: "lecture_03.pdf",
     });

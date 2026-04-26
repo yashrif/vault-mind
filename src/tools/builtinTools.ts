@@ -37,7 +37,7 @@ export const BUILTIN_TOOLS: ToolDefinition[] = [
       displayName: "Vault Search",
       description: "Search through your vault notes",
       category: "search",
-      copilotCommands: ["@vault"],
+      CortexCommands: ["@vault"],
       customPromptInstructions: `For localSearch (searching notes based on their contents in the vault):
 - You MUST always provide both "query" (string) and "salientTerms" (array of strings)
 - salientTerms MUST be extracted from the user's original query - never invent new terms
@@ -82,7 +82,7 @@ For broad searches:
       description:
         "Search the INTERNET (NOT vault notes) when user explicitly asks for web/online information",
       category: "search",
-      copilotCommands: ["@websearch", "@web"],
+      CortexCommands: ["@websearch", "@web"],
       customPromptInstructions: `For webSearch:
 - ONLY use when the user's query contains explicit web-search intent like:
   * "web search", "internet search", "online search"
@@ -187,7 +187,7 @@ Examples:
       category: "file",
       requiresVault: true,
       timeoutMs: 0, // No timeout - waits for user preview decision
-      copilotCommands: ["@composer"],
+      CortexCommands: ["@composer"],
       customPromptInstructions: `For writeFile:
 - NEVER display the file content directly in your response
 - Always pass the complete file content to the tool
@@ -313,7 +313,7 @@ export function registerMemoryTool(): void {
       description:
         "Save information to user memory when the user explicitly asks to remember something or update the memory",
       category: "memory",
-      copilotCommands: ["@memory"],
+      CortexCommands: ["@memory"],
       isAlwaysEnabled: true,
       customPromptInstructions: `For updateMemory:
 - Use this tool to update the memory when the user explicitly asks to update the memory

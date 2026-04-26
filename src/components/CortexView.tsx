@@ -3,14 +3,14 @@ import Chat from "@/components/Chat";
 import { ChatViewLayout } from "@/components/chat-components/ChatViewLayout";
 import { CHAT_VIEWTYPE } from "@/constants";
 import { AppContext, EventTargetContext } from "@/context";
-import CopilotPlugin from "@/main";
+import CortexPlugin from "@/main";
 import { FileParserManager } from "@/tools/FileParserManager";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { ItemView, Platform, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { createRoot, Root } from "react-dom/client";
 
-export default class CopilotView extends ItemView {
+export default class CortexView extends ItemView {
   private get chainManager(): ChainManager {
     return this.plugin.projectManager.getCurrentChainManager();
   }
@@ -26,7 +26,7 @@ export default class CopilotView extends ItemView {
 
   constructor(
     leaf: WorkspaceLeaf,
-    private plugin: CopilotPlugin
+    private plugin: CortexPlugin
   ) {
     super(leaf);
     this.app = plugin.app;
@@ -46,11 +46,11 @@ export default class CopilotView extends ItemView {
 
   // Return a title for this view
   getTitle(): string {
-    return "Copilot Chat";
+    return "Cortex Chat";
   }
 
   getDisplayText(): string {
-    return "Copilot";
+    return "Cortex";
   }
 
   async onOpen(): Promise<void> {
@@ -99,7 +99,7 @@ export default class CopilotView extends ItemView {
       // Reason: If the view moved out of its previous drawer, clear the class on the old one
       // so drawer chrome (header/tab options) is restored.
       if (this.lastDrawerEl && this.lastDrawerEl !== drawer) {
-        this.lastDrawerEl.classList.remove("copilot-keyboard-open");
+        this.lastDrawerEl.classList.remove("cortex-keyboard-open");
       }
       this.lastDrawerEl = drawer;
 
@@ -107,11 +107,11 @@ export default class CopilotView extends ItemView {
 
       // Reason: Check if this view itself is inside the active tab content, rather than
       // querying by data-type which is more brittle across Obsidian versions.
-      const isCopilotActive = !!this.containerEl.closest(".workspace-drawer-active-tab-content");
+      const isCortexActive = !!this.containerEl.closest(".workspace-drawer-active-tab-content");
       const kbHeight = parseFloat(
         document.documentElement.style.getPropertyValue("--keyboard-height") || "0"
       );
-      drawer.classList.toggle("copilot-keyboard-open", isCopilotActive && kbHeight > 0);
+      drawer.classList.toggle("cortex-keyboard-open", isCortexActive && kbHeight > 0);
     };
 
     this.keyboardObserver = new MutationObserver(syncKeyboardClass);
@@ -214,7 +214,7 @@ export default class CopilotView extends ItemView {
     // Reason: Clean up the class on the tracked drawer element when the view is closed.
     // Use lastDrawerEl instead of querying closest(), because the view may have already
     // been detached from the drawer DOM by the time onClose fires.
-    this.lastDrawerEl?.classList.remove("copilot-keyboard-open");
+    this.lastDrawerEl?.classList.remove("cortex-keyboard-open");
     this.lastDrawerEl = null;
 
     if (this.root) {

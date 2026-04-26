@@ -1,22 +1,22 @@
 import { CustomModel } from "@/aiParams";
-import { type CopilotSettings } from "@/settings/model";
+import { type CortexSettings } from "@/settings/model";
 import { v4 as uuidv4 } from "uuid";
 import { ChainType } from "./chainFactory";
 import { PromptSortStrategy } from "./types";
 
-export const CHAT_VIEWTYPE = "copilot-chat-view";
+export const CHAT_VIEWTYPE = "cortex-chat-view";
 export const USER_SENDER = "user";
 export const AI_SENDER = "ai";
 
 // Default folder names
-export const COPILOT_FOLDER_ROOT = "copilot";
-export const DEFAULT_CHAT_HISTORY_FOLDER = `${COPILOT_FOLDER_ROOT}/copilot-conversations`;
-export const DEFAULT_CUSTOM_PROMPTS_FOLDER = `${COPILOT_FOLDER_ROOT}/copilot-custom-prompts`;
-export const DEFAULT_MEMORY_FOLDER = `${COPILOT_FOLDER_ROOT}/memory`;
-export const DEFAULT_SYSTEM_PROMPTS_FOLDER = `${COPILOT_FOLDER_ROOT}/system-prompts`;
+export const CORTEX_FOLDER_ROOT = "cortex";
+export const DEFAULT_CHAT_HISTORY_FOLDER = `${CORTEX_FOLDER_ROOT}/cortex-conversations`;
+export const DEFAULT_CUSTOM_PROMPTS_FOLDER = `${CORTEX_FOLDER_ROOT}/cortex-custom-prompts`;
+export const DEFAULT_MEMORY_FOLDER = `${CORTEX_FOLDER_ROOT}/memory`;
+export const DEFAULT_SYSTEM_PROMPTS_FOLDER = `${CORTEX_FOLDER_ROOT}/system-prompts`;
 export const DEFAULT_CONVERTED_DOC_OUTPUT_FOLDER = "";
-export const DEFAULT_QA_EXCLUSIONS_SETTING = COPILOT_FOLDER_ROOT;
-export const DEFAULT_SYSTEM_PROMPT = `You are Obsidian Copilot, a helpful assistant that integrates AI to Obsidian note-taking.
+export const DEFAULT_QA_EXCLUSIONS_SETTING = CORTEX_FOLDER_ROOT;
+export const DEFAULT_SYSTEM_PROMPT = `You are Obsidian Cortex, a helpful assistant that integrates AI to Obsidian note-taking.
   1. Never mention that you do not have access to something. Always rely on the user provided context.
   2. Always answer to the best of your knowledge. If you are unsure about something, say so and ask the user to provide more context.
   3. If the user mentions "note", it most likely means an Obsidian note in the vault, not the generic meaning of a note.
@@ -115,7 +115,7 @@ export const YOUTUBE_VIDEO_CONTEXT_TAG = "youtube_video_context";
 /** Marker text used as placeholder for active web tab in serialized content */
 export const ACTIVE_WEB_TAB_MARKER = "{activeWebTab}";
 export const EMPTY_INDEX_ERROR_MESSAGE =
-  "Copilot index does not exist. Please index your vault first!\n\n1. Set a working embedding model in QA settings. If it's not a local model, don't forget to set the API key. \n\n2. Click 'Refresh Index for Vault' and wait for indexing to complete. If you encounter the rate limiting error, please turn your request per second down in QA setting.";
+  "Cortex index does not exist. Please index your vault first!\n\n1. Set a working embedding model in QA settings. If it's not a local model, don't forget to set the API key. \n\n2. Click 'Refresh Index for Vault' and wait for indexing to complete. If you encounter the rate limiting error, please turn your request per second down in QA setting.";
 export const CHUNK_SIZE = 6000;
 export const TEXT_WEIGHT = 0.4;
 export const MAX_CHARS_FOR_LOCAL_SEARCH_CONTEXT = 448000;
@@ -243,16 +243,6 @@ export const BUILTIN_AUDIO_STT_MODELS: CustomModel[] = [
 
 export const BUILTIN_CHAT_MODELS: CustomModel[] = [
   // Enabled models first
-  // {
-  //   name: ChatModels.COPILOT_PLUS_FLASH,
-  //   provider: ChatModelProviders.COPILOT_PLUS,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   core: true,
-  //   plusExclusive: true,
-  //   projectEnabled: false,
-  //   capabilities: [ModelCapability.VISION],
-  // },
   // {
   //   name: ChatModels.OPENROUTER_GEMINI_2_5_FLASH,
   //   provider: ChatModelProviders.OPENROUTERAI,
@@ -473,36 +463,6 @@ export enum EmbeddingModels {
 }
 
 export const BUILTIN_EMBEDDING_MODELS: CustomModel[] = [
-  // {
-  //   name: EmbeddingModels.COPILOT_PLUS_SMALL,
-  //   provider: EmbeddingModelProviders.COPILOT_PLUS,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  //   core: true,
-  //   plusExclusive: true,
-  // },
-  // {
-  //   name: EmbeddingModels.COPILOT_PLUS_LARGE,
-  //   provider: EmbeddingModelProviders.COPILOT_PLUS_JINA,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  //   core: true,
-  //   plusExclusive: true,
-  //   believerExclusive: true,
-  //   dimensions: 1024,
-  // },
-  // {
-  //   name: EmbeddingModels.COPILOT_PLUS_MULTILINGUAL,
-  //   provider: EmbeddingModelProviders.COPILOT_PLUS_JINA,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  //   core: true,
-  //   plusExclusive: true,
-  //   dimensions: 512,
-  // },
   // {
   //   name: EmbeddingModels.OPENROUTER_OPENAI_EMBEDDING_SMALL,
   //   provider: EmbeddingModelProviders.OPENROUTERAI,
@@ -729,7 +689,7 @@ export const ProviderInfo: Record<Provider, ProviderMetadata> = {
 };
 
 // Map provider to its settings key for API key
-export const ProviderSettingsKeyMap: Record<SettingKeyProviders, keyof CopilotSettings> = {
+export const ProviderSettingsKeyMap: Record<SettingKeyProviders, keyof CortexSettings> = {
   anthropic: "anthropicApiKey",
   openai: "openAIApiKey",
   "azure openai": "azureOpenAIApiKey",
@@ -769,22 +729,22 @@ export enum SEND_SHORTCUT {
 
 export const COMMAND_IDS = {
   TRIGGER_QUICK_COMMAND: "trigger-quick-command",
-  CLEAR_LOCAL_COPILOT_INDEX: "clear-local-copilot-index",
-  CLEAR_COPILOT_CACHE: "clear-copilot-cache",
+  CLEAR_LOCAL_CORTEX_INDEX: "clear-local-cortex-index",
+  CLEAR_CORTEX_CACHE: "clear-cortex-cache",
   COUNT_WORD_AND_TOKENS_SELECTION: "count-word-and-tokens-selection",
   COUNT_TOTAL_VAULT_TOKENS: "count-total-vault-tokens",
   DEBUG_WORD_COMPLETION: "debug-word-completion",
-  FORCE_REINDEX_VAULT_TO_COPILOT_INDEX: "force-reindex-vault-to-copilot-index",
-  GARBAGE_COLLECT_COPILOT_INDEX: "garbage-collect-copilot-index",
-  INDEX_VAULT_TO_COPILOT_INDEX: "index-vault-to-copilot-index",
-  INSPECT_COPILOT_INDEX_BY_NOTE_PATHS: "copilot-inspect-index-by-note-paths",
-  LIST_INDEXED_FILES: "copilot-list-indexed-files",
-  LOAD_COPILOT_CHAT_CONVERSATION: "load-copilot-chat-conversation",
+  FORCE_REINDEX_VAULT_TO_CORTEX_INDEX: "force-reindex-vault-to-cortex-index",
+  GARBAGE_COLLECT_CORTEX_INDEX: "garbage-collect-cortex-index",
+  INDEX_VAULT_TO_CORTEX_INDEX: "index-vault-to-cortex-index",
+  INSPECT_CORTEX_INDEX_BY_NOTE_PATHS: "cortex-inspect-index-by-note-paths",
+  LIST_INDEXED_FILES: "cortex-list-indexed-files",
+  LOAD_CORTEX_CHAT_CONVERSATION: "load-cortex-chat-conversation",
   NEW_CHAT: "new-chat",
-  OPEN_COPILOT_CHAT_WINDOW: "chat-open-window",
-  REMOVE_FILES_FROM_COPILOT_INDEX: "remove-files-from-copilot-index",
-  SEARCH_ORAMA_DB: "copilot-search-orama-db",
-  TOGGLE_COPILOT_CHAT_WINDOW: "chat-toggle-window",
+  OPEN_CORTEX_CHAT_WINDOW: "chat-open-window",
+  REMOVE_FILES_FROM_CORTEX_INDEX: "remove-files-from-cortex-index",
+  SEARCH_ORAMA_DB: "cortex-search-orama-db",
+  TOGGLE_CORTEX_CHAT_WINDOW: "chat-toggle-window",
   ADD_SELECTION_TO_CHAT_CONTEXT: "add-selection-to-chat-context",
   ADD_WEB_SELECTION_TO_CHAT_CONTEXT: "add-web-selection-to-chat-context",
   ADD_CUSTOM_COMMAND: "add-custom-command",
@@ -797,23 +757,23 @@ export const COMMAND_IDS = {
 
 export const COMMAND_NAMES: Record<CommandId, string> = {
   [COMMAND_IDS.TRIGGER_QUICK_COMMAND]: "Trigger quick command",
-  [COMMAND_IDS.CLEAR_LOCAL_COPILOT_INDEX]: "Clear local Copilot index",
-  [COMMAND_IDS.CLEAR_COPILOT_CACHE]: "Clear Copilot cache",
+  [COMMAND_IDS.CLEAR_LOCAL_CORTEX_INDEX]: "Clear local Cortex index",
+  [COMMAND_IDS.CLEAR_CORTEX_CACHE]: "Clear Cortex cache",
   [COMMAND_IDS.COUNT_TOTAL_VAULT_TOKENS]: "Count total tokens in your vault",
   [COMMAND_IDS.COUNT_WORD_AND_TOKENS_SELECTION]: "Count words and tokens in selection",
   [COMMAND_IDS.DEBUG_WORD_COMPLETION]: "Word completion: Debug",
-  [COMMAND_IDS.FORCE_REINDEX_VAULT_TO_COPILOT_INDEX]: "Force reindex vault",
-  [COMMAND_IDS.GARBAGE_COLLECT_COPILOT_INDEX]:
-    "Garbage collect Copilot index (remove files that no longer exist in vault)",
-  [COMMAND_IDS.INDEX_VAULT_TO_COPILOT_INDEX]: "Index (refresh) vault",
-  [COMMAND_IDS.INSPECT_COPILOT_INDEX_BY_NOTE_PATHS]: "Inspect Copilot index by note paths (debug)",
+  [COMMAND_IDS.FORCE_REINDEX_VAULT_TO_CORTEX_INDEX]: "Force reindex vault",
+  [COMMAND_IDS.GARBAGE_COLLECT_CORTEX_INDEX]:
+    "Garbage collect Cortex index (remove files that no longer exist in vault)",
+  [COMMAND_IDS.INDEX_VAULT_TO_CORTEX_INDEX]: "Index (refresh) vault",
+  [COMMAND_IDS.INSPECT_CORTEX_INDEX_BY_NOTE_PATHS]: "Inspect Cortex index by note paths (debug)",
   [COMMAND_IDS.LIST_INDEXED_FILES]: "List all indexed files (debug)",
-  [COMMAND_IDS.LOAD_COPILOT_CHAT_CONVERSATION]: "Load Copilot chat conversation",
-  [COMMAND_IDS.NEW_CHAT]: "New Copilot Chat",
-  [COMMAND_IDS.OPEN_COPILOT_CHAT_WINDOW]: "Open Copilot Chat Window",
-  [COMMAND_IDS.REMOVE_FILES_FROM_COPILOT_INDEX]: "Remove files from Copilot index (debug)",
+  [COMMAND_IDS.LOAD_CORTEX_CHAT_CONVERSATION]: "Load Cortex chat conversation",
+  [COMMAND_IDS.NEW_CHAT]: "New Cortex Chat",
+  [COMMAND_IDS.OPEN_CORTEX_CHAT_WINDOW]: "Open Cortex Chat Window",
+  [COMMAND_IDS.REMOVE_FILES_FROM_CORTEX_INDEX]: "Remove files from Cortex index (debug)",
   [COMMAND_IDS.SEARCH_ORAMA_DB]: "Search semantic index (debug)",
-  [COMMAND_IDS.TOGGLE_COPILOT_CHAT_WINDOW]: "Toggle Copilot Chat Window",
+  [COMMAND_IDS.TOGGLE_CORTEX_CHAT_WINDOW]: "Toggle Cortex Chat Window",
   [COMMAND_IDS.ADD_SELECTION_TO_CHAT_CONTEXT]: "Add selection to chat context",
   [COMMAND_IDS.ADD_WEB_SELECTION_TO_CHAT_CONTEXT]: "Add web selection to chat context",
   [COMMAND_IDS.ADD_CUSTOM_COMMAND]: "Add new custom command",
@@ -832,20 +792,20 @@ export type CommandId = (typeof COMMAND_IDS)[keyof typeof COMMAND_IDS];
  */
 export const COMMAND_ICONS: Partial<Record<CommandId, string>> = {
   [COMMAND_IDS.NEW_CHAT]: "message-square-plus",
-  [COMMAND_IDS.OPEN_COPILOT_CHAT_WINDOW]: "message-square",
-  [COMMAND_IDS.TOGGLE_COPILOT_CHAT_WINDOW]: "message-square",
-  [COMMAND_IDS.LOAD_COPILOT_CHAT_CONVERSATION]: "history",
+  [COMMAND_IDS.OPEN_CORTEX_CHAT_WINDOW]: "message-square",
+  [COMMAND_IDS.TOGGLE_CORTEX_CHAT_WINDOW]: "message-square",
+  [COMMAND_IDS.LOAD_CORTEX_CHAT_CONVERSATION]: "history",
   [COMMAND_IDS.TRIGGER_QUICK_COMMAND]: "terminal-square",
   [COMMAND_IDS.TRIGGER_QUICK_ASK]: "sparkles",
   [COMMAND_IDS.ADD_SELECTION_TO_CHAT_CONTEXT]: "text-cursor-input",
   [COMMAND_IDS.ADD_WEB_SELECTION_TO_CHAT_CONTEXT]: "globe",
   [COMMAND_IDS.ADD_CUSTOM_COMMAND]: "plus-circle",
   [COMMAND_IDS.APPLY_CUSTOM_COMMAND]: "play-circle",
-  [COMMAND_IDS.INDEX_VAULT_TO_COPILOT_INDEX]: "refresh-cw",
-  [COMMAND_IDS.FORCE_REINDEX_VAULT_TO_COPILOT_INDEX]: "rotate-cw",
-  [COMMAND_IDS.CLEAR_LOCAL_COPILOT_INDEX]: "trash-2",
-  [COMMAND_IDS.CLEAR_COPILOT_CACHE]: "eraser",
-  [COMMAND_IDS.GARBAGE_COLLECT_COPILOT_INDEX]: "filter-x",
+  [COMMAND_IDS.INDEX_VAULT_TO_CORTEX_INDEX]: "refresh-cw",
+  [COMMAND_IDS.FORCE_REINDEX_VAULT_TO_CORTEX_INDEX]: "rotate-cw",
+  [COMMAND_IDS.CLEAR_LOCAL_CORTEX_INDEX]: "trash-2",
+  [COMMAND_IDS.CLEAR_CORTEX_CACHE]: "eraser",
+  [COMMAND_IDS.GARBAGE_COLLECT_CORTEX_INDEX]: "filter-x",
   [COMMAND_IDS.COUNT_TOTAL_VAULT_TOKENS]: "calculator",
   [COMMAND_IDS.COUNT_WORD_AND_TOKENS_SELECTION]: "hash",
   [COMMAND_IDS.OPEN_LOG_FILE]: "file-text",
@@ -914,7 +874,7 @@ export const RESTRICTION_MESSAGES = {
     `${extension.toUpperCase()} files are not supported in the current mode.`,
 } as const;
 
-export const DEFAULT_SETTINGS: CopilotSettings = {
+export const DEFAULT_SETTINGS: CortexSettings = {
   userId: uuidv4(),
   openAIApiKey: "",
   openAIOrgId: "",
@@ -950,7 +910,7 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   openAIEmbeddingProxyBaseUrl: "",
   stream: true,
   defaultSaveFolder: DEFAULT_CHAT_HISTORY_FOLDER,
-  defaultConversationTag: "copilot-conversation",
+  defaultConversationTag: "cortex-conversation",
   autosaveChat: true,
   generateAIChatTitleOnSave: true,
   autoAddActiveContentToContext: true,

@@ -15,7 +15,7 @@ jest.mock("@/chatUtils", () => ({
 jest.mock("@/chainFactory", () => ({
   ChainType: {
     LLM_CHAIN: "llm_chain",
-    TOOL_CHAIN: "copilot_plus_chain",
+    TOOL_CHAIN: "Cortex_plus_chain",
     PROJECT_CHAIN: "project_chain",
   },
 }));
@@ -28,7 +28,7 @@ jest.mock("./ChatPersistenceManager", () => ({
 
 jest.mock("@/aiParams", () => ({
   getCurrentProject: jest.fn().mockReturnValue(null),
-  getChainType: jest.fn().mockReturnValue("copilot_plus_chain"),
+  getChainType: jest.fn().mockReturnValue("Cortex_plus_chain"),
 }));
 
 jest.mock("@/LLMProviders/projectManager", () => {

@@ -13,14 +13,14 @@ interface AppWithCommands extends App {
 }
 
 /**
- * Type guard for the command manager surface used by Copilot.
+ * Type guard for the command manager surface used by Cortex.
  */
 function hasCommandManager(app: App): app is AppWithCommands {
   return typeof (app as Partial<AppWithCommands>).commands?.executeCommandById === "function";
 }
 
 /**
- * Registers the Copilot submenu entries in Obsidian's editor context menu.
+ * Registers the Cortex submenu entries in Obsidian's editor context menu.
  */
 export function registerContextMenu(menu: Menu, obsidianApp: App): void {
   if (!hasCommandManager(obsidianApp)) return;
@@ -29,9 +29,9 @@ export function registerContextMenu(menu: Menu, obsidianApp: App): void {
     obsidianApp.commands.executeCommandById(commandId);
   };
 
-  // Create the main "Copilot" submenu
+  // Create the main "Cortex" submenu
   menu.addItem((item) => {
-    item.setTitle("Copilot");
+    item.setTitle("Cortex");
     item.setSubmenu();
 
     const submenu = item.submenu;
@@ -40,19 +40,19 @@ export function registerContextMenu(menu: Menu, obsidianApp: App): void {
     // Add the main selection command
     submenu.addItem((subItem) => {
       subItem.setTitle("Add selection to chat context").onClick(() => {
-        execute(`copilot:${COMMAND_IDS.ADD_SELECTION_TO_CHAT_CONTEXT}`);
+        execute(`cortex:${COMMAND_IDS.ADD_SELECTION_TO_CHAT_CONTEXT}`);
       });
     });
 
     submenu.addItem((subItem) => {
       subItem.setTitle("Quick Ask").onClick(() => {
-        execute(`copilot:${COMMAND_IDS.TRIGGER_QUICK_ASK}`);
+        execute(`cortex:${COMMAND_IDS.TRIGGER_QUICK_ASK}`);
       });
     });
 
     submenu.addItem((subItem) => {
       subItem.setTitle("Trigger quick command").onClick(() => {
-        execute(`copilot:${COMMAND_IDS.TRIGGER_QUICK_COMMAND}`);
+        execute(`cortex:${COMMAND_IDS.TRIGGER_QUICK_COMMAND}`);
       });
     });
 
@@ -71,7 +71,7 @@ export function registerContextMenu(menu: Menu, obsidianApp: App): void {
     sortCommandsByOrder(visibleCustomCommands).forEach((command: CustomCommand) => {
       submenu.addItem((subItem) => {
         subItem.setTitle(command.title).onClick(() => {
-          execute(`copilot:${getCommandId(command.title)}`);
+          execute(`cortex:${getCommandId(command.title)}`);
         });
       });
     });

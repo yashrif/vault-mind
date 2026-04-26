@@ -12,7 +12,7 @@ export class RemoveFromIndexModal extends Modal {
   onOpen() {
     const { contentEl } = this;
 
-    contentEl.createEl("h2", { text: "Remove Files from Copilot Index" });
+    contentEl.createEl("h2", { text: "Remove Files from Cortex Index" });
 
     // Create a full-width container
     const container = contentEl.createDiv({ cls: "remove-files-container" });

@@ -12,7 +12,7 @@ import { TelegramAgent } from "./TelegramAgent";
 
 const MAX_BACKOFF_MS = 60_000;
 const INITIAL_BACKOFF_MS = 1_000;
-const MEDIA_DIR = ".copilot/telegram-state/media";
+const MEDIA_DIR = ".Cortex/telegram-state/media";
 
 interface TelegramChannelServiceOptions {
   allowedChatIds?: number[];

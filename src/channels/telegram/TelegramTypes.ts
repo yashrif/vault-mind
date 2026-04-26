@@ -26,7 +26,7 @@ export interface TelegramStoredMessage {
    * Telegram-safe transport text can coexist with local reasoning blocks.
    */
   displayText?: string;
-  /** Vault-relative path to the saved media file (e.g. .copilot/telegram-state/media/…). */
+  /** Vault-relative path to the saved media file (e.g. .Cortex/telegram-state/media/…). */
   mediaPath?: string;
   /** MIME type of the media file (e.g. "image/jpeg", "application/pdf"). */
   mediaType?: string;

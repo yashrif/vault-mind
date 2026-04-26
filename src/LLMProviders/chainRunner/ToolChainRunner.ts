@@ -114,7 +114,7 @@ export class ToolChainRunner extends BaseChainRunner {
 
     // Check if model supports native tool calling
     if (typeof (chatModel as any).bindTools !== "function") {
-      logWarn("[CopilotPlus] Model does not support native tool calling, skipping tool planning");
+      logWarn("[CortexPlus] Model does not support native tool calling, skipping tool planning");
       return {
         toolCalls: [],
         salientTerms: this.extractSalientTermsFromQuery(userMessage),
@@ -152,7 +152,7 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
       },
     ];
 
-    logInfo("[CopilotPlus] Requesting tool planning with native tool calling...");
+    logInfo("[CortexPlus] Requesting tool planning with native tool calling...");
 
     // Use stream() instead of invoke() to avoid LangChain's _generate() path,
     // which calls _getEstimatedTokenCountFromPrompt -> getNumTokens -> tiktoken
@@ -168,7 +168,7 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
         aggregated = aggregated ? aggregated.concat(chunk) : chunk;
       }
       if (!aggregated) {
-        throw new Error("[CopilotPlus] Received empty response from planning model");
+        throw new Error("[CortexPlus] Received empty response from planning model");
       }
       response = new AIMessage({
         content: aggregated.content,
@@ -182,7 +182,7 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
     const responseText =
       typeof response.content === "string" ? response.content : String(response.content);
 
-    logInfo("[CopilotPlus] Native tool calls:", nativeToolCalls.length);
+    logInfo("[CortexPlus] Native tool calls:", nativeToolCalls.length);
 
     // Extract salient terms from response text
     const { salientTerms } = this.extractPlanningFieldsFromResponse(responseText, userMessage);
@@ -196,9 +196,9 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
           tool,
           args: tc.args as Record<string, unknown>,
         });
-        logInfo(`[CopilotPlus] Tool call: ${tc.name}`, tc.args);
+        logInfo(`[CortexPlus] Tool call: ${tc.name}`, tc.args);
       } else {
-        logWarn(`[CopilotPlus] Tool '${tc.name}' not found in available tools`);
+        logWarn(`[CortexPlus] Tool '${tc.name}' not found in available tools`);
       }
     }
 
@@ -376,7 +376,7 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
     const identifier = identifierMatch ? identifierMatch[1] : undefined;
 
     logInfo(
-      `[CopilotPlus] Extracting images from ${source.displayName}:`,
+      `[CortexPlus] Extracting images from ${source.displayName}:`,
       identifier || `no ${source.identifierTag}`
     );
 
@@ -476,7 +476,7 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
 
       if (!envelope) {
         throw new Error(
-          "[CopilotPlus] Context envelope is required but not available. Cannot extract images."
+          "[CortexPlus] Context envelope is required but not available. Cannot extract images."
         );
       }
 
@@ -594,11 +594,11 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
     const envelope = userMessage.contextEnvelope;
     if (!envelope) {
       throw new Error(
-        "[CopilotPlus] Context envelope is required but not available. Cannot proceed with CopilotPlus chain."
+        "[CortexPlus] Context envelope is required but not available. Cannot proceed with CortexPlus chain."
       );
     }
 
-    logInfo("[CopilotPlus] Using envelope-based context construction");
+    logInfo("[CortexPlus] Using envelope-based context construction");
 
     // Use LayerToMessagesConverter to get base messages with L1+L2 system, L3+L5 user
     const baseMessages = LayerToMessagesConverter.convert(envelope, {
@@ -712,7 +712,7 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
 
     for await (const chunk of chatStream) {
       if (abortController.signal.aborted) {
-        logInfo("CopilotPlus multimodal stream iteration aborted", {
+        logInfo("CortexPlus multimodal stream iteration aborted", {
           reason: abortController.signal.reason,
         });
         break;
@@ -756,7 +756,7 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
       const envelope = userMessage.contextEnvelope;
       if (!envelope) {
         throw new Error(
-          "[CopilotPlus] Context envelope is required but not available. Cannot proceed with CopilotPlus chain."
+          "[CortexPlus] Context envelope is required but not available. Cannot proceed with CortexPlus chain."
         );
       }
       const l5User = envelope.layers.find((l) => l.id === "L5_USER");
@@ -798,12 +798,12 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
                 timeRange = extractEpochValues(parsed);
               }
             } catch {
-              logWarn("[CopilotPlus] Failed to parse getTimeRangeMs result:", timeRangeResult);
+              logWarn("[CortexPlus] Failed to parse getTimeRangeMs result:", timeRangeResult);
             }
           } else if (timeRangeResult && !timeRangeResult.error) {
             timeRange = extractEpochValues(timeRangeResult);
           }
-          logInfo("[CopilotPlus] Executed getTimeRangeMs, result:", timeRange);
+          logInfo("[CortexPlus] Executed getTimeRangeMs, result:", timeRange);
         }
 
         // Filter tool calls: skip getFileTree in project mode, skip getTimeRangeMs if already executed
@@ -886,7 +886,7 @@ Include your extracted terms as: [SALIENT_TERMS: term1, term2, term3]`;
 
       // Check if the error is due to abort signal
       if (error.name === "AbortError" || abortController.signal.aborted) {
-        logInfo("CopilotPlus stream aborted by user", { reason: abortController.signal.reason });
+        logInfo("CortexPlus stream aborted by user", { reason: abortController.signal.reason });
         // Don't show error message for user-initiated aborts
       } else {
         await this.handleError(error, thinkStreamer.processErrorChunk.bind(thinkStreamer));

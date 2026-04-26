@@ -35,7 +35,7 @@ import { getAIResponse } from "@/langchainStream";
 import ChainManager from "@/LLMProviders/chainManager";
 import { clearRecordedPromptPayload } from "@/LLMProviders/chainRunner/utils/promptPayloadRecorder";
 import { logFileManager } from "@/logFileManager";
-import CopilotPlugin from "@/main";
+import CortexPlugin from "@/main";
 import { updateSetting, useSettingsValue } from "@/settings/model";
 import { ChatUIState } from "@/state/ChatUIState";
 import { FileParserManager } from "@/tools/FileParserManager";
@@ -57,7 +57,7 @@ interface ChatProps {
   onSaveChat: (saveAsNote: () => Promise<void>) => void;
   updateUserMessageHistory: (newMessage: string) => void;
   fileParserManager: FileParserManager;
-  plugin: CopilotPlugin;
+  plugin: CortexPlugin;
   mode?: ChatMode;
   chatUIState: ChatUIState;
 }
@@ -970,7 +970,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                       Get started with Telegram
                     </p>
                     <ol className="tw-list-none tw-space-y-1 tw-text-left tw-text-xs tw-text-muted">
-                      <li>1. Open Settings -&gt; Copilot -&gt; Telegram -&gt; Allowed Chat IDs</li>
+                      <li>1. Open Settings -&gt; Cortex -&gt; Telegram -&gt; Allowed Chat IDs</li>
                       <li>2. Add your chat ID, then DM the bot from that chat to bind it</li>
                       <li>3. Once bound, inbound messages and replies appear in this thread</li>
                     </ol>

@@ -188,11 +188,11 @@ describe("TelegramChannelService", () => {
     expect(mockGetFile).toHaveBeenCalledWith("photo-file-id");
     expect(mockDownloadFileAsArrayBuffer).toHaveBeenCalledWith("photos/file_1.jpg");
     expect(mockVaultAdapter.writeBinary).toHaveBeenCalledWith(
-      ".copilot/telegram-state/media/42_photo.jpg",
+      ".Cortex/telegram-state/media/42_photo.jpg",
       bytes
     );
     expect(media).toEqual({
-      mediaPath: ".copilot/telegram-state/media/42_photo.jpg",
+      mediaPath: ".Cortex/telegram-state/media/42_photo.jpg",
       mediaType: "image/jpeg",
       mediaName: "photo.jpg",
     });
@@ -217,12 +217,12 @@ describe("TelegramChannelService", () => {
     await (service as any).runPollCycle();
 
     expect(mockAppendInbound).toHaveBeenCalledWith(update, {
-      mediaPath: ".copilot/telegram-state/media/77_photo.jpg",
+      mediaPath: ".Cortex/telegram-state/media/77_photo.jpg",
       mediaType: "image/jpeg",
       mediaName: "photo.jpg",
     });
     expect(mockVaultAdapter.writeBinary).toHaveBeenCalledWith(
-      ".copilot/telegram-state/media/77_photo.jpg",
+      ".Cortex/telegram-state/media/77_photo.jpg",
       expect.any(ArrayBuffer)
     );
   });

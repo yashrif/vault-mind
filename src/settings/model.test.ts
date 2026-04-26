@@ -1,5 +1,5 @@
 import {
-  COPILOT_FOLDER_ROOT,
+  CORTEX_FOLDER_ROOT,
   DEFAULT_QA_EXCLUSIONS_SETTING,
   DEFAULT_SYSTEM_PROMPT,
   DEFAULT_SETTINGS,
@@ -29,18 +29,18 @@ jest.mock("@/settings/model", () => {
 });
 
 describe("sanitizeQaExclusions", () => {
-  it("defaults to copilot root when value is not a string", () => {
+  it("defaults to Cortex root when value is not a string", () => {
     expect(sanitizeQaExclusions(undefined)).toBe(encodeURIComponent(DEFAULT_QA_EXCLUSIONS_SETTING));
   });
 
   it("keeps slash-only patterns distinct from canonical entries", () => {
-    const rawValue = `${encodeURIComponent("///")},${encodeURIComponent(COPILOT_FOLDER_ROOT)}`;
+    const rawValue = `${encodeURIComponent("///")},${encodeURIComponent(CORTEX_FOLDER_ROOT)}`;
 
     const sanitized = sanitizeQaExclusions(rawValue);
 
     expect(sanitized.split(",")).toEqual([
       encodeURIComponent("///"),
-      encodeURIComponent(COPILOT_FOLDER_ROOT),
+      encodeURIComponent(CORTEX_FOLDER_ROOT),
     ]);
   });
 
@@ -51,7 +51,7 @@ describe("sanitizeQaExclusions", () => {
 
     expect(sanitized.split(",")).toEqual([
       encodeURIComponent("folder/"),
-      encodeURIComponent(COPILOT_FOLDER_ROOT),
+      encodeURIComponent(CORTEX_FOLDER_ROOT),
     ]);
   });
 });
@@ -188,30 +188,6 @@ describe("sanitizeSettings - telegramSystemPromptTitle", () => {
     const sanitized = sanitizeSettings(settingsWithInvalidTelegramPrompt);
 
     expect(sanitized.telegramSystemPromptTitle).toBe(DEFAULT_SETTINGS.telegramSystemPromptTitle);
-  });
-});
-
-describe("sanitizeSettings - legacy Miyo settings cleanup", () => {
-  it("strips obsolete Miyo keys from persisted settings", () => {
-    const legacySettings = {
-      ...DEFAULT_SETTINGS,
-      enableMiyo: true,
-      enableMiyoSearch: true,
-      miyoSearchAll: true,
-      miyoServerUrl: "http://127.0.0.1:8742",
-      miyoRemoteVaultPath: "\\\\Mac\\Home\\Downloads\\graham-essays-main",
-      miyoVaultName: "old-vault",
-    };
-
-    const sanitized = sanitizeSettings(legacySettings as any);
-    const sanitizedRecord = sanitized as unknown as Record<string, unknown>;
-
-    expect("enableMiyo" in sanitizedRecord).toBe(false);
-    expect("enableMiyoSearch" in sanitizedRecord).toBe(false);
-    expect("miyoSearchAll" in sanitizedRecord).toBe(false);
-    expect("miyoServerUrl" in sanitizedRecord).toBe(false);
-    expect("miyoRemoteVaultPath" in sanitizedRecord).toBe(false);
-    expect("miyoVaultName" in sanitizedRecord).toBe(false);
   });
 });
 

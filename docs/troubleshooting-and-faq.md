@@ -8,9 +8,9 @@ This guide covers common errors, provider-specific issues, performance problems,
 
 Before diving into specific fixes, try these steps first:
 
-1. **Check you're on the latest version** of Copilot in Community Plugins
+1. **Check you're on the latest version** of Cortex in Community Plugins
 2. **Disable other plugins** temporarily to rule out conflicts
-3. **Enable Debug Mode** in Settings → Copilot → Advanced → Debug Mode
+3. **Enable Debug Mode** in Settings → Cortex → Advanced → Debug Mode
 4. **Open the developer console**: `Cmd+Option+I` on Mac, `Ctrl+Shift+I` on Windows
 
 ---
@@ -23,9 +23,9 @@ Before diving into specific fixes, try these steps first:
 
 **Fix**:
 
-1. Go to **Settings → Copilot → Basic → Set Keys**
+1. Go to **Settings → Cortex → Basic → Set Keys**
 2. Enter the API key for the provider your model uses
-3. If you're unsure which provider a model uses, check **Settings → Copilot → Model** — each model shows its provider
+3. If you're unsure which provider a model uses, check **Settings → Cortex → Model** — each model shows its provider
 
 ### Rate Limit Errors
 
@@ -48,13 +48,13 @@ Before diving into specific fixes, try these steps first:
 - Check the provider's status page for outages
 - If using a local model (Ollama/LM Studio), make sure the local server is running
 
-### "Copilot index does not exist"
+### "Cortex index does not exist"
 
 **Cause**: You're trying to use Vault QA or semantic search but the vault hasn't been indexed yet.
 
 **Fix**:
 
-1. Make sure you have an embedding model configured with a valid API key (**Settings → Copilot → QA → Embedding Model**)
+1. Make sure you have an embedding model configured with a valid API key (**Settings → Cortex → QA → Embedding Model**)
 2. Run **Command palette → Index (refresh) vault**
 3. Wait for indexing to complete
 
@@ -62,13 +62,13 @@ Before diving into specific fixes, try these steps first:
 
 **Cause**: Your vault is too large for a single index partition.
 
-**Fix**: Increase the number of partitions in **Settings → Copilot → QA → Partitions**. A good target is keeping the first index file under ~400 MB (check the `.obsidian/` folder for `copilot-index` files and their sizes).
+**Fix**: Increase the number of partitions in **Settings → Cortex → QA → Partitions**. A good target is keeping the first index file under ~400 MB (check the `.obsidian/` folder for `copilot-index` files and their sizes).
 
 ### Response Gets Cut Off
 
 **Cause**: The AI's response hit the Max Tokens limit.
 
-**Fix**: Increase **Max Tokens** in Settings → Copilot → Model (or the per-session gear icon). Default is 6,000 tokens.
+**Fix**: Increase **Max Tokens** in Settings → Cortex → Model (or the per-session gear icon). Default is 6,000 tokens.
 
 ### Notes Not Found in Search
 
@@ -98,7 +98,7 @@ Even after indexing, relevant notes aren't being returned? Try:
 
 - Make sure Ollama is running: open a terminal and run `ollama serve`
 - Verify the model is downloaded: `ollama list`
-- Check that the port in Copilot settings matches (default: 11434)
+- Check that the port in Cortex settings matches (default: 11434)
 - On some systems, Ollama uses `http://127.0.0.1:11434` instead of `http://localhost:11434` — try both
 
 ### Azure OpenAI
@@ -133,9 +133,9 @@ Any missing or incorrect field will cause errors.
 
 **Fix**:
 
-- Go to **Settings → Copilot → Basic → Set Keys**
-- Click **Connect GitHub Copilot** to re-authenticate via OAuth
-- Make sure your GitHub Copilot subscription is active
+- Go to **Settings → Cortex → Basic → Set Keys**
+- Click **Connect GitHub Cortex** to re-authenticate via OAuth
+- Make sure your GitHub Cortex subscription is active
 
 ### Google Gemini
 
@@ -170,7 +170,6 @@ Any missing or incorrect field will cause errors.
 - Check **Embedding Requests per Minute** — higher values speed up indexing but may cause rate limits
 - Use exclusions to skip folders you don't need indexed (e.g., large archive folders)
 - Use the incremental **Index (refresh) vault** command instead of Force Reindex when possible
-- Consider Miyo (self-host) for local indexing without API rate limits
 
 ### High Memory Usage
 
@@ -200,16 +199,16 @@ Any missing or incorrect field will cause errors.
 
 If your settings get into a bad state, you can reset:
 
-1. Go to **Settings → Copilot** → find the reset option
-2. Or delete the `data.json` file from the plugin folder: `.obsidian/plugins/copilot/data.json`
+1. Go to **Settings → Cortex** → find the reset option
+2. Or delete the `data.json` file from the plugin folder: `.obsidian/plugins/cortex/data.json`
 
 ⚠️ Resetting will delete all your settings including API keys. Back them up first.
 
 ### API Key Encryption
 
-Copilot can encrypt your API keys at rest for added security.
+Cortex can encrypt your API keys at rest for added security.
 
-**Enable**: **Settings → Copilot → Advanced → Enable Encryption**
+**Enable**: **Settings → Cortex → Advanced → Enable Encryption**
 
 If you see strange authentication errors after enabling this, try disabling encryption and re-entering your keys.
 
@@ -217,53 +216,53 @@ If you see strange authentication errors after enabling this, try disabling encr
 
 For reporting bugs:
 
-1. **Enable Debug Mode**: **Settings → Copilot → Advanced → Debug Mode**
-2. **Create a log file**: **Settings → Copilot → Advanced → Create Log File**
+1. **Enable Debug Mode**: **Settings → Cortex → Advanced → Debug Mode**
+2. **Create a log file**: **Settings → Cortex → Advanced → Create Log File**
 3. The log file opens in your vault — attach it to your bug report
 
 ---
 
 ## Frequently Asked Questions
 
-### Is my data private? Does Copilot send my notes to the cloud?
+### Is my data private? Does Cortex send my notes to the cloud?
 
-Copilot itself doesn't store your notes on any server. However, when you send a message, the content (including any context from your notes) is sent to the AI provider you've configured (OpenAI, Anthropic, etc.) via their API. Each provider has its own privacy policy. Your notes are not sent anywhere until you actively use the chat.
+Cortex itself doesn't store your notes on any server. However, when you send a message, the content (including any context from your notes) is sent to the AI provider you've configured (OpenAI, Anthropic, etc.) via their API. Each provider has its own privacy policy. Your notes are not sent anywhere until you actively use the chat.
 
-The memory system stores data in your vault locally. Chat history is saved as markdown files in your vault. Nothing is stored on Copilot's servers unless you use Agent cloud features.
+The memory system stores data in your vault locally. Chat history is saved as markdown files in your vault. Nothing is stored on Cortex's servers unless you use Agent cloud features.
 
 **For maximum privacy**: Google Gemini's paid API (the basis for copilot-flash) does not use API request data to train its models. For complete local privacy, consider using Ollama or LM Studio with a local model — nothing leaves your machine. Self-host mode is available — see [Advanced Features and Self-Host](self-host-and-memory.md) for details.
 
 ### Can I reference a specific note in chat?
 
-Yes — use `[[Note Title]]` syntax directly in your message. Copilot adds that note's content as context in the background. You can also use @-mentions. See [Context and Mentions](context-and-mentions.md) for the full list of ways to add context.
+Yes — use `[[Note Title]]` syntax directly in your message. Cortex adds that note's content as context in the background. You can also use @-mentions. See [Context and Mentions](context-and-mentions.md) for the full list of ways to add context.
 
-### How do I make Copilot always reply in English?
+### How do I make Cortex always reply in English?
 
-Go to **Settings → Copilot → Advanced → Default System Prompt**, create a custom prompt, and add "Always respond in English." as an instruction. See [System Prompts](system-prompts.md).
+Go to **Settings → Cortex → Advanced → Default System Prompt**, create a custom prompt, and add "Always respond in English." as an instruction. See [System Prompts](system-prompts.md).
 
-### Can Copilot understand images in my notes?
+### Can Cortex understand images in my notes?
 
 Yes, but only with models that have **Vision** capability (shown by a vision icon in the model list). Make sure:
 
 1. You're using a vision-capable model
-2. **Settings → Copilot → Basic → Pass markdown images to AI** is enabled
+2. **Settings → Cortex → Basic → Pass markdown images to AI** is enabled
 
-### Why can't Copilot read my PDF?
+### Why can't Cortex read my PDF?
 
 - Large PDFs (over 10 MB) should be converted to markdown first
 - In Agent mode, use **+ Add context** to attach a PDF — it will be converted automatically
 - For large PDF collections, **Projects mode** is better suited (supports PDF as context natively)
 
-### Can I use Copilot offline?
+### Can I use Cortex offline?
 
 With local models (Ollama or LM Studio), yes — once a model is downloaded, it runs fully offline. Cloud providers (OpenAI, Anthropic, etc.) require an internet connection.
 
-Lexical vault search works offline. Semantic search requires an embedding model, which may also need an internet connection unless you're using a local embedding provider or Miyo.
+Lexical vault search works offline. Semantic search requires an embedding model, which may also need an internet connection unless you're using a local embedding provider.
 
 ### What's the difference between Chat mode and Vault QA mode?
 
 - **Chat** — General conversation. The AI only has access to your current note and anything you explicitly mention.
-- **Vault QA** — Specifically designed for asking questions about your vault. Copilot automatically searches your notes for relevant content and includes it as context.
+- **Vault QA** — Specifically designed for asking questions about your vault. Cortex automatically searches your notes for relevant content and includes it as context.
 
 For most question-and-answer tasks over your vault, use **Vault QA** or **Agent** mode.
 
@@ -273,18 +272,18 @@ Yes. You can have API keys configured for multiple providers simultaneously and 
 
 ### Where are my saved chats stored?
 
-Chat conversations are saved as markdown files in your vault, in the folder `copilot/copilot-conversations/` by default. You can change this folder in **Settings → Copilot → Basic → Default save folder**.
+Chat conversations are saved as markdown files in your vault, in the folder `cortex/cortex-conversations/` by default. You can change this folder in **Settings → Cortex → Basic → Default save folder**.
 
-### How do I clear the Copilot cache?
+### How do I clear the Cortex cache?
 
-Use **Command palette → Clear Copilot cache**. This clears cached responses and processed files. It does not affect your chat history or the vault index.
+Use **Command palette → Clear Cortex cache**. This clears cached responses and processed files. It does not affect your chat history or the vault index.
 
-### What is the `copilot/` folder in my vault?
+### What is the `cortex/` folder in my vault?
 
-The `copilot/` folder is created by the plugin and stores:
+The `cortex/` folder is created by the plugin and stores:
 
-- `copilot-conversations/` — Saved chat histories
-- `copilot-custom-prompts/` — Your custom commands
+- `cortex-conversations/` — Saved chat histories
+- `cortex-custom-prompts/` — Your custom commands
 - `system-prompts/` — Your custom system prompts
 - `memory/` — Saved AI memories (if enabled)
 
@@ -312,9 +311,9 @@ This usually means the conversation has grown too long and older turns are being
 
 ## Getting More Help
 
-- **GitHub Issues**: Report bugs at https://github.com/logancyang/obsidian-copilot/issues
-- **Discord**: Join the Copilot Discord community for help from other users
-- **Log file**: Create a log file (**Settings → Copilot → Advanced → Create Log File**) and include it in bug reports
+- **GitHub Issues**: Report bugs at https://github.com/logancyang/obsidian-cortex/issues
+- **Discord**: Join the Cortex Discord community for help from other users
+- **Log file**: Create a log file (**Settings → Cortex → Advanced → Create Log File**) and include it in bug reports
 
 ---
 

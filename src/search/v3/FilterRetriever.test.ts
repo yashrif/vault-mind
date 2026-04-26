@@ -295,13 +295,13 @@ describe("FilterRetriever", () => {
         stat: { mtime: now - 1000, ctime: now - 2000 },
       };
       const excludedFile = {
-        path: "copilot/excluded.md",
+        path: "Cortex/excluded.md",
         basename: "excluded",
         stat: { mtime: now - 1000, ctime: now - 2000 },
       };
       [validFile, excludedFile].forEach((f) => Object.setPrototypeOf(f, (TFile as any).prototype));
 
-      shouldIndexFile.mockImplementation((file: any) => !file.path.startsWith("copilot/"));
+      shouldIndexFile.mockImplementation((file: any) => !file.path.startsWith("Cortex/"));
       mockApp.vault.getMarkdownFiles.mockReturnValue([validFile, excludedFile]);
       mockApp.vault.cachedRead.mockResolvedValue("Content");
       mockApp.metadataCache.getFileCache.mockReturnValue({ tags: [] });

@@ -417,7 +417,7 @@ export const CommandSettings: React.FC = () => {
             updateSetting("customPromptsFolder", value);
             loadAllCustomCommands();
           }}
-          placeholder="copilot/copilot-custom-prompts"
+          placeholder="Cortex/cortex-custom-prompts"
         />
         <SettingItem
           type="switch"

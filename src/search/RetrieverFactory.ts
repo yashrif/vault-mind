@@ -1,6 +1,6 @@
 import { logInfo, logWarn } from "@/logger";
 import { isSelfHostModeValid } from "@/selfHostUtils";
-import { getSettings, CopilotSettings } from "@/settings/model";
+import { getSettings, CortexSettings } from "@/settings/model";
 import { App } from "obsidian";
 import { SelfHostRetriever, VectorSearchBackend } from "./selfHostRetriever";
 import { MergedSemanticRetriever } from "./v3/MergedSemanticRetriever";
@@ -131,7 +131,7 @@ export class RetrieverFactory {
   static async createRetriever(
     app: App,
     options: RetrieverOptions,
-    settings?: Partial<CopilotSettings>
+    settings?: Partial<CortexSettings>
   ): Promise<RetrieverSelectionResult> {
     const currentSettings = settings ? { ...getSettings(), ...settings } : getSettings();
 
@@ -235,7 +235,7 @@ export class RetrieverFactory {
    * @returns The vector search backend instance, or null if unavailable
    */
   private static async getSelfHostedBackend(
-    _settings: CopilotSettings
+    _settings: CortexSettings
   ): Promise<VectorSearchBackend | null> {
     // Return registered backend if available
     if (RetrieverFactory.selfHostedBackend) {
@@ -265,7 +265,7 @@ export class RetrieverFactory {
    * @returns The type of retriever that would be created
    */
   static getRetrieverType(
-    settings?: Partial<CopilotSettings>
+    settings?: Partial<CortexSettings>
   ): "self_hosted" | "semantic" | "lexical" {
     const currentSettings = settings ? { ...getSettings(), ...settings } : getSettings();
 

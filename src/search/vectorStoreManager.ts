@@ -4,7 +4,7 @@ import { updateIndexingProgressState } from "@/aiParams";
 import { CustomError } from "@/error";
 import { logWarn } from "@/logger";
 import EmbeddingsManager from "@/LLMProviders/embeddingManager";
-import { CopilotSettings, getSettings, subscribeToSettingsChange } from "@/settings/model";
+import { CortexSettings, getSettings, subscribeToSettingsChange } from "@/settings/model";
 import { Orama } from "@orama/orama";
 import { Notice, Platform, TFile } from "obsidian";
 import { OramaIndexBackend } from "./indexBackend/OramaIndexBackend";
@@ -21,7 +21,7 @@ export default class VectorStoreManager {
   private indexOps: IndexOperations;
   private eventHandler: IndexEventHandler;
   private initializationPromise: Promise<void>;
-  private lastKnownSettings: CopilotSettings | undefined;
+  private lastKnownSettings: CortexSettings | undefined;
   private embeddingsManager: EmbeddingsManager;
   private indexBackend: SemanticIndexBackend;
   private oramaBackend: OramaIndexBackend;

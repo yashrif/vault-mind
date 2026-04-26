@@ -22,7 +22,7 @@ A custom command is like a template prompt. You write an instruction (with optio
 
 ### From Settings
 
-1. Go to **Settings → Copilot → Command**
+1. Go to **Settings → Cortex → Command**
 2. Click **Add new command**
 3. Fill in the fields:
    - **Name** — What the command is called (also becomes its ID)
@@ -78,7 +78,7 @@ Compare my notes on {[[Product Roadmap]]} and {[[Competitor Analysis]]} and iden
 Rewrite this in a more formal tone: {selected_text}
 ```
 
-Variable substitution must be enabled in **Settings → Copilot → Command → Enable custom prompt templating** (on by default).
+Variable substitution must be enabled in **Settings → Cortex → Command → Enable custom prompt templating** (on by default).
 
 ---
 
@@ -90,7 +90,7 @@ If a command has **Show in context menu** enabled:
 
 1. Select some text in a note (optional)
 2. Right-click to open the context menu
-3. Hover over **Copilot** → select your command
+3. Hover over **Cortex** → select your command
 4. The AI processes your selection or note and shows the result
 
 ### From the Command Palette
@@ -114,7 +114,7 @@ The command runs in the context of your current chat session and active note.
 
 ## Managing Commands
 
-Go to **Settings → Copilot → Command** to manage all your custom commands:
+Go to **Settings → Cortex → Command** to manage all your custom commands:
 
 - **Edit** — Click the edit icon next to any command
 - **Reorder** — Drag commands to change their order (affects the context menu and command list)
@@ -124,7 +124,7 @@ Go to **Settings → Copilot → Command** to manage all your custom commands:
 
 ### Custom Prompts Folder
 
-Commands are stored as markdown files in your vault. The default folder is `copilot/copilot-custom-prompts/`. You can change this in **Settings → Copilot → Basic → Custom prompts folder**.
+Commands are stored as markdown files in your vault. The default folder is `cortex/cortex-custom-prompts/`. You can change this in **Settings → Cortex → Basic → Custom prompts folder**.
 
 ---
 

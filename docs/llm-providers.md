@@ -1,12 +1,12 @@
 # LLM Providers
 
-Copilot includes 16 built-in AI providers, and you can add an unlimited number of additional models as long as they are OpenAI-compatible. You can use cloud-based services that require API keys, or run models locally on your own machine. This guide explains how to set up each provider.
+Cortex includes 16 built-in AI providers, and you can add an unlimited number of additional models as long as they are OpenAI-compatible. You can use cloud-based services that require API keys, or run models locally on your own machine. This guide explains how to set up each provider.
 
 ---
 
 ## How to Set API Keys
 
-1. Go to **Settings → Copilot → Basic**
+1. Go to **Settings → Cortex → Basic**
 2. Click **Set Keys** to open the API key dialog
 3. Enter your key for the provider you want to use
 4. Click Save
@@ -129,11 +129,11 @@ Cross-region profiles (with the `us.`, `eu.`, `apac.`, or `global.` prefix) are 
 
 ### GitHub Copilot
 
-Use your existing GitHub Copilot subscription to access AI models.
+Use your existing GitHub Cortex subscription to access AI models.
 
-- **OAuth flow**: Click **Connect GitHub Copilot** in the API key dialog
+- **OAuth flow**: Click **Connect GitHub Cortex** in the API key dialog
 - **No separate API key needed** — authenticates via GitHub OAuth
-- **Requires**: Active GitHub Copilot subscription (Personal, Business, or Enterprise)
+- **Requires**: Active GitHub Cortex subscription (Personal, Business, or Enterprise)
 
 ---
 
@@ -147,7 +147,7 @@ Runs open-source models locally on your machine.
 
 - **Default port**: 11434
 - **URL**: `http://localhost:11434/v1/`
-- **Setup**: Install Ollama (ollama.ai), pull a model, then add it in Copilot's Model settings
+- **Setup**: Install Ollama (ollama.ai), pull a model, then add it in Cortex's Model settings
 - **No API key required**
 
 ### LM Studio
@@ -156,7 +156,7 @@ A desktop app for running local models with a GUI.
 
 - **Default port**: 1234
 - **URL**: `http://localhost:1234/v1`
-- **Setup**: Install LM Studio, load a model, go to the Developer tab, **enable CORS** (required), click "Start Server", then add the model in Copilot
+- **Setup**: Install LM Studio, load a model, go to the Developer tab, **enable CORS** (required), click "Start Server", then add the model in Cortex
 - **No API key required**
 
 ### 3rd Party (OpenAI-Format)
@@ -166,7 +166,7 @@ For any API that follows the OpenAI API format. Useful for custom deployments, p
 - **Requires**: Base URL and optionally an API key
 - **Use when**: Your provider isn't in the list but speaks OpenAI-format
 
-> **CORS Warning**: Some third-party providers (e.g., Perplexity) don't support CORS, which causes Copilot to fail with a CORS error. When adding a custom model for such a provider, enable the **CORS** toggle in the custom model form. Note: streaming is not available in CORS mode.
+> **CORS Warning**: Some third-party providers (e.g., Perplexity) don't support CORS, which causes Cortex to fail with a CORS error. When adding a custom model for such a provider, enable the **CORS** toggle in the custom model form. Note: streaming is not available in CORS mode.
 
 ---
 
@@ -176,7 +176,7 @@ For any API that follows the OpenAI API format. Useful for custom deployments, p
 | -------------- | ----------------------------------- | -------------------------------------------------------------------------------------- |
 | Azure OpenAI   | Missing one of four required fields | Check all four settings: key, instance name, deployment name, API version              |
 | Amazon Bedrock | Rate limit or model not found       | Use cross-region inference profile IDs with `us.`, `eu.`, `apac.`, or `global.` prefix |
-| GitHub Copilot | Token expired                       | Re-authenticate via the OAuth button in API key dialog                                 |
+| GitHub Cortex  | Token expired                       | Re-authenticate via the OAuth button in API key dialog                                 |
 | Ollama         | Connection refused                  | Make sure Ollama is running (`ollama serve`) and the port is correct                   |
 | Google Gemini  | Quota exceeded                      | Use a different model or check your quota at console.cloud.google.com                  |
 | DeepSeek       | Streaming errors                    | Try disabling streaming in the per-session settings if you encounter issues            |

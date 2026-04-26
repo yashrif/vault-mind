@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Copilot for Obsidian is an AI-powered assistant plugin that integrates various LLM providers (OpenAI, Anthropic, Google, etc.) with Obsidian. It provides chat interfaces, autocomplete, semantic search, and various AI-powered commands for note-taking and knowledge management.
+Cortex for Obsidian is an AI-powered assistant plugin that integrates various LLM providers (OpenAI, Anthropic, Google, etc.) with Obsidian. It provides chat interfaces, autocomplete, semantic search, and various AI-powered commands for note-taking and knowledge management.
 
 ## Development Commands
 
@@ -38,7 +38,7 @@ The Obsidian desktop app includes a CLI for plugin development. Use the full pat
 **Plugin reload** (after `npm run build`):
 
 ```bash
-/Applications/Obsidian.app/Contents/MacOS/obsidian plugin:reload id=copilot
+/Applications/Obsidian.app/Contents/MacOS/obsidian plugin:reload id=cortex
 ```
 
 **Console debugging** (requires attaching debugger first):
@@ -55,7 +55,7 @@ The Obsidian desktop app includes a CLI for plugin development. Use the full pat
 - `dev:dom selector=<css>` — Query DOM elements
 - `dev:screenshot path=<file>` — Take a screenshot
 - `eval code=<js>` — Execute JS in the app context
-- `plugin:disable id=copilot` / `plugin:enable id=copilot`
+- `plugin:disable id=cortex` / `plugin:enable id=cortex`
 
 Run `obsidian help` for the full command list.
 
@@ -351,7 +351,7 @@ The TODO.md should be:
 - **Clean Architecture**: New architecture follows Repository → Manager → UIState → UI pattern
 - **Single Source of Truth**: All messages stored once in MessageRepository with computed views
 - **Context Always Fresh**: Context is reprocessed when messages are edited to ensure accuracy
-- **Chat History Loading**: Uses pending message mechanism through CopilotView → Chat component props
+- **Chat History Loading**: Uses pending message mechanism through CortexView → Chat component props
 - **Project Chat Isolation**: Each project now has completely isolated chat history
   - Automatic detection of project switches via `ProjectManager.getCurrentProjectId()`
   - Separate MessageRepository instances per project ID

@@ -30,8 +30,8 @@ export async function fetchModelsForProvider(
   try {
     // Special handling for GitHub Copilot
     if (provider === ChatModelProviders.GITHUB_COPILOT) {
-      const copilotProvider = GitHubCopilotProvider.getInstance();
-      const response = await copilotProvider.listModels();
+      const CortexProvider = GitHubCopilotProvider.getInstance();
+      const response = await CortexProvider.listModels();
       const models = parseModelsResponse(provider, response);
       return { success: true, models };
     }

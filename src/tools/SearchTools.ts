@@ -416,7 +416,7 @@ const localSearchTool = createLangChainTool({
 // Note: indexTool behavior depends on which retriever is active
 const indexTool = createLangChainTool({
   name: "indexVault",
-  description: "Index the vault to the Copilot index",
+  description: "Index the vault to the Cortex index",
   schema: z.object({}), // No parameters
   func: async () => {
     const settings = getSettings();

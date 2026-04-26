@@ -15,7 +15,7 @@ function genLocalId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-const STATE_DIR = ".copilot/telegram-state";
+const STATE_DIR = ".Cortex/telegram-state";
 const META_PATH = `${STATE_DIR}/meta.json`;
 const THREAD_PATH = `${STATE_DIR}/thread.json`;
 

@@ -13,7 +13,7 @@ import {
 } from "@/aiParams";
 import { NoteSelectedTextContext, SelectedTextContext } from "@/types/message";
 import { registerCommands } from "@/commands";
-import CopilotView from "@/components/CopilotView";
+import CortexView from "@/components/CortexView";
 import { APPLY_VIEW_TYPE, ApplyView } from "@/components/composer/ApplyView";
 import { LoadChatHistoryModal } from "@/components/modals/LoadChatHistoryModal";
 
@@ -36,7 +36,7 @@ import {
 } from "@/services/webViewerService/webViewerServiceSingleton";
 import { WebSelectionTracker } from "@/services/webViewerService/webViewerServiceSelection";
 import VectorStoreManager from "@/search/vectorStoreManager";
-import { CopilotSettingTab } from "@/settings/SettingsPage";
+import { CortexSettingTab } from "@/settings/SettingsPage";
 import {
   getModelKeyFromModel,
   getSettings,
@@ -76,7 +76,7 @@ import { v4 as uuidv4 } from "uuid";
 
 // Removed unused FileTrackingState interface
 
-export default class CopilotPlugin extends Plugin {
+export default class CortexPlugin extends Plugin {
   // Plugin components
   projectManager: ProjectManager;
   brevilabsClient: BrevilabsClient;
@@ -147,7 +147,7 @@ export default class CopilotPlugin extends Plugin {
         }
       }
     });
-    this.addSettingTab(new CopilotSettingTab(this.app, this));
+    this.addSettingTab(new CortexSettingTab(this.app, this));
 
     // Core plugin initialization
 
@@ -221,12 +221,12 @@ export default class CopilotPlugin extends Plugin {
       this.registerEvent(layoutRef);
     }
 
-    this.registerView(CHAT_VIEWTYPE, (leaf: WorkspaceLeaf) => new CopilotView(leaf, this));
+    this.registerView(CHAT_VIEWTYPE, (leaf: WorkspaceLeaf) => new CortexView(leaf, this));
     this.registerView(APPLY_VIEW_TYPE, (leaf: WorkspaceLeaf) => new ApplyView(leaf));
 
     this.initActiveLeafChangeHandler();
 
-    this.addRibbonIcon("message-square", "Open Copilot Chat", (evt: MouseEvent) => {
+    this.addRibbonIcon("message-square", "Open Cortex Chat", (evt: MouseEvent) => {
       this.activateView();
     });
 
@@ -250,13 +250,13 @@ export default class CopilotPlugin extends Plugin {
           if (file) {
             // Note: File tracking and real-time reindexing removed for simplicity
             // Semantic search indexes are rebuilt manually or on startup as needed
-            const activeCopilotView = this.app.workspace
+            const activeCortexView = this.app.workspace
               .getLeavesOfType(CHAT_VIEWTYPE)
-              .find((leaf) => leaf.view instanceof CopilotView)?.view as CopilotView;
+              .find((leaf) => leaf.view instanceof CortexView)?.view as CortexView;
 
-            if (activeCopilotView) {
+            if (activeCortexView) {
               const event = new CustomEvent(EVENT_NAMES.ACTIVE_LEAF_CHANGE);
-              activeCopilotView.eventTarget.dispatchEvent(event);
+              activeCortexView.eventTarget.dispatchEvent(event);
             }
           }
         }
@@ -321,7 +321,7 @@ export default class CopilotPlugin extends Plugin {
 
     // Best-effort flush of log file
     await logFileManager.flush();
-    logInfo("Copilot plugin unloaded");
+    logInfo("Cortex plugin unloaded");
   }
 
   /**
@@ -351,7 +351,7 @@ export default class CopilotPlugin extends Plugin {
 
   async autosaveCurrentChat() {
     if (getSettings().autosaveChat) {
-      const chatView = this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0]?.view as CopilotView;
+      const chatView = this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0]?.view as CortexView;
       if (chatView) {
         await chatView.saveChat();
       }
@@ -374,12 +374,12 @@ export default class CopilotPlugin extends Plugin {
 
     // Without the timeout, the view is not yet active
     setTimeout(() => {
-      const activeCopilotView = this.app.workspace
+      const activeCortexView = this.app.workspace
         .getLeavesOfType(CHAT_VIEWTYPE)
-        .find((leaf) => leaf.view instanceof CopilotView)?.view as CopilotView;
-      if (activeCopilotView && (!checkSelectedText || selectedText)) {
+        .find((leaf) => leaf.view instanceof CortexView)?.view as CortexView;
+      if (activeCortexView && (!checkSelectedText || selectedText)) {
         const event = new CustomEvent(eventType, { detail: { selectedText, eventSubtype } });
-        activeCopilotView.eventTarget.dispatchEvent(event);
+        activeCortexView.eventTarget.dispatchEvent(event);
       }
     }, 0);
   }
@@ -389,13 +389,13 @@ export default class CopilotPlugin extends Plugin {
   }
 
   emitChatIsVisible() {
-    const activeCopilotView = this.app.workspace
+    const activeCortexView = this.app.workspace
       .getLeavesOfType(CHAT_VIEWTYPE)
-      .find((leaf) => leaf.view instanceof CopilotView)?.view as CopilotView;
+      .find((leaf) => leaf.view instanceof CortexView)?.view as CortexView;
 
-    if (activeCopilotView) {
+    if (activeCortexView) {
       const event = new CustomEvent(EVENT_NAMES.CHAT_IS_VISIBLE);
-      activeCopilotView.eventTarget.dispatchEvent(event);
+      activeCortexView.eventTarget.dispatchEvent(event);
     }
   }
 
@@ -683,7 +683,7 @@ export default class CopilotPlugin extends Plugin {
     return Array.from(modelMap.values());
   }
 
-  async loadCopilotChatHistory() {
+  async loadCortexChatHistory() {
     const chatFiles = await this.getChatHistoryFiles();
     if (chatFiles.length === 0) {
       new Notice("No chat history found.");
@@ -791,7 +791,7 @@ export default class CopilotPlugin extends Plugin {
       // Mark persistence successful for throttling purposes
       this.chatHistoryLastAccessedAtManager.markPersisted(file.path, persistedAtMs);
     } catch (error) {
-      logWarn(`[CopilotPlugin] Failed to update chat lastAccessedAt for ${file.path}`, error);
+      logWarn(`[CortexPlugin] Failed to update chat lastAccessedAt for ${file.path}`, error);
     }
   }
 
@@ -807,7 +807,7 @@ export default class CopilotPlugin extends Plugin {
     // First autosave the current chat if the setting is enabled
     await this.autosaveCurrentChat();
 
-    // Check if the Copilot view is already active
+    // Check if the Cortex view is already active
     const existingView = this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0];
     if (!existingView) {
       // Only activate the view if it's not already open
@@ -821,10 +821,10 @@ export default class CopilotPlugin extends Plugin {
     void this.touchChatHistoryLastAccessedAt(file);
 
     // Update the view
-    const copilotView = (existingView || this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0])
-      ?.view as CopilotView;
-    if (copilotView) {
-      copilotView.updateView();
+    const CortexView = (existingView || this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0])
+      ?.view as CortexView;
+    if (CortexView) {
+      CortexView.updateView();
     }
   }
 
@@ -923,12 +923,12 @@ export default class CopilotPlugin extends Plugin {
     // Abort any ongoing streams before clearing chat
     const existingView = this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0];
     if (existingView) {
-      const copilotView = existingView.view as CopilotView;
+      const CortexView = existingView.view as CortexView;
       // Dispatch abort event to stop any ongoing streams
       const abortEvent = new CustomEvent(EVENT_NAMES.ABORT_STREAM, {
         detail: { reason: ABORT_REASON.NEW_CHAT },
       });
-      copilotView.eventTarget.dispatchEvent(abortEvent);
+      CortexView.eventTarget.dispatchEvent(abortEvent);
     }
 
     // Clear messages through ChatUIState (which also clears chain memory)
@@ -936,8 +936,8 @@ export default class CopilotPlugin extends Plugin {
 
     // Update view if it exists
     if (existingView) {
-      const copilotView = existingView.view as CopilotView;
-      copilotView.updateView();
+      const CortexView = existingView.view as CortexView;
+      CortexView.updateView();
     } else {
       // If view doesn't exist, open it
       await this.activateView();

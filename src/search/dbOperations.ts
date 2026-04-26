@@ -112,7 +112,7 @@ export class DBOperations {
       return newDb;
     } catch (error) {
       logError(`Error initializing semantic index database:`, error);
-      new Notice("Failed to initialize Copilot database. Some features may be limited.");
+      new Notice("Failed to initialize Cortex database. Some features may be limited.");
       return undefined;
     }
   }
@@ -169,11 +169,11 @@ export class DBOperations {
       // Save the empty database
       await this.saveDB();
 
-      new Notice("Local Copilot index cleared successfully.");
-      logInfo("Local Copilot index cleared successfully, new instance created.");
+      new Notice("Local Cortex index cleared successfully.");
+      logInfo("Local Cortex index cleared successfully, new instance created.");
     } catch (err) {
-      logError("Error clearing the local Copilot index:", err);
-      new Notice("An error occurred while clearing the local Copilot index.");
+      logError("Error clearing the local Cortex index:", err);
+      new Notice("An error occurred while clearing the local Cortex index.");
       throw err;
     }
   }
@@ -194,12 +194,12 @@ export class DBOperations {
           500
         );
         if (getSettings().debug) {
-          logInfo(`Deleted document from local Copilot index: ${filePath}`);
+          logInfo(`Deleted document from local Cortex index: ${filePath}`);
         }
       }
       this.markUnsavedChanges();
     } catch (err) {
-      logError("Error deleting document from local Copilotindex:", err);
+      logError("Error deleting document from local Cortexindex:", err);
     }
   }
 
@@ -240,7 +240,7 @@ export class DBOperations {
       // If vaultRoot is just "/", treat it as empty
       const effectiveRoot = vaultRoot === "/" ? "" : vaultRoot;
       const prefix = effectiveRoot === "" || effectiveRoot.startsWith("/") ? "" : "/";
-      baseDir = `${prefix}${effectiveRoot}/.copilot-index`;
+      baseDir = `${prefix}${effectiveRoot}/.cortex-index`;
 
       // Ensure the directory exists
       if (!(await this.app.vault.adapter.exists(baseDir))) {
@@ -506,9 +506,9 @@ export class DBOperations {
 
       if (!areEmbeddingModelsSame(prevEmbeddingModel, currEmbeddingModel)) {
         // Model has changed, notify user and rebuild DB
-        new Notice("New embedding model detected. Rebuilding Copilot index from scratch.");
+        new Notice("New embedding model detected. Rebuilding Cortex index from scratch.");
         logInfo(
-          `Detected change in embedding model from "${prevEmbeddingModel}" to "${currEmbeddingModel}". Rebuilding Copilot index from scratch.`
+          `Detected change in embedding model from "${prevEmbeddingModel}" to "${currEmbeddingModel}". Rebuilding Cortex index from scratch.`
         );
 
         // Create new DB with new model
@@ -580,7 +580,7 @@ export class DBOperations {
       }
 
       logInfo(
-        "Copilot index: Docs to remove during garbage collection:",
+        "Cortex index: Docs to remove during garbage collection:",
         Array.from(new Set(docsToRemove.map((doc) => doc.path))).join(", ")
       );
 
@@ -597,8 +597,8 @@ export class DBOperations {
       await this.saveDB();
       return docsToRemove.length;
     } catch (err) {
-      logError("Error garbage collecting the Copilot index:", err);
-      throw new CustomError("Failed to garbage collect the Copilot index.");
+      logError("Error garbage collecting the Cortex index:", err);
+      throw new CustomError("Failed to garbage collect the Cortex index.");
     }
   }
 
