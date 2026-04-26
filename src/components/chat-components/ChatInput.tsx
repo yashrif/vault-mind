@@ -807,7 +807,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
         ) : (
           <div className="tw-flex tw-min-w-0 tw-flex-1 tw-items-center tw-gap-1">
             {showChainSelector && onChainChange && (
-              <ChainModeSelector selectedChain={currentChain} onSelectChain={onChainChange} />
+              <ChainModeSelector onSelectChain={onChainChange} />
             )}
             <div className="tw-min-w-0 tw-flex-1">
               <ModelSelector

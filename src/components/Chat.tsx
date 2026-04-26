@@ -856,7 +856,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
             onSaveAsNote={() => handleSaveAsNote()}
             onLoadHistory={handleLoadChatHistory}
             onModeChange={handleChainModeChange}
-            selectedChain={selectedChain}
             chatHistory={chatHistoryItems}
             onUpdateChatTitle={handleUpdateChatTitle}
             onDeleteChat={handleDeleteChat}
@@ -933,7 +932,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                 onSaveAsNote={() => handleSaveAsNote()}
                 onLoadHistory={handleLoadChatHistory}
                 onModeChange={handleChainModeChange}
-                selectedChain={selectedChain}
                 chatHistory={chatHistoryItems}
                 onUpdateChatTitle={handleUpdateChatTitle}
                 onDeleteChat={handleDeleteChat}

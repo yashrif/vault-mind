@@ -1,4 +1,4 @@
-import { getCurrentProject, type ProjectConfig, setProjectLoading } from "@/aiParams";
+import { getCurrentProject, setProjectLoading } from "@/aiParams";
 import { ProjectContextCache } from "@/cache/projectContextCache";
 import { ChainType } from "@/chainFactory";
 import { ConfirmModal } from "@/components/modals/ConfirmModal";
@@ -173,7 +173,6 @@ interface ChatControlsProps {
   onSaveAsNote: () => Promise<void>;
   onLoadHistory: () => void;
   onModeChange: (mode: ChainType) => void | Promise<void>;
-  selectedChain: ChainType;
   showModeSelector?: boolean;
   chatHistory: ChatHistoryItem[];
   onUpdateChatTitle: (id: string, newTitle: string) => Promise<void>;
@@ -181,8 +180,6 @@ interface ChatControlsProps {
   onLoadChat: (id: string) => Promise<void>;
   onOpenSourceFile?: (id: string) => Promise<void>;
   latestTokenCount?: number | null;
-  onProjectSelect?: (project: ProjectConfig) => void;
-  onProjectDeselect?: () => void;
   channelsActive?: boolean;
   onChannelsToggle?: () => void;
 }
@@ -192,7 +189,6 @@ export function ChatControls({
   onSaveAsNote,
   onLoadHistory,
   onModeChange,
-  selectedChain,
   showModeSelector = true,
   chatHistory,
   onUpdateChatTitle,
@@ -200,8 +196,6 @@ export function ChatControls({
   onLoadChat,
   onOpenSourceFile,
   latestTokenCount,
-  onProjectSelect,
-  onProjectDeselect,
   channelsActive = false,
   onChannelsToggle,
 }: ChatControlsProps) {
@@ -211,13 +205,7 @@ export function ChatControls({
     <div className="tw-flex tw-w-full tw-items-center tw-justify-between tw-p-1">
       <div className="tw-flex tw-flex-1 tw-items-center tw-gap-1">
         {showModeSelector && !channelsActive && (
-          <ChainModeSelector
-            selectedChain={selectedChain}
-            onSelectChain={onModeChange}
-            onProjectSelect={onProjectSelect}
-            onProjectDeselect={onProjectDeselect}
-            className="tw-ml-1"
-          />
+          <ChainModeSelector onSelectChain={onModeChange} className="tw-ml-1" />
         )}
         {showModeSelector && channelsActive && (
           <span className="tw-ml-2 tw-text-sm tw-font-medium tw-text-accent">Channels</span>
