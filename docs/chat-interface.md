@@ -4,45 +4,48 @@ The Cortex chat panel is the main way you interact with AI in Obsidian. This gui
 
 ---
 
-## Chat Modes
+## Modes and Channels
 
-Cortex offers five modes. You can switch between them using the mode selector at the top of the chat panel.
+The chat header controls how Cortex responds. There are two main modes — **Chat** and **Agent** — each with a secondary control, plus a **Channels** toggle for integrations like Telegram.
 
 ### Chat
 
 General-purpose conversation. Good for writing, brainstorming, summarizing, or any task where you want to talk to an AI. Your currently open note and selected text are automatically included as context.
 
-### Vault QA (Basic)
+The secondary control in Chat mode is a retrieval toggle:
 
-Ask questions about your vault content. Cortex uses lexical search (keyword matching) to find relevant notes and passes them as context to the AI. No indexing required. Good for quick questions about your notes.
+- **General** — Responds from the model's training knowledge plus your active note/selection context. No vault search.
+- **Ask vault** — Automatically searches your vault for relevant notes and includes them as context. Good for questions about your notes.
 
-### Agent Mode
+### Agent
 
-The most powerful mode. Combines Chat and Vault QA with an autonomous agent that can:
+The most powerful mode. Combines conversational chat with an autonomous agent that can:
 
 - Search your vault and the web
 - Read and edit notes
 - Remember things across conversations
 - Use a growing set of tools automatically
 
-### Projects (alpha)
+The secondary control in Agent mode is a scope selector:
 
-Focused workspaces with their own context, model, system prompt, and isolated chat history. Useful for keeping separate AI conversations per project. See [Projects](projects.md) for details.
+- **All notes** — Agent has access to your full vault.
+- **Project: [name]** — Agent is scoped to a specific project. Projects have their own context, model, system prompt, and isolated chat history. Click the scope selector to switch projects. See [Projects](projects.md) for details.
 
-### Telegram
+### Channels
 
-A bridge between Telegram and Cortex. Telegram mode shows one always-on read-only thread managed by Telegram channel state.
+Click the **antenna/radio icon** in the chat controls to open the Channels view. Channels are external messaging integrations that receive and send messages outside Obsidian.
+
+#### Telegram
+
+A bridge between Telegram and Cortex. Shows one always-on read-only thread managed by Telegram channel state.
 
 - Requires desktop app
 - Requires a Telegram bot token
 - Requires at least one allowlisted chat ID in **Settings → Cortex → Telegram → Allowed Chat IDs**
 - The first inbound message from an allowlisted chat becomes the primary chat
-- Uses the same chat panel structure as other modes (mode bar, message list, and controls)
-- Obsidian composer input is disabled in Telegram mode (send messages from Telegram)
+- Obsidian composer input is disabled in Channels view (send messages from Telegram)
 - Messages that arrive from Telegram still receive AI replies sent back to Telegram
-- In-message actions are intentionally limited in Telegram mode to avoid unsafe edits/regenerations on external chat history
-
-In Telegram mode, only chain switching and reset thread controls are shown.
+- In-message actions are intentionally limited to avoid unsafe edits/regenerations on external chat history
 
 ---
 

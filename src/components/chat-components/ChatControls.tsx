@@ -18,9 +18,11 @@ import {
   History,
   MessageCirclePlus,
   MoreHorizontal,
+  Radio,
   RefreshCw,
   Sparkles,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Notice } from "obsidian";
 import React from "react";
 import {
@@ -181,6 +183,8 @@ interface ChatControlsProps {
   latestTokenCount?: number | null;
   onProjectSelect?: (project: ProjectConfig) => void;
   onProjectDeselect?: () => void;
+  channelsActive?: boolean;
+  onChannelsToggle?: () => void;
 }
 
 export function ChatControls({
@@ -198,14 +202,15 @@ export function ChatControls({
   latestTokenCount,
   onProjectSelect,
   onProjectDeselect,
+  channelsActive = false,
+  onChannelsToggle,
 }: ChatControlsProps) {
   const settings = useSettingsValue();
-  const isTelegramChain = selectedChain === ChainType.TELEGRAM_CHAIN;
 
   return (
     <div className="tw-flex tw-w-full tw-items-center tw-justify-between tw-p-1">
-      <div className="tw-flex-1">
-        {showModeSelector && (
+      <div className="tw-flex tw-flex-1 tw-items-center tw-gap-1">
+        {showModeSelector && !channelsActive && (
           <ChainModeSelector
             selectedChain={selectedChain}
             onSelectChain={onModeChange}
@@ -214,9 +219,28 @@ export function ChatControls({
             className="tw-ml-1"
           />
         )}
+        {showModeSelector && channelsActive && (
+          <span className="tw-ml-2 tw-text-sm tw-font-medium tw-text-accent">Channels</span>
+        )}
+        {onChannelsToggle && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost2"
+                size="icon"
+                onClick={onChannelsToggle}
+                className={cn(channelsActive && "tw-text-accent")}
+                title={channelsActive ? "Back to chat" : "Channels"}
+              >
+                <Radio className="tw-size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{channelsActive ? "Back to chat" : "Channels"}</TooltipContent>
+          </Tooltip>
+        )}
       </div>
       <div className="tw-flex tw-items-center tw-gap-1">
-        {!isTelegramChain && (
+        {!channelsActive && (
           <div className="tw-mr-2">
             <TokenCounter tokenCount={latestTokenCount ?? null} />
           </div>
@@ -226,16 +250,16 @@ export function ChatControls({
             <Button
               variant="ghost2"
               size="icon"
-              title={isTelegramChain ? "Reset Telegram Thread" : "New Chat"}
+              title={channelsActive ? "Reset Channel" : "New Chat"}
               onClick={onNewChat}
             >
               <MessageCirclePlus className="tw-size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{isTelegramChain ? "Reset Telegram Thread" : "New Chat"}</TooltipContent>
+          <TooltipContent>{channelsActive ? "Reset Channel" : "New Chat"}</TooltipContent>
         </Tooltip>
-        {!isTelegramChain && <ChatSettingsPopover />}
-        {!isTelegramChain && !settings.autosaveChat && (
+        {!channelsActive && <ChatSettingsPopover />}
+        {!channelsActive && !settings.autosaveChat && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost2" size="icon" title="Save Chat as Note" onClick={onSaveAsNote}>
@@ -245,7 +269,7 @@ export function ChatControls({
             <TooltipContent>Save Chat as Note</TooltipContent>
           </Tooltip>
         )}
-        {!isTelegramChain && (
+        {!channelsActive && (
           <Tooltip>
             <ChatHistoryPopover
               chatHistory={chatHistory}
@@ -264,7 +288,7 @@ export function ChatControls({
           </Tooltip>
         )}
 
-        {!isTelegramChain && (
+        {!channelsActive && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost2" size="icon" title="Advanced Settings">

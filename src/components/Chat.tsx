@@ -19,6 +19,7 @@ import type { WebTabContext } from "@/types/message";
 import { mapTelegramMessagesToChatMessages } from "@/channels/telegram/TelegramMessageAdapter";
 import type { TelegramStore } from "@/channels/telegram/TelegramStore";
 import type { TelegramReplyState, TelegramStoredMessage } from "@/channels/telegram/TelegramTypes";
+import { ChannelsView } from "@/components/chat-components/ChannelsView";
 import { ChatControls, reloadCurrentProject } from "@/components/chat-components/ChatControls";
 import ChatInput from "@/components/chat-components/ChatInput";
 import ChatMessages from "@/components/chat-components/ChatMessages";
@@ -219,6 +220,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   }, [chatHistory]);
 
   const [selectedChain, setSelectedChain] = useChainType();
+  const [channelsActive, setChannelsActive] = useState(false);
   const telegramStore = (plugin as any).telegramChannelService?.store as TelegramStore | undefined;
   const [telegramMessages, setTelegramMessages] = useState<TelegramStoredMessage[]>([]);
   const [telegramReplyState, setTelegramReplyState] = useState<TelegramReplyState | null>(null);
@@ -694,8 +696,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   );
 
   const handleNewChat = useCallback(async () => {
-    // Telegram "New" resets the view by advancing the reset_at cursor.
-    if (selectedChain === ChainType.TELEGRAM_CHAIN) {
+    if (channelsActive) {
       const service = (plugin as any).telegramChannelService;
       await service?.store?.resetView();
       return;
@@ -748,7 +749,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     settings.autosaveChat,
     settings.enableRecentConversations,
     settings.autoAddActiveContentToContext,
-    selectedChain,
+    channelsActive,
     handleSaveAsNote,
     safeSet,
     plugin,
@@ -847,76 +848,32 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   // message persistence and loading automatically based on project context
 
   const renderChatComponents = () => {
-    if (selectedChain === ChainType.TELEGRAM_CHAIN) {
+    if (channelsActive) {
       return (
         <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
-          <div className="tw-flex tw-h-full tw-flex-1 tw-flex-col tw-overflow-hidden">
-            <ChatControls
-              onNewChat={handleNewChat}
-              onSaveAsNote={() => handleSaveAsNote()}
-              onLoadHistory={handleLoadChatHistory}
-              onModeChange={handleChainModeChange}
-              selectedChain={selectedChain}
-              chatHistory={chatHistoryItems}
-              onUpdateChatTitle={handleUpdateChatTitle}
-              onDeleteChat={handleDeleteChat}
-              onLoadChat={handleLoadChat}
-              onOpenSourceFile={handleOpenSourceFile}
-              latestTokenCount={null}
-            />
-
-            {telegramChatHistory.length > 0 || telegramReplyState ? (
-              <ChatMessages
-                chatHistory={telegramChatHistory}
-                currentAiMessage={telegramReplyState?.partialText ?? ""}
-                streamingMessageId={telegramReplyState?.streamingMessageId}
-                loading={!!telegramReplyState}
-                loadingMessage={telegramReplyState?.loadingMessage}
-                app={app}
-                onRegenerate={() => {}}
-                onEdit={() => {}}
-                onDelete={() => {}}
-                onReplaceChat={() => {}}
-                showHelperComponents={false}
-                actionCapabilities={{
-                  allowUserEdit: false,
-                  allowDelete: false,
-                  allowRegenerate: false,
-                  allowInsert: false,
-                  allowShowSources: false,
-                }}
-              />
-            ) : (
-              <div className="tw-flex tw-flex-1 tw-flex-col tw-items-center tw-justify-center tw-gap-3 tw-p-6 tw-text-center">
-                <span className="tw-text-2xl">✈️</span>
-                {!telegramStore ? (
-                  <>
-                    <p className="tw-text-sm tw-font-medium tw-text-normal">Telegram</p>
-                    <p className="tw-text-xs tw-text-muted">
-                      Enable Telegram in Settings and enter your bot token.
-                    </p>
-                  </>
-                ) : !telegramAllowlistConfigured ? (
-                  <>
-                    <p className="tw-text-sm tw-font-medium tw-text-normal">
-                      Get started with Telegram
-                    </p>
-                    <ol className="tw-list-none tw-space-y-1 tw-text-left tw-text-xs tw-text-muted">
-                      <li>1. Open Settings -&gt; Cortex -&gt; Telegram -&gt; Allowed Chat IDs</li>
-                      <li>2. Add your chat ID, then DM the bot from that chat to bind it</li>
-                      <li>3. Once bound, inbound messages and replies appear in this thread</li>
-                    </ol>
-                  </>
-                ) : (
-                  <p className="tw-text-sm tw-text-muted">
-                    {telegramPrimaryChatId === null
-                      ? "DM your bot to begin. The first allowlisted chat you message will become the primary thread."
-                      : "No messages yet. Send a message to your bot in Telegram to start."}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
+          <ChatControls
+            onNewChat={handleNewChat}
+            onSaveAsNote={() => handleSaveAsNote()}
+            onLoadHistory={handleLoadChatHistory}
+            onModeChange={handleChainModeChange}
+            selectedChain={selectedChain}
+            chatHistory={chatHistoryItems}
+            onUpdateChatTitle={handleUpdateChatTitle}
+            onDeleteChat={handleDeleteChat}
+            onLoadChat={handleLoadChat}
+            onOpenSourceFile={handleOpenSourceFile}
+            latestTokenCount={null}
+            channelsActive={channelsActive}
+            onChannelsToggle={() => setChannelsActive(false)}
+          />
+          <ChannelsView
+            telegramStore={telegramStore}
+            telegramChatHistory={telegramChatHistory}
+            telegramReplyState={telegramReplyState}
+            telegramPrimaryChatId={telegramPrimaryChatId}
+            telegramAllowlistConfigured={telegramAllowlistConfigured}
+            app={app}
+          />
         </div>
       );
     }
@@ -983,6 +940,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                 onLoadChat={handleLoadChat}
                 onOpenSourceFile={handleOpenSourceFile}
                 latestTokenCount={latestTokenCount}
+                onChannelsToggle={() => setChannelsActive(true)}
               />
               <ChatInput
                 inputMessage={inputMessage}

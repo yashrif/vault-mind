@@ -73,11 +73,20 @@ jest.mock("lucide-react", () => ({
   History: () => <span />,
   MessageCirclePlus: () => <span />,
   MoreHorizontal: () => <span />,
+  Radio: () => <span />,
   RefreshCw: () => <span />,
   Sparkles: () => <span />,
 }));
 
-describe("ChatControls Telegram behavior", () => {
+jest.mock("@/lib/utils", () => ({
+  cn: (...args: any[]) => args.filter(Boolean).join(" "),
+}));
+
+jest.mock("@/aiParams", () => ({
+  getCurrentProject: jest.fn(() => null),
+}));
+
+describe("ChatControls", () => {
   const mockSettings = {
     autosaveChat: false,
     showSuggestedPrompts: false,
@@ -90,6 +99,7 @@ describe("ChatControls Telegram behavior", () => {
     onSaveAsNote: jest.fn(async () => {}),
     onLoadHistory: jest.fn(),
     onModeChange: jest.fn(),
+    selectedChain: ChainType.TOOL_CHAIN,
     chatHistory: [],
     onUpdateChatTitle: jest.fn(async () => {}),
     onDeleteChat: jest.fn(async () => {}),
@@ -103,11 +113,10 @@ describe("ChatControls Telegram behavior", () => {
     (useSettingsValue as jest.Mock).mockReturnValue(mockSettings);
   });
 
-  it("shows only mode switch and reset in Telegram mode", () => {
-    render(<ChatControls {...baseProps} selectedChain={ChainType.TELEGRAM_CHAIN} />);
+  it("hides standard controls when channelsActive is true", () => {
+    render(<ChatControls {...baseProps} channelsActive={true} onChannelsToggle={jest.fn()} />);
 
-    expect(screen.getByTestId("chain-mode-selector")).toBeTruthy();
-    expect(screen.getByTitle("Reset Telegram Thread")).toBeTruthy();
+    expect(screen.getByTitle("Reset Channel")).toBeTruthy();
 
     expect(screen.queryByTestId("token-counter")).toBeNull();
     expect(screen.queryByTestId("chat-settings-popover")).toBeNull();
@@ -116,8 +125,8 @@ describe("ChatControls Telegram behavior", () => {
     expect(screen.queryByTitle("Advanced Settings")).toBeNull();
   });
 
-  it("keeps standard controls in non-Telegram mode", () => {
-    render(<ChatControls {...baseProps} selectedChain={ChainType.TOOL_CHAIN} />);
+  it("shows standard controls in normal mode", () => {
+    render(<ChatControls {...baseProps} onChannelsToggle={jest.fn()} />);
 
     expect(screen.getByTestId("chain-mode-selector")).toBeTruthy();
     expect(screen.getByTitle("New Chat")).toBeTruthy();
