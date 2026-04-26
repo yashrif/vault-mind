@@ -35,6 +35,18 @@ jest.mock("@/LLMProviders/chainRunner/utils/citationUtils", () => ({
   processInlineCitations: jest.fn((content: string) => content),
 }));
 
+jest.mock("react-resizable-panels", () => {
+  const React = jest.requireActual<typeof import("react")>("react");
+  return {
+    PanelGroup: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) =>
+      React.createElement("div", props, children),
+    Panel: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) =>
+      React.createElement("div", props, children),
+    PanelResizeHandle: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) =>
+      React.createElement("div", props, children),
+  };
+});
+
 jest.mock("obsidian", () => {
   const renderMarkdown = jest.fn();
   return {
@@ -58,6 +70,12 @@ jest.mock("obsidian", () => {
       close() {
         /* noop */
       }
+    },
+    FuzzySuggestModal: class {
+      constructor(_app: unknown) {}
+    },
+    Notice: class {
+      constructor(_message: string, _timeout?: number) {}
     },
     __renderMarkdownMock: renderMarkdown,
   };

@@ -19,11 +19,11 @@ import type { WebTabContext } from "@/types/message";
 import { mapTelegramMessagesToChatMessages } from "@/channels/telegram/TelegramMessageAdapter";
 import type { TelegramStore } from "@/channels/telegram/TelegramStore";
 import type { TelegramReplyState, TelegramStoredMessage } from "@/channels/telegram/TelegramTypes";
+import { ChannelsView } from "@/components/chat-components/ChannelsView";
 import { ChatControls, reloadCurrentProject } from "@/components/chat-components/ChatControls";
 import ChatInput from "@/components/chat-components/ChatInput";
 import ChatMessages from "@/components/chat-components/ChatMessages";
 import { NewVersionBanner } from "@/components/chat-components/NewVersionBanner";
-import { ProjectList } from "@/components/chat-components/ProjectList";
 import IndexingProgressCard from "@/components/IndexingProgressCard";
 import ProgressCard from "@/components/project/progress-card";
 import { ABORT_REASON, AI_SENDER, EVENT_NAMES, LOADING_MESSAGES, USER_SENDER } from "@/constants";
@@ -50,15 +50,12 @@ import { v4 as uuidv4 } from "uuid";
 import { ChatHistoryItem } from "@/components/chat-components/ChatHistoryPopover";
 import { useActiveWebTabState } from "@/components/chat-components/hooks/useActiveWebTabState";
 
-type ChatMode = "default" | "project";
-
 interface ChatProps {
   chainManager: ChainManager;
   onSaveChat: (saveAsNote: () => Promise<void>) => void;
   updateUserMessageHistory: (newMessage: string) => void;
   fileParserManager: FileParserManager;
   plugin: CortexPlugin;
-  mode?: ChatMode;
   chatUIState: ChatUIState;
 }
 
@@ -67,7 +64,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   chainManager,
   onSaveChat,
   updateUserMessageHistory,
-  fileParserManager,
   plugin,
   chatUIState,
   chatInput,
@@ -117,7 +113,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   const [includeActiveNote, setIncludeActiveNote] = useState(false);
   const [includeActiveWebTab, setIncludeActiveWebTab] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [showChatUI, setShowChatUI] = useState(false);
   const [chatHistoryItems, setChatHistoryItems] = useState<ChatHistoryItem[]>([]);
   // null: keep default behavior; true: show; false: hide
   const [progressCardVisible, setProgressCardVisible] = useState<boolean | null>(null);
@@ -163,14 +158,12 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
   // Calculate whether to show ProgressCard based on status and user preference
   const shouldShowProgressCard = () => {
-    if (selectedChain !== ChainType.PROJECT_CHAIN) return false;
+    if (!getCurrentProject()) return false;
 
-    // If user has explicitly set visibility, respect that choice
     if (progressCardVisible !== null) {
       return progressCardVisible;
     }
 
-    // Default behavior: show for loading/error, hide for success
     return projectContextStatus === "loading" || projectContextStatus === "error";
   };
 
@@ -184,9 +177,8 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
    * Hidden in project mode (project card takes priority) and when user explicitly closed it.
    */
   const shouldShowIndexingCard = () => {
-    if (selectedChain === ChainType.PROJECT_CHAIN) return false;
+    if (getCurrentProject()) return false;
     if (indexingCardVisible === false) return false;
-    // Show when indexing is active or just completed (before auto-close)
     return indexingState.isActive || indexingState.completionStatus !== "none";
   };
 
@@ -227,8 +219,8 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     }
   }, [chatHistory]);
 
-  const [previousMode, setPreviousMode] = useState<ChainType | null>(null);
   const [selectedChain, setSelectedChain] = useChainType();
+  const [channelsActive, setChannelsActive] = useState(false);
   const telegramStore = (plugin as any).telegramChannelService?.store as TelegramStore | undefined;
   const [telegramMessages, setTelegramMessages] = useState<TelegramStoredMessage[]>([]);
   const [telegramReplyState, setTelegramReplyState] = useState<TelegramReplyState | null>(null);
@@ -441,23 +433,9 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
         return;
       }
 
-      const isLeavingProjectMode =
-        selectedChain === ChainType.PROJECT_CHAIN && newMode !== ChainType.PROJECT_CHAIN;
-      if (isLeavingProjectMode && settings.autosaveChat) {
-        await handleSaveAsNote();
-      }
-
-      setPreviousMode(selectedChain);
       setSelectedChain(newMode);
-
-      if (newMode === ChainType.PROJECT_CHAIN) {
-        setShowChatUI(false);
-        return;
-      }
-
-      setCurrentProject(null);
     },
-    [handleSaveAsNote, selectedChain, setSelectedChain, settings.autosaveChat]
+    [selectedChain, setSelectedChain]
   );
 
   const handleStopGenerating = useCallback(
@@ -624,39 +602,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     }
   }, [onSaveChat, handleSaveAsNote]);
 
-  const handleAddProject = useCallback(
-    (project: ProjectConfig) => {
-      const currentProjects = settings.projectList || [];
-      const existingIndex = currentProjects.findIndex((p) => p.name === project.name);
-
-      if (existingIndex >= 0) {
-        throw new Error(`Project "${project.name}" already exists, please use a different name`);
-      }
-
-      const newProjectList = [...currentProjects, project];
-      updateSetting("projectList", newProjectList);
-
-      // Check if this project is now the current project
-      const currentProject = getCurrentProject();
-      if (currentProject?.id === project.id) {
-        // Reload the project context for the newly added project
-        reloadCurrentProject()
-          .then(() => {
-            new Notice(`${project.name} added and context loaded`);
-          })
-          .catch((error: Error) => {
-            logError("Error loading project context:", error);
-            new Notice(`${project.name} added but context loading failed`);
-          });
-      } else {
-        new Notice(`${project.name} added successfully`);
-      }
-
-      return true;
-    },
-    [settings.projectList]
-  );
-
   const handleEditProject = useCallback(
     (originP: ProjectConfig, updateP: ProjectConfig) => {
       const currentProjects = settings.projectList || [];
@@ -751,8 +696,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   );
 
   const handleNewChat = useCallback(async () => {
-    // Telegram "New" resets the view by advancing the reset_at cursor.
-    if (selectedChain === ChainType.TELEGRAM_CHAIN) {
+    if (channelsActive) {
       const service = (plugin as any).telegramChannelService;
       await service?.store?.resetView();
       return;
@@ -795,14 +739,9 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     plugin.chatSelectionHighlightController.clearForNewChat();
     // Suppress web selection to prevent it from reappearing in new chat
     plugin.suppressCurrentWebSelection(webSelectionUrl);
-    // Respect the autoAddActiveContentToContext setting for all non-project chains
-    if (selectedChain === ChainType.PROJECT_CHAIN) {
-      setIncludeActiveNote(false);
-      setIncludeActiveWebTab(false);
-    } else {
-      setIncludeActiveNote(settings.autoAddActiveContentToContext);
-      setIncludeActiveWebTab(settings.autoAddActiveContentToContext);
-    }
+    // Respect the autoAddActiveContentToContext setting
+    setIncludeActiveNote(settings.autoAddActiveContentToContext);
+    setIncludeActiveWebTab(settings.autoAddActiveContentToContext);
   }, [
     handleStopGenerating,
     chainManager.chatModelManager,
@@ -810,7 +749,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     settings.autosaveChat,
     settings.enableRecentConversations,
     settings.autoAddActiveContentToContext,
-    selectedChain,
+    channelsActive,
     handleSaveAsNote,
     safeSet,
     plugin,
@@ -900,91 +839,40 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   // Use the autoAddActiveContentToContext setting
   useEffect(() => {
     if (settings.autoAddActiveContentToContext !== undefined) {
-      // Only apply the setting if not in Project mode
-      if (selectedChain === ChainType.PROJECT_CHAIN) {
-        setIncludeActiveNote(false);
-        setIncludeActiveWebTab(false);
-      } else {
-        setIncludeActiveNote(settings.autoAddActiveContentToContext);
-        setIncludeActiveWebTab(settings.autoAddActiveContentToContext);
-      }
+      setIncludeActiveNote(settings.autoAddActiveContentToContext);
+      setIncludeActiveWebTab(settings.autoAddActiveContentToContext);
     }
-  }, [settings.autoAddActiveContentToContext, selectedChain]);
+  }, [settings.autoAddActiveContentToContext]);
 
   // Note: pendingMessages loading has been removed as ChatManager now handles
   // message persistence and loading automatically based on project context
 
   const renderChatComponents = () => {
-    if (selectedChain === ChainType.TELEGRAM_CHAIN) {
+    if (channelsActive) {
       return (
         <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
-          <div className="tw-flex tw-h-full tw-flex-1 tw-flex-col tw-overflow-hidden">
-            <ChatControls
-              onNewChat={handleNewChat}
-              onSaveAsNote={() => handleSaveAsNote()}
-              onLoadHistory={handleLoadChatHistory}
-              onModeChange={handleChainModeChange}
-              selectedChain={selectedChain}
-              chatHistory={chatHistoryItems}
-              onUpdateChatTitle={handleUpdateChatTitle}
-              onDeleteChat={handleDeleteChat}
-              onLoadChat={handleLoadChat}
-              onOpenSourceFile={handleOpenSourceFile}
-              latestTokenCount={null}
-            />
-
-            {telegramChatHistory.length > 0 || telegramReplyState ? (
-              <ChatMessages
-                chatHistory={telegramChatHistory}
-                currentAiMessage={telegramReplyState?.partialText ?? ""}
-                streamingMessageId={telegramReplyState?.streamingMessageId}
-                loading={!!telegramReplyState}
-                loadingMessage={telegramReplyState?.loadingMessage}
-                app={app}
-                onRegenerate={() => {}}
-                onEdit={() => {}}
-                onDelete={() => {}}
-                onReplaceChat={() => {}}
-                showHelperComponents={false}
-                actionCapabilities={{
-                  allowUserEdit: false,
-                  allowDelete: false,
-                  allowRegenerate: false,
-                  allowInsert: false,
-                  allowShowSources: false,
-                }}
-              />
-            ) : (
-              <div className="tw-flex tw-flex-1 tw-flex-col tw-items-center tw-justify-center tw-gap-3 tw-p-6 tw-text-center">
-                <span className="tw-text-2xl">✈️</span>
-                {!telegramStore ? (
-                  <>
-                    <p className="tw-text-sm tw-font-medium tw-text-normal">Telegram</p>
-                    <p className="tw-text-xs tw-text-muted">
-                      Enable Telegram in Settings and enter your bot token.
-                    </p>
-                  </>
-                ) : !telegramAllowlistConfigured ? (
-                  <>
-                    <p className="tw-text-sm tw-font-medium tw-text-normal">
-                      Get started with Telegram
-                    </p>
-                    <ol className="tw-list-none tw-space-y-1 tw-text-left tw-text-xs tw-text-muted">
-                      <li>1. Open Settings -&gt; Cortex -&gt; Telegram -&gt; Allowed Chat IDs</li>
-                      <li>2. Add your chat ID, then DM the bot from that chat to bind it</li>
-                      <li>3. Once bound, inbound messages and replies appear in this thread</li>
-                    </ol>
-                  </>
-                ) : (
-                  <p className="tw-text-sm tw-text-muted">
-                    {telegramPrimaryChatId === null
-                      ? "DM your bot to begin. The first allowlisted chat you message will become the primary thread."
-                      : "No messages yet. Send a message to your bot in Telegram to start."}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
+          <ChatControls
+            onNewChat={handleNewChat}
+            onSaveAsNote={() => handleSaveAsNote()}
+            onLoadHistory={handleLoadChatHistory}
+            onModeChange={handleChainModeChange}
+            chatHistory={chatHistoryItems}
+            onUpdateChatTitle={handleUpdateChatTitle}
+            onDeleteChat={handleDeleteChat}
+            onLoadChat={handleLoadChat}
+            onOpenSourceFile={handleOpenSourceFile}
+            latestTokenCount={null}
+            channelsActive={channelsActive}
+            onChannelsToggle={() => setChannelsActive(false)}
+          />
+          <ChannelsView
+            telegramStore={telegramStore}
+            telegramChatHistory={telegramChatHistory}
+            telegramReplyState={telegramReplyState}
+            telegramPrimaryChatId={telegramPrimaryChatId}
+            telegramAllowlistConfigured={telegramAllowlistConfigured}
+            app={app}
+          />
         </div>
       );
     }
@@ -1004,7 +892,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
             onEdit={handleEdit}
             onDelete={handleDelete}
             onReplaceChat={setInputMessage}
-            showHelperComponents={selectedChain !== ChainType.PROJECT_CHAIN}
+            showHelperComponents={true}
           />
           {shouldShowProgressCard() ? (
             <div className="tw-inset-0 tw-z-modal tw-flex tw-items-center tw-justify-center tw-rounded-xl">
@@ -1044,13 +932,13 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                 onSaveAsNote={() => handleSaveAsNote()}
                 onLoadHistory={handleLoadChatHistory}
                 onModeChange={handleChainModeChange}
-                selectedChain={selectedChain}
                 chatHistory={chatHistoryItems}
                 onUpdateChatTitle={handleUpdateChatTitle}
                 onDeleteChat={handleDeleteChat}
                 onLoadChat={handleLoadChat}
                 onOpenSourceFile={handleOpenSourceFile}
                 latestTokenCount={latestTokenCount}
+                onChannelsToggle={() => setChannelsActive(true)}
               />
               <ChatInput
                 inputMessage={inputMessage}
@@ -1069,7 +957,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                 selectedFiles={selectedFiles}
                 onAddFile={(files: File[]) => setSelectedFiles((prev) => [...prev, ...files])}
                 setSelectedFiles={setSelectedFiles}
-                disableModelSwitch={selectedChain === ChainType.PROJECT_CHAIN}
+                disableModelSwitch={!!getCurrentProject()?.projectModelKey}
                 selectedTextContexts={selectedTextContexts}
                 onRemoveSelectedText={handleRemoveSelectedText}
                 showProgressCard={() => {
@@ -1099,35 +987,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
               <span>Drop files here...</span>
             </div>
           )}
-          {selectedChain === ChainType.PROJECT_CHAIN && (
-            <div className={`${selectedChain === ChainType.PROJECT_CHAIN ? "tw-z-modal" : ""}`}>
-              <ProjectList
-                projects={settings.projectList || []}
-                defaultOpen={true}
-                app={app}
-                plugin={plugin}
-                hasMessages={false}
-                onProjectAdded={handleAddProject}
-                onEditProject={handleEditProject}
-                onClose={() => {
-                  if (previousMode) {
-                    setSelectedChain(previousMode);
-                    setPreviousMode(null);
-                  } else {
-                    // default back to tool chain mode
-                    setSelectedChain(ChainType.TOOL_CHAIN);
-                  }
-                }}
-                showChatUI={(v) => setShowChatUI(v)}
-                onProjectClose={() => {
-                  setProgressCardVisible(null);
-                }}
-              />
-            </div>
-          )}
-          {(selectedChain !== ChainType.PROJECT_CHAIN ||
-            (selectedChain === ChainType.PROJECT_CHAIN && showChatUI)) &&
-            renderChatComponents()}
+          {renderChatComponents()}
         </div>
       </div>
     </div>

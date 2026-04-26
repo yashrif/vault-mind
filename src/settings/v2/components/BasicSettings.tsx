@@ -1,4 +1,4 @@
-import { ChainType } from "@/chainFactory";
+import type { Mode, RetrievalPolicy, Scope } from "@/aiParams";
 import { DEFAULT_OPEN_AREA, SEND_SHORTCUT } from "@/constants";
 import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
@@ -15,14 +15,6 @@ import { Key, Loader2 } from "lucide-react";
 import { Notice } from "obsidian";
 import React, { useState } from "react";
 import { ApiKeyDialog } from "./ApiKeyDialog";
-
-const ChainType2Label: Record<ChainType, string> = {
-  [ChainType.LLM_CHAIN]: "Chat",
-  [ChainType.VAULT_QA_CHAIN]: "Vault QA (Basic)",
-  [ChainType.TOOL_CHAIN]: "Agentic Cortex",
-  [ChainType.PROJECT_CHAIN]: "Projects (alpha)",
-  [ChainType.TELEGRAM_CHAIN]: "Telegram",
-};
 
 export const BasicSettings: React.FC = () => {
   const settings = useSettingsValue();
@@ -205,23 +197,18 @@ export const BasicSettings: React.FC = () => {
             title="Default Mode"
             description={
               <div className="tw-flex tw-items-center tw-gap-1.5">
-                <span className="tw-leading-none">Select the default chat mode</span>
+                <span className="tw-leading-none">Default mode for new conversations</span>
                 <HelpTooltip
                   content={
                     <div className="tw-flex tw-max-w-96 tw-flex-col tw-gap-2">
                       <ul className="tw-pl-4 tw-text-sm tw-text-muted">
                         <li>
-                          <strong>Chat:</strong> Regular chat mode for general conversations and
-                          tasks. <i>Free to use with your own API key.</i>
+                          <strong>Chat:</strong> Conversational mode. Optionally enable vault
+                          retrieval to answer from your notes with citations.
                         </li>
                         <li>
-                          <strong>Vault QA (Basic):</strong> Ask questions about your vault content
-                          with semantic search. <i>Free to use with your own API key.</i>
-                        </li>
-                        <li>
-                          <strong>Agentic Cortex:</strong> Covers all features of the 2 free modes,
-                          plus advanced features including chat context menu, advanced search, AI
-                          agents, and more.
+                          <strong>Agent:</strong> Tool-using mode with autonomy. Optionally scope to
+                          a specific project for project-aware context.
                         </li>
                       </ul>
                     </div>
@@ -229,12 +216,36 @@ export const BasicSettings: React.FC = () => {
                 />
               </div>
             }
-            value={settings.defaultChainType}
-            onChange={(value) => updateSetting("defaultChainType", value as ChainType)}
-            options={Object.entries(ChainType2Label).map(([key, value]) => ({
-              label: value,
-              value: key,
-            }))}
+            value={settings.defaultMode}
+            onChange={(value) => updateSetting("defaultMode", value as Mode)}
+            options={[
+              { label: "Chat", value: "chat" },
+              { label: "Agent", value: "agent" },
+            ]}
+          />
+
+          <SettingItem
+            type="select"
+            title="Default Retrieval (Chat)"
+            description="Whether new Chat sessions retrieve from the vault by default"
+            value={settings.defaultRetrievalPolicy}
+            onChange={(value) => updateSetting("defaultRetrievalPolicy", value as RetrievalPolicy)}
+            options={[
+              { label: "General (no retrieval)", value: "none" },
+              { label: "Ask vault (auto retrieval)", value: "vault_auto" },
+            ]}
+          />
+
+          <SettingItem
+            type="select"
+            title="Default Scope (Agent)"
+            description="Whether new Agent sessions are scoped to a project by default"
+            value={settings.defaultScope}
+            onChange={(value) => updateSetting("defaultScope", value as Scope)}
+            options={[
+              { label: "All notes", value: "global" },
+              { label: "Current project", value: "project" },
+            ]}
           />
 
           <SettingItem

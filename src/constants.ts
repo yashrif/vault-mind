@@ -1,7 +1,6 @@
 import { CustomModel } from "@/aiParams";
 import { type CortexSettings } from "@/settings/model";
 import { v4 as uuidv4 } from "uuid";
-import { ChainType } from "./chainFactory";
 import { PromptSortStrategy } from "./types";
 
 export const CHAT_VIEWTYPE = "cortex-chat-view";
@@ -789,7 +788,9 @@ export const DEFAULT_SETTINGS: CortexSettings = {
   githubCopilotAccessToken: "",
   githubCopilotToken: "",
   githubCopilotTokenExpiresAt: 0,
-  defaultChainType: ChainType.LLM_CHAIN,
+  defaultMode: "chat",
+  defaultScope: "global",
+  defaultRetrievalPolicy: "none",
   defaultModelKey: ChatModels.OPENROUTER_FREE + "|" + ChatModelProviders.OPENROUTERAI,
   embeddingModelKey:
     EmbeddingModels.GOOGLE_GEMINI_EMBEDDING_2_PREVIEW + "|" + EmbeddingModelProviders.OPENROUTERAI,

@@ -13,9 +13,8 @@ import {
   FaviconOrGlobe,
 } from "@/components/chat-components/ContextBadges";
 import { SelectedTextContext, WebTabContext, isWebSelectedTextContext } from "@/types/message";
-import { ChainType } from "@/chainFactory";
 import { Separator } from "@/components/ui/separator";
-import { useChainType, useIndexingProgress } from "@/aiParams";
+import { getCurrentProject, useChainType, useIndexingProgress } from "@/aiParams";
 import { useProjectContextStatus } from "@/hooks/useProjectContextStatus";
 import { getDomainFromUrl, isAgentChain, openFileInWorkspace } from "@/utils";
 import { mergeWebTabContexts } from "@/utils/urlNormalization";
@@ -256,7 +255,7 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
         ))}
       </div>
 
-      {currentChain === ChainType.PROJECT_CHAIN && (
+      {getCurrentProject() && (
         <>
           <Separator orientation="vertical" />
           <div className="">
@@ -272,7 +271,7 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
         </>
       )}
 
-      {currentChain !== ChainType.PROJECT_CHAIN && indexingState.isActive && showIndexingCard && (
+      {!getCurrentProject() && indexingState.isActive && showIndexingCard && (
         <>
           <Separator orientation="vertical" />
           <Button variant="ghost2" size="fit" className="tw-text-muted" onClick={showIndexingCard}>

@@ -21,17 +21,98 @@ const modelKeyAtom = atom(
   }
 );
 
-const userChainTypeAtom = atom<ChainType | null>(null);
-const chainTypeAtom = atom(
+export type Mode = "chat" | "agent";
+export type Scope = "global" | "project";
+export type RetrievalPolicy = "none" | "vault_auto";
+
+const userModeAtom = atom<Mode | null>(null);
+const modeAtom = atom(
   (get) => {
-    const userValue = get(userChainTypeAtom);
+    const userValue = get(userModeAtom);
     if (userValue !== null) {
       return userValue;
     }
-    return get(settingsAtom).defaultChainType;
+    return get(settingsAtom).defaultMode;
   },
-  (get, set, newValue) => {
-    set(userChainTypeAtom, newValue);
+  (get, set, newValue: Mode) => {
+    set(userModeAtom, newValue);
+  }
+);
+
+const userScopeAtom = atom<Scope | null>(null);
+const scopeAtom = atom(
+  (get) => {
+    const userValue = get(userScopeAtom);
+    if (userValue !== null) {
+      return userValue;
+    }
+    return get(settingsAtom).defaultScope;
+  },
+  (get, set, newValue: Scope) => {
+    set(userScopeAtom, newValue);
+  }
+);
+
+const userRetrievalPolicyAtom = atom<RetrievalPolicy | null>(null);
+const retrievalPolicyAtom = atom(
+  (get) => {
+    const userValue = get(userRetrievalPolicyAtom);
+    if (userValue !== null) {
+      return userValue;
+    }
+    return get(settingsAtom).defaultRetrievalPolicy;
+  },
+  (get, set, newValue: RetrievalPolicy) => {
+    set(userRetrievalPolicyAtom, newValue);
+  }
+);
+
+/**
+ * Maps the new (mode, scope, retrievalPolicy) axes to the internal ChainType
+ * dispatch enum. TELEGRAM_CHAIN is not represented here — it is set as an
+ * override by the Telegram pipeline via runChain options.
+ */
+export function deriveChainType(
+  mode: Mode,
+  scope: Scope,
+  retrievalPolicy: RetrievalPolicy
+): ChainType {
+  if (mode === "agent") {
+    return scope === "project" ? ChainType.PROJECT_CHAIN : ChainType.TOOL_CHAIN;
+  }
+  return retrievalPolicy === "vault_auto" ? ChainType.VAULT_QA_CHAIN : ChainType.LLM_CHAIN;
+}
+
+/**
+ * Derived ChainType used for internal chain runner dispatch. Reads from the
+ * three axis atoms; writes are decomposed back into axis updates so legacy
+ * call sites (setChainType / useChainType) continue to function.
+ */
+const chainTypeAtom = atom(
+  (get) => deriveChainType(get(modeAtom), get(scopeAtom), get(retrievalPolicyAtom)),
+  (get, set, newValue: ChainType) => {
+    switch (newValue) {
+      case ChainType.LLM_CHAIN:
+        set(userModeAtom, "chat");
+        set(userRetrievalPolicyAtom, "none");
+        return;
+      case ChainType.VAULT_QA_CHAIN:
+        set(userModeAtom, "chat");
+        set(userRetrievalPolicyAtom, "vault_auto");
+        return;
+      case ChainType.TOOL_CHAIN:
+        set(userModeAtom, "agent");
+        set(userScopeAtom, "global");
+        return;
+      case ChainType.PROJECT_CHAIN:
+        set(userModeAtom, "agent");
+        set(userScopeAtom, "project");
+        return;
+      case ChainType.TELEGRAM_CHAIN:
+        // TELEGRAM_CHAIN is an internal-only dispatch key set by the Telegram
+        // pipeline as a per-call override; it is never mapped to a UI axis.
+        return;
+    }
   }
 );
 
@@ -225,6 +306,60 @@ export function useChainType() {
   });
 }
 
+export function getMode(): Mode {
+  return settingsStore.get(modeAtom);
+}
+
+export function setMode(mode: Mode) {
+  settingsStore.set(modeAtom, mode);
+}
+
+export function subscribeToModeChange(callback: () => void): () => void {
+  return settingsStore.sub(modeAtom, callback);
+}
+
+export function useMode() {
+  return useAtom(modeAtom, {
+    store: settingsStore,
+  });
+}
+
+export function getScope(): Scope {
+  return settingsStore.get(scopeAtom);
+}
+
+export function setScope(scope: Scope) {
+  settingsStore.set(scopeAtom, scope);
+}
+
+export function subscribeToScopeChange(callback: () => void): () => void {
+  return settingsStore.sub(scopeAtom, callback);
+}
+
+export function useScope() {
+  return useAtom(scopeAtom, {
+    store: settingsStore,
+  });
+}
+
+export function getRetrievalPolicy(): RetrievalPolicy {
+  return settingsStore.get(retrievalPolicyAtom);
+}
+
+export function setRetrievalPolicy(policy: RetrievalPolicy) {
+  settingsStore.set(retrievalPolicyAtom, policy);
+}
+
+export function subscribeToRetrievalPolicyChange(callback: () => void): () => void {
+  return settingsStore.sub(retrievalPolicyAtom, callback);
+}
+
+export function useRetrievalPolicy() {
+  return useAtom(retrievalPolicyAtom, {
+    store: settingsStore,
+  });
+}
+
 export function setCurrentProject(project: ProjectConfig | null) {
   settingsStore.set(currentProjectAtom, project);
 }
@@ -268,7 +403,7 @@ export function useProjectLoading() {
 }
 
 export function isProjectMode() {
-  return getChainType() === ChainType.PROJECT_CHAIN;
+  return getMode() === "agent" && getScope() === "project";
 }
 
 export function setSelectedTextContexts(contexts: SelectedTextContext[]) {

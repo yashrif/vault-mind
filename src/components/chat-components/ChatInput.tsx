@@ -178,32 +178,21 @@ const ChatInput: React.FC<ChatInputProps> = ({
     "If you have many files in context, this can take a while...",
   ];
 
-  // Sync autonomous agent toggle with settings and chain type
   useEffect(() => {
-    if (currentChain === ChainType.PROJECT_CHAIN) {
-      // Force off in Projects mode
-      setAutonomousAgentToggle(false);
-    } else {
-      // In other modes, use the actual settings value
-      setAutonomousAgentToggle(settings.enableAutonomousAgent);
-    }
-  }, [settings.enableAutonomousAgent, currentChain]);
+    setAutonomousAgentToggle(settings.enableAutonomousAgent);
+  }, [settings.enableAutonomousAgent]);
 
   useEffect(() => {
-    if (currentChain === ChainType.PROJECT_CHAIN) {
-      setSelectedProject(getCurrentProject());
+    setSelectedProject(getCurrentProject());
 
-      const unsubscribe = subscribeToProjectChange((project) => {
-        setSelectedProject(project);
-      });
+    const unsubscribe = subscribeToProjectChange((project) => {
+      setSelectedProject(project);
+    });
 
-      return () => {
-        unsubscribe();
-      };
-    } else {
-      setSelectedProject(null);
-    }
-  }, [currentChain]);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (!isProjectLoading) return;
@@ -216,11 +205,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   }, [isProjectLoading, loadingMessages.length]);
 
   const getDisplayModelKey = (): string => {
-    if (
-      selectedProject &&
-      currentChain === ChainType.PROJECT_CHAIN &&
-      selectedProject.projectModelKey
-    ) {
+    if (selectedProject && selectedProject.projectModelKey) {
       return selectedProject.projectModelKey;
     }
     return currentModelKey;
@@ -822,7 +807,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
         ) : (
           <div className="tw-flex tw-min-w-0 tw-flex-1 tw-items-center tw-gap-1">
             {showChainSelector && onChainChange && (
-              <ChainModeSelector selectedChain={currentChain} onSelectChain={onChainChange} />
+              <ChainModeSelector onSelectChain={onChainChange} />
             )}
             <div className="tw-min-w-0 tw-flex-1">
               <ModelSelector
@@ -831,9 +816,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 disabled={disableModelSwitch}
                 value={getDisplayModelKey()}
                 onChange={(modelKey) => {
-                  // In project mode, we don't update the global model key
-                  // as the project model takes precedence
-                  if (currentChain !== ChainType.PROJECT_CHAIN) {
+                  if (!selectedProject?.projectModelKey) {
                     setCurrentModelKey(modelKey);
                   }
                 }}
