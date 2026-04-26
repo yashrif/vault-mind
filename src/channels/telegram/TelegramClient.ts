@@ -162,6 +162,74 @@ export class TelegramClient {
   }
 
   /**
+   * Sends a text message and returns the Telegram message_id for later editing.
+   * Use this when you need to edit the message in-place (e.g. streaming updates).
+   * @param chatId - Telegram chat ID to send to.
+   * @param text - The initial placeholder text.
+   */
+  async sendMessageForEdit(chatId: number, text: string): Promise<number> {
+    const url = `${this.baseUrl}/sendMessage`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    });
+    if (resp.status === 401) throw new TelegramUnauthorizedError(this.redactedId);
+    if (resp.status === 429) {
+      const retryAfter = Number(resp.headers.get("Retry-After") ?? 5);
+      throw new TelegramRateLimitError(retryAfter);
+    }
+    const data = await resp.json();
+    if (!data.ok) {
+      throw new TelegramApiError(
+        data.error_code ?? 0,
+        data.description ?? "sendMessage failed",
+        this.redactedId
+      );
+    }
+    return data.result.message_id as number;
+  }
+
+  /**
+   * Edits a previously sent message in-place via editMessageText.
+   * @param chatId - Telegram chat ID.
+   * @param messageId - The message_id returned by sendMessageForEdit.
+   * @param text - New text content.
+   * @param options - Optional parse mode for the final formatted edit.
+   */
+  async editMessage(
+    chatId: number,
+    messageId: number,
+    text: string,
+    options?: TelegramSendMessageOptions
+  ): Promise<void> {
+    const url = `${this.baseUrl}/editMessageText`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        text,
+        ...(options?.parseMode ? { parse_mode: options.parseMode } : {}),
+      }),
+    });
+    if (resp.status === 401) throw new TelegramUnauthorizedError(this.redactedId);
+    if (resp.status === 429) {
+      const retryAfter = Number(resp.headers.get("Retry-After") ?? 5);
+      throw new TelegramRateLimitError(retryAfter);
+    }
+    const data = await resp.json();
+    if (!data.ok) {
+      throw new TelegramApiError(
+        data.error_code ?? 0,
+        data.description ?? "editMessageText failed",
+        this.redactedId
+      );
+    }
+  }
+
+  /**
    * Sends a text message to a Telegram chat.
    * Plain-text sends are automatically chunked at the 4096-character Bot API limit.
    * Rich formatted sends must already be pre-chunked so HTML/Markdown entities are

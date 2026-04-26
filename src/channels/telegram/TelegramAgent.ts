@@ -138,6 +138,41 @@ export class TelegramAgent {
       let finalText = "";
       let partialText = "";
 
+      // Send a placeholder immediately so the user sees a response starting,
+      // then edit it progressively as chunks arrive (throttled to avoid rate limits).
+      let streamingMessageId: number | null = null;
+      if (shouldSendToTelegram) {
+        try {
+          streamingMessageId = await this.client.sendMessageForEdit(msg.chat_id, "…");
+        } catch (err) {
+          logWarn("[TelegramAgent] Failed to send streaming placeholder; will send at end:", err);
+        }
+      }
+
+      // Throttled edit: at most one edit per EDIT_THROTTLE_MS to respect Telegram rate limits.
+      const EDIT_THROTTLE_MS = 1000;
+      let lastEditAt = 0;
+      let pendingEditText: string | null = null;
+      let editScheduled = false;
+
+      const scheduleEdit = (chatId: number, msgId: number, text: string) => {
+        pendingEditText = text;
+        if (editScheduled) return;
+        const delay = Math.max(0, EDIT_THROTTLE_MS - (Date.now() - lastEditAt));
+        editScheduled = true;
+        setTimeout(() => {
+          editScheduled = false;
+          lastEditAt = Date.now();
+          const snapshot = pendingEditText;
+          pendingEditText = null;
+          if (snapshot) {
+            void this.client.editMessage(chatId, msgId, snapshot).catch(() => {
+              // Mid-stream edit failures are best-effort; final edit is authoritative.
+            });
+          }
+        }, delay);
+      };
+
       await this.chainManager.runChain(
         preparedMessage,
         abortController,
@@ -146,6 +181,9 @@ export class TelegramAgent {
           this.store.updateReplyState(replyState.streamingMessageId, {
             partialText: nextPartialText,
           });
+          if (shouldSendToTelegram && streamingMessageId !== null) {
+            scheduleEdit(msg.chat_id, streamingMessageId, nextPartialText);
+          }
         },
         (finalMessage: ChatMessage) => {
           finalText = finalMessage.message ?? partialText;
@@ -172,10 +210,26 @@ export class TelegramAgent {
       }
 
       if (shouldSendToTelegram) {
-        for (const transportMessage of outboundPayload.transportMessages) {
-          await this.client.sendMessage(msg.chat_id, transportMessage.text, {
-            parseMode: transportMessage.parseMode,
+        const [firstChunk, ...remainingChunks] = outboundPayload.transportMessages;
+        if (streamingMessageId !== null) {
+          // Edit placeholder in-place with the final formatted first chunk.
+          try {
+            await this.client.editMessage(msg.chat_id, streamingMessageId, firstChunk.text, {
+              parseMode: firstChunk.parseMode,
+            });
+          } catch {
+            // If edit fails (e.g. message deleted), fall back to sending a new message.
+            await this.client.sendMessage(msg.chat_id, firstChunk.text, {
+              parseMode: firstChunk.parseMode,
+            });
+          }
+        } else {
+          await this.client.sendMessage(msg.chat_id, firstChunk.text, {
+            parseMode: firstChunk.parseMode,
           });
+        }
+        for (const chunk of remainingChunks) {
+          await this.client.sendMessage(msg.chat_id, chunk.text, { parseMode: chunk.parseMode });
         }
       }
 
