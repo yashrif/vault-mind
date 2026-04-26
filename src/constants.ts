@@ -463,14 +463,14 @@ export enum EmbeddingModels {
 }
 
 export const BUILTIN_EMBEDDING_MODELS: CustomModel[] = [
-  // {
-  //   name: EmbeddingModels.OPENROUTER_OPENAI_EMBEDDING_SMALL,
-  //   provider: EmbeddingModelProviders.OPENROUTERAI,
-  //   enabled: true,
-  //   isBuiltIn: true,
-  //   isEmbeddingModel: true,
-  //   core: true,
-  // },
+  {
+    name: EmbeddingModels.OPENROUTER_OPENAI_EMBEDDING_SMALL,
+    provider: EmbeddingModelProviders.OPENROUTERAI,
+    enabled: true,
+    isBuiltIn: true,
+    isEmbeddingModel: true,
+    core: true,
+  },
   // {
   //   name: EmbeddingModels.OPENAI_EMBEDDING_SMALL,
   //   provider: EmbeddingModelProviders.OPENAI,

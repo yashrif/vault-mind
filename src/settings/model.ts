@@ -212,15 +212,17 @@ export const settingsAtom = atom<CortexSettings>(DEFAULT_SETTINGS);
  * @returns A valid embedding model key.
  */
 function resolveEmbeddingModelKey(settings: CortexSettings): string {
+  const activeEmbeddingModels = settings.activeEmbeddingModels || [];
   const activeEmbeddingModelKeys = new Set(
-    (settings.activeEmbeddingModels || []).map((model) => getModelKeyFromModel(model))
+    activeEmbeddingModels.map((model) => getModelKeyFromModel(model))
   );
 
   if (settings.embeddingModelKey && activeEmbeddingModelKeys.has(settings.embeddingModelKey)) {
     return settings.embeddingModelKey;
   }
 
-  return DEFAULT_SETTINGS.embeddingModelKey;
+  const firstEnabled = activeEmbeddingModels.find((m) => m.enabled);
+  return firstEnabled ? getModelKeyFromModel(firstEnabled) : DEFAULT_SETTINGS.embeddingModelKey;
 }
 
 function resolveAudioSTTModelKey(settings: CortexSettings): string {
