@@ -48,14 +48,6 @@ export const ModelCapabilityIcons: React.FC<ModelCapabilityIconsProps> = ({
                   style={{ width: iconSize, height: iconSize }}
                 />
               );
-            case ModelCapability.AUDIO_TRANSCRIPTION:
-              return (
-                <Mic
-                  key={index}
-                  className="tw-text-model-capabilities-green"
-                  style={{ width: iconSize, height: iconSize }}
-                />
-              );
             default:
               return null;
           }
@@ -69,11 +61,18 @@ export const ModelDisplay: React.FC<ModelDisplayProps> = ({ model, iconSize = 14
   return (
     <div className="tw-flex tw-min-w-0 tw-items-center tw-gap-1">
       <span className="tw-truncate tw-text-sm hover:tw-text-normal">{displayName}</span>
-      {model.capabilities && model.capabilities.length > 0 && (
+      {model.modelType === "stt" ? (
+        <div className="tw-flex tw-shrink-0 tw-items-center tw-gap-0.5">
+          <Mic
+            className="tw-text-model-capabilities-green"
+            style={{ width: iconSize, height: iconSize }}
+          />
+        </div>
+      ) : model.capabilities && model.capabilities.length > 0 ? (
         <div className="tw-flex tw-shrink-0 tw-items-center tw-gap-0.5">
           <ModelCapabilityIcons capabilities={model.capabilities} iconSize={iconSize} />
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

@@ -208,14 +208,12 @@ export enum ModelCapability {
   REASONING = "reasoning",
   VISION = "vision",
   WEB_SEARCH = "websearch",
-  AUDIO_TRANSCRIPTION = "audio-transcription",
 }
 
 export const MODEL_CAPABILITIES: Record<ModelCapability, string> = {
   reasoning: "This model supports general reasoning tasks.",
   vision: "This model supports image inputs.",
   websearch: "This model can access the internet.",
-  "audio-transcription": "This model can transcribe audio files.",
 };
 
 export enum STTModels {
@@ -232,7 +230,6 @@ export const BUILTIN_AUDIO_STT_MODELS: CustomModel[] = [
     isBuiltIn: true,
     core: true,
     modelType: "stt",
-    capabilities: [ModelCapability.AUDIO_TRANSCRIPTION],
   },
   {
     name: STTModels.WHISPER_LARGE_V3_TURBO,
@@ -241,7 +238,6 @@ export const BUILTIN_AUDIO_STT_MODELS: CustomModel[] = [
     isBuiltIn: true,
     core: false,
     modelType: "stt",
-    capabilities: [ModelCapability.AUDIO_TRANSCRIPTION],
   },
   {
     name: STTModels.DISTIL_WHISPER_LARGE_V3_EN,
@@ -250,7 +246,6 @@ export const BUILTIN_AUDIO_STT_MODELS: CustomModel[] = [
     isBuiltIn: true,
     core: false,
     modelType: "stt",
-    capabilities: [ModelCapability.AUDIO_TRANSCRIPTION],
   },
 ];
 
