@@ -1,8 +1,11 @@
 import {
   deriveChainType,
   type Mode,
+  type ProjectConfig,
   type RetrievalPolicy,
   type Scope,
+  setCurrentProject,
+  useCurrentProject,
   useMode,
   useRetrievalPolicy,
   useScope,
@@ -13,15 +16,19 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Bot, ChevronDown, Database, FolderOpen, MessageCircle } from "lucide-react";
+import { useSettingsValue } from "@/settings/model";
+import { Bot, ChevronDown, Database, Folder, Globe, MessageCircle } from "lucide-react";
 import React from "react";
 
 interface ChainModeSelectorProps {
   selectedChain: ChainType;
   onSelectChain: (chainType: ChainType) => void | Promise<void>;
+  onProjectSelect?: (project: ProjectConfig) => void;
+  onProjectDeselect?: () => void;
   className?: string;
   align?: "start" | "center" | "end";
 }
@@ -46,6 +53,8 @@ const MODE_OPTIONS: ModeOption[] = [
  */
 export function ChainModeSelector({
   onSelectChain,
+  onProjectSelect,
+  onProjectDeselect,
   className,
   align = "start",
 }: ChainModeSelectorProps) {
@@ -64,7 +73,6 @@ export function ChainModeSelector({
   };
 
   const handleScopeChange = (next: Scope) => {
-    if (next === scope) return;
     setScope(next);
     trigger(mode, next, retrieval);
   };
@@ -73,6 +81,16 @@ export function ChainModeSelector({
     if (next === retrieval) return;
     setRetrieval(next);
     trigger(mode, scope, next);
+  };
+
+  const handleProjectSelect = (project: ProjectConfig) => {
+    setCurrentProject(project);
+    onProjectSelect?.(project);
+  };
+
+  const handleProjectDeselect = () => {
+    setCurrentProject(null);
+    onProjectDeselect?.();
   };
 
   const selectedMode = MODE_OPTIONS.find((o) => o.mode === mode) ?? MODE_OPTIONS[0];
@@ -104,7 +122,14 @@ export function ChainModeSelector({
       </DropdownMenu>
 
       {mode === "chat" && <RetrievalToggle value={retrieval} onChange={handleRetrievalChange} />}
-      {mode === "agent" && <ScopeToggle value={scope} onChange={handleScopeChange} />}
+      {mode === "agent" && (
+        <ScopeToggle
+          value={scope}
+          onChange={handleScopeChange}
+          onProjectSelect={handleProjectSelect}
+          onProjectDeselect={handleProjectDeselect}
+        />
+      )}
     </div>
   );
 }
@@ -135,24 +160,74 @@ function RetrievalToggle({ value, onChange }: RetrievalToggleProps) {
 interface ScopeToggleProps {
   value: Scope;
   onChange: (next: Scope) => void;
+  onProjectSelect: (project: ProjectConfig) => void;
+  onProjectDeselect: () => void;
 }
 
-function ScopeToggle({ value, onChange }: ScopeToggleProps) {
+function ScopeToggle({ value, onChange, onProjectSelect, onProjectDeselect }: ScopeToggleProps) {
   const isProject = value === "project";
+  const [currentProject] = useCurrentProject();
+  const settings = useSettingsValue();
+  const projects = settings.projectList || [];
+
   return (
-    <Button
-      variant="ghost2"
-      size="fit"
-      className={cn("tw-text-sm", isProject ? "tw-text-accent" : "tw-text-muted")}
-      onClick={() => onChange(isProject ? "global" : "project")}
-      title={
-        isProject
-          ? "Project scope — click to scope to all notes"
-          : "All notes — click to scope to a project"
-      }
-    >
-      <FolderOpen className="tw-size-4" />
-      {isProject ? "Project" : "All notes"}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost2"
+          size="fit"
+          className={cn("tw-text-sm", isProject ? "tw-text-accent" : "tw-text-muted")}
+          title={
+            isProject
+              ? `Project scope: ${currentProject?.name ?? "none"}`
+              : "All notes — click to choose scope"
+          }
+        >
+          {isProject ? (
+            <>
+              <Folder className="tw-size-4" />
+              {currentProject?.name ?? "Project"}
+            </>
+          ) : (
+            <>
+              <Globe className="tw-size-4" />
+              All notes
+            </>
+          )}
+          <ChevronDown className="tw-mt-0.5 tw-size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="tw-w-56">
+        <DropdownMenuItem
+          className="tw-flex tw-items-center tw-gap-2"
+          onSelect={() => {
+            if (isProject) {
+              onProjectDeselect();
+            }
+            onChange("global");
+          }}
+        >
+          <Globe className="tw-size-4" />
+          All notes
+        </DropdownMenuItem>
+        {projects.length > 0 && <DropdownMenuSeparator />}
+        {projects.map((project) => (
+          <DropdownMenuItem
+            key={project.id}
+            className={cn(
+              "tw-flex tw-items-center tw-gap-2",
+              isProject && currentProject?.id === project.id && "tw-text-accent"
+            )}
+            onSelect={() => {
+              onChange("project");
+              onProjectSelect(project);
+            }}
+          >
+            <Folder className="tw-size-4" />
+            <span className="tw-truncate">{project.name}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -1,4 +1,4 @@
-import { getCurrentProject, setProjectLoading } from "@/aiParams";
+import { getCurrentProject, type ProjectConfig, setProjectLoading } from "@/aiParams";
 import { ProjectContextCache } from "@/cache/projectContextCache";
 import { ChainType } from "@/chainFactory";
 import { ConfirmModal } from "@/components/modals/ConfirmModal";
@@ -179,6 +179,8 @@ interface ChatControlsProps {
   onLoadChat: (id: string) => Promise<void>;
   onOpenSourceFile?: (id: string) => Promise<void>;
   latestTokenCount?: number | null;
+  onProjectSelect?: (project: ProjectConfig) => void;
+  onProjectDeselect?: () => void;
 }
 
 export function ChatControls({
@@ -194,6 +196,8 @@ export function ChatControls({
   onLoadChat,
   onOpenSourceFile,
   latestTokenCount,
+  onProjectSelect,
+  onProjectDeselect,
 }: ChatControlsProps) {
   const settings = useSettingsValue();
   const isTelegramChain = selectedChain === ChainType.TELEGRAM_CHAIN;
@@ -205,6 +209,8 @@ export function ChatControls({
           <ChainModeSelector
             selectedChain={selectedChain}
             onSelectChain={onModeChange}
+            onProjectSelect={onProjectSelect}
+            onProjectDeselect={onProjectDeselect}
             className="tw-ml-1"
           />
         )}
@@ -228,7 +234,7 @@ export function ChatControls({
           </TooltipTrigger>
           <TooltipContent>{isTelegramChain ? "Reset Telegram Thread" : "New Chat"}</TooltipContent>
         </Tooltip>
-        {!isTelegramChain && selectedChain !== ChainType.PROJECT_CHAIN && <ChatSettingsPopover />}
+        {!isTelegramChain && <ChatSettingsPopover />}
         {!isTelegramChain && !settings.autosaveChat && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -305,7 +311,7 @@ export function ChatControls({
                 </div>
                 <SettingSwitch checked={settings.autoAcceptEdits} />
               </DropdownMenuItem>
-              {selectedChain === ChainType.PROJECT_CHAIN ? (
+              {getCurrentProject() ? (
                 <>
                   <DropdownMenuItem
                     className="tw-flex tw-items-center tw-gap-2"

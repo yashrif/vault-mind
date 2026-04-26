@@ -183,20 +183,16 @@ const ChatInput: React.FC<ChatInputProps> = ({
   }, [settings.enableAutonomousAgent]);
 
   useEffect(() => {
-    if (currentChain === ChainType.PROJECT_CHAIN) {
-      setSelectedProject(getCurrentProject());
+    setSelectedProject(getCurrentProject());
 
-      const unsubscribe = subscribeToProjectChange((project) => {
-        setSelectedProject(project);
-      });
+    const unsubscribe = subscribeToProjectChange((project) => {
+      setSelectedProject(project);
+    });
 
-      return () => {
-        unsubscribe();
-      };
-    } else {
-      setSelectedProject(null);
-    }
-  }, [currentChain]);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (!isProjectLoading) return;
@@ -209,11 +205,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   }, [isProjectLoading, loadingMessages.length]);
 
   const getDisplayModelKey = (): string => {
-    if (
-      selectedProject &&
-      currentChain === ChainType.PROJECT_CHAIN &&
-      selectedProject.projectModelKey
-    ) {
+    if (selectedProject && selectedProject.projectModelKey) {
       return selectedProject.projectModelKey;
     }
     return currentModelKey;
@@ -824,9 +816,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 disabled={disableModelSwitch}
                 value={getDisplayModelKey()}
                 onChange={(modelKey) => {
-                  // In project mode, we don't update the global model key
-                  // as the project model takes precedence
-                  if (currentChain !== ChainType.PROJECT_CHAIN) {
+                  if (!selectedProject?.projectModelKey) {
                     setCurrentModelKey(modelKey);
                   }
                 }}
