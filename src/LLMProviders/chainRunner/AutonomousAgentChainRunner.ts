@@ -38,14 +38,12 @@ import { buildAgentPromptDebugReport } from "./utils/promptDebugService";
 import { recordPromptPayload } from "./utils/promptPayloadRecorder";
 import { PromptDebugReport } from "./utils/toolPromptDebugger";
 import {
-  AgentReasoningState,
-  createInitialReasoningState,
   extractFirstSentence,
   LocalSearchSourceInfo,
-  serializeReasoningBlock,
   summarizeToolCall,
   summarizeToolResult,
 } from "./utils/AgentReasoningState";
+import { ReasoningItem, ReasoningPayload, serializeReasoningPayload } from "@/core/reasoning";
 import { findDuplicateQuery, stripLeakedRoleLines } from "./utils/queryDeduplication";
 
 const AGENT_LOOP_GUIDANCE = `## Agent Behavior
@@ -120,11 +118,18 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
   private llmFormattedMessages: string[] = []; // Track LLM-formatted messages for memory
   private lastDisplayedContent = ""; // Track the last content displayed to user for error recovery
 
-  // Agent Reasoning Block state
-  private reasoningState: AgentReasoningState = createInitialReasoningState();
+  // Agent Reasoning Block state (CORTEX_REASONING payload)
+  private currentPayload: ReasoningPayload = {
+    version: 1,
+    source: "agent",
+    status: "reasoning",
+    elapsedSeconds: 0,
+    items: [],
+  };
+  private allItems: ReasoningItem[] = []; // Full history of all reasoning items
+  private reasoningStartTime: number | null = null; // Start time for elapsed timer
   private reasoningTimerInterval: ReturnType<typeof setInterval> | null = null;
   private accumulatedContent = ""; // Track content to include in timer updates
-  private allReasoningSteps: Array<{ timestamp: number; summary: string; toolName?: string }> = []; // Full history of all steps
   private abortHandledByTimer = false; // Flag to prevent duplicate interrupted messages
 
   private getAvailableTools(runtimePolicy?: RuntimeChainPolicy): StructuredTool[] {
@@ -162,14 +167,16 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
     updateFn: (message: string) => void,
     abortController?: AbortController
   ): void {
-    this.reasoningState = {
+    this.currentPayload = {
+      version: 1,
+      source: "agent",
       status: "reasoning",
-      startTime: Date.now(),
       elapsedSeconds: 0,
-      steps: [],
+      items: [],
     };
+    this.allItems = []; // Reset full history
+    this.reasoningStartTime = Date.now();
     this.accumulatedContent = "";
-    this.allReasoningSteps = []; // Reset full history
     this.abortHandledByTimer = false; // Reset abort flag
 
     // Add initial step immediately for better UX (randomized for variety)
@@ -206,9 +213,9 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
     // Update every 100ms for smooth timer - always includes accumulated content
     this.reasoningTimerInterval = setInterval(() => {
       // Check for abort and show interrupted message immediately
-      if (abortController?.signal.aborted && this.reasoningState.status === "reasoning") {
+      if (abortController?.signal.aborted && this.currentPayload.status === "reasoning") {
         this.stopReasoningTimer();
-        this.reasoningState.status = "complete";
+        this.currentPayload = { ...this.currentPayload, status: "complete", items: this.allItems };
         this.abortHandledByTimer = true; // Mark that we've handled the abort
         const reasoningBlock = this.buildReasoningBlockMarkup();
         const interruptedMessage = "The response was interrupted.";
@@ -219,9 +226,9 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
         return;
       }
 
-      if (this.reasoningState.startTime && this.reasoningState.status === "reasoning") {
-        this.reasoningState.elapsedSeconds = Math.floor(
-          (Date.now() - this.reasoningState.startTime) / 1000
+      if (this.reasoningStartTime && this.currentPayload.status === "reasoning") {
+        this.currentPayload.elapsedSeconds = Math.floor(
+          (Date.now() - this.reasoningStartTime) / 1000
         );
         // Always update with reasoning block + any accumulated content
         const reasoningBlock = this.buildReasoningBlockMarkup();
@@ -235,43 +242,40 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
 
   /**
    * Add a reasoning step to the display.
-   * During reasoning: shows rolling window of last 4 steps.
+   * During reasoning: shows rolling window of last 4 items.
    * After completion: full history is available for expanded view.
    *
    * @param summary - Human-readable summary of the step
    * @param toolName - Optional name of the tool associated with this step
+   * @param detail - Optional detail text, capped at 400 chars
    */
-  private addReasoningStep(summary: string, toolName?: string, detailedOnly = false): void {
-    const step = {
-      timestamp: Date.now(),
+  private addReasoningStep(summary: string, toolName?: string, detail?: string): void {
+    const item: ReasoningItem = {
+      id: `step-${Date.now()}`,
+      kind: "step",
       summary,
+      detail: detail ? detail.slice(0, 400) : undefined,
       toolName,
+      state: "done",
     };
     // Always add to full history
-    this.allReasoningSteps.push(step);
+    this.allItems.push(item);
 
-    // For detailed-only steps, skip the rolling display
-    if (detailedOnly) {
-      return;
-    }
-
-    // Add to display state (rolling window)
-    this.reasoningState.steps.push(step);
-    // Keep only last 4 steps for rolling window display during reasoning
-    if (this.reasoningState.steps.length > 4) {
-      this.reasoningState.steps.shift();
-    }
+    // Update rolling window in live payload (last 4 items)
+    const window = this.allItems.slice(-4);
+    this.currentPayload = { ...this.currentPayload, items: window };
   }
 
   /**
    * Stop the reasoning timer and mark reasoning as collapsed.
+   * Swaps full allItems into the payload for the expanded view.
    */
   private stopReasoningTimer(): void {
     if (this.reasoningTimerInterval) {
       clearInterval(this.reasoningTimerInterval);
       this.reasoningTimerInterval = null;
     }
-    this.reasoningState.status = "collapsed";
+    this.currentPayload = { ...this.currentPayload, status: "collapsed", items: this.allItems };
   }
 
   /**
@@ -282,23 +286,14 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
    * @returns Early feedback message, or null if no early feedback needed
    */
   /**
-   * Build the reasoning block markup for embedding in the message.
-   * During reasoning: uses rolling window (last 4 steps).
-   * When complete: uses full history so expanded view shows all steps.
+   * Build the CORTEX_REASONING marker for embedding in the message.
+   * During reasoning: uses rolling window (last 4 items) from currentPayload.
+   * When collapsed/complete: currentPayload.items already holds full allItems.
    *
-   * @returns Markup string for the reasoning block
+   * @returns Serialized CORTEX_REASONING marker string
    */
   private buildReasoningBlockMarkup(): string {
-    // When complete, use full history for the expanded view
-    if (this.reasoningState.status === "complete" || this.reasoningState.status === "collapsed") {
-      const stateWithFullHistory: AgentReasoningState = {
-        ...this.reasoningState,
-        steps: this.allReasoningSteps,
-      };
-      return serializeReasoningBlock(stateWithFullHistory);
-    }
-    // During reasoning, use the rolling window
-    return serializeReasoningBlock(this.reasoningState);
+    return serializeReasoningPayload(this.currentPayload);
   }
 
   // TODO: Unify system prompt construction -- this static method and prepareAgentConversation()
@@ -699,7 +694,7 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
         logInfo(`[Agent] Iteration ${iteration}: Final response (no tool calls)`);
         // Stop reasoning timer and finalize the reasoning block
         this.stopReasoningTimer();
-        this.reasoningState.status = "complete";
+        this.currentPayload = { ...this.currentPayload, status: "complete", items: this.allItems };
 
         messages.push(aiMessage);
 
@@ -828,7 +823,8 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
 
         // Add tool call step (shown in both rolling display and expanded view)
         const toolCallSummary = summarizeToolCall(tc.name, toolCall.args);
-        this.addReasoningStep(toolCallSummary, tc.name);
+        const toolCallDetail = JSON.stringify(toolCall.args).slice(0, 400);
+        this.addReasoningStep(toolCallSummary, tc.name, toolCallDetail);
 
         logToolCall(toolCall, iteration);
 
@@ -871,7 +867,15 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
         // Skip redundant success steps like "Listed vault tasks" after "Listing vault tasks".
         const resultSummary = summarizeToolResult(tc.name, result, sourceInfo, toolCall.args);
         if (!result.success || sourceInfo) {
-          this.addReasoningStep(resultSummary, tc.name);
+          // Build detail: for localSearch use titles/count, otherwise the raw result string
+          let resultDetail: string | undefined;
+          if (sourceInfo) {
+            const titlesSummary = `Found ${sourceInfo.count} note(s): ${sourceInfo.titles.slice(0, 3).join(", ")}`;
+            resultDetail = titlesSummary.slice(0, 400);
+          } else if (result.result) {
+            resultDetail = result.result.slice(0, 400);
+          }
+          this.addReasoningStep(resultSummary, tc.name, resultDetail);
         }
 
         // Add ToolMessage to conversation
@@ -919,7 +923,11 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
 
           // Finalize as final response
           this.stopReasoningTimer();
-          this.reasoningState.status = "complete";
+          this.currentPayload = {
+            ...this.currentPayload,
+            status: "complete",
+            items: this.allItems,
+          };
           const reasoningBlock = this.buildReasoningBlockMarkup();
           const finalContent =
             synthesis.content || "Unable to synthesize a response from the search results.";
@@ -941,7 +949,7 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
 
     // Stop reasoning timer
     this.stopReasoningTimer();
-    this.reasoningState.status = "complete";
+    this.currentPayload = { ...this.currentPayload, status: "complete", items: this.allItems };
     const reasoningBlock = this.buildReasoningBlockMarkup();
 
     // Check if interrupted by user vs max iterations reached
