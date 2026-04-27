@@ -215,6 +215,15 @@ describe("CORTEX_REASONING payload (agent runner rolling window logic)", () => {
   /**
    * Simulate the runner's addReasoningStep + rolling window logic.
    * Returns { livePayload, allItems } after adding `summaries`.
+   *
+   * NOTE: This helper reimplements the rolling window logic inline rather than
+   * calling AutonomousAgentChainRunner.addReasoningStep directly. This means a bug
+   * in the class method itself (e.g. wrong slice index, wrong field name) would NOT
+   * be caught by these tests. Constructing a real AutonomousAgentChainRunner instance
+   * requires mocking deep transitive dependencies (chainManager → chatModelManager →
+   * memoryManager → LangChain internals), making direct instantiation impractical in
+   * unit tests. If the rolling window logic ever changes, update both this helper and
+   * the class method together.
    */
   function simulateSteps(
     summaries: string[],

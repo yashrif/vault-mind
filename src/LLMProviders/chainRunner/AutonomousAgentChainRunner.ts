@@ -215,7 +215,14 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
       // Check for abort and show interrupted message immediately
       if (abortController?.signal.aborted && this.currentPayload.status === "reasoning") {
         this.stopReasoningTimer();
-        this.currentPayload = { ...this.currentPayload, status: "complete", items: this.allItems };
+        this.currentPayload = {
+          ...this.currentPayload,
+          status: "complete",
+          elapsedSeconds: this.reasoningStartTime
+            ? Math.floor((Date.now() - this.reasoningStartTime) / 1000)
+            : this.currentPayload.elapsedSeconds,
+          items: this.allItems,
+        };
         this.abortHandledByTimer = true; // Mark that we've handled the abort
         const reasoningBlock = this.buildReasoningBlockMarkup();
         const interruptedMessage = "The response was interrupted.";
@@ -267,30 +274,27 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
   }
 
   /**
-   * Stop the reasoning timer and mark reasoning as collapsed.
+   * Stop the reasoning timer and snapshot the final elapsed time.
    * Swaps full allItems into the payload for the expanded view.
+   * Does NOT set status — each caller sets the final status it needs
+   * (typically "complete") immediately after calling this method.
    */
   private stopReasoningTimer(): void {
     if (this.reasoningTimerInterval) {
       clearInterval(this.reasoningTimerInterval);
       this.reasoningTimerInterval = null;
     }
-    this.currentPayload = { ...this.currentPayload, status: "collapsed", items: this.allItems };
+    this.currentPayload = {
+      ...this.currentPayload,
+      elapsedSeconds: this.reasoningStartTime
+        ? Math.floor((Date.now() - this.reasoningStartTime) / 1000)
+        : this.currentPayload.elapsedSeconds,
+      items: this.allItems,
+    };
   }
 
   /**
-   * Get early feedback message for a tool that may take a while to stream.
-   * This provides immediate UX feedback while the model generates content.
-   *
-   * @param toolName - Name of the tool being called
-   * @returns Early feedback message, or null if no early feedback needed
-   */
-  /**
-   * Build the CORTEX_REASONING marker for embedding in the message.
-   * During reasoning: uses rolling window (last 4 items) from currentPayload.
-   * When collapsed/complete: currentPayload.items already holds full allItems.
-   *
-   * @returns Serialized CORTEX_REASONING marker string
+   * Serializes the current reasoning payload as a CORTEX_REASONING marker.
    */
   private buildReasoningBlockMarkup(): string {
     return serializeReasoningPayload(this.currentPayload);
@@ -949,13 +953,12 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
 
     // Stop reasoning timer
     this.stopReasoningTimer();
-    this.currentPayload = { ...this.currentPayload, status: "complete", items: this.allItems };
-    const reasoningBlock = this.buildReasoningBlockMarkup();
 
     // Check if interrupted by user vs max iterations reached
     if (abortController.signal.aborted) {
       logInfo("Agent reasoning interrupted by user");
-      // If timer already handled the abort and showed the message, return empty to avoid duplicate
+      // If timer already handled the abort and showed the message, return empty to avoid duplicate.
+      // Check BEFORE writing to currentPayload so we don't overwrite the timer's snapshot.
       if (this.abortHandledByTimer) {
         return {
           finalResponse: "",
@@ -963,6 +966,8 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
           responseMetadata,
         };
       }
+      this.currentPayload = { ...this.currentPayload, status: "complete" };
+      const reasoningBlock = this.buildReasoningBlockMarkup();
       const interruptedMessage = "The response was interrupted.";
       const finalResponse = reasoningBlock
         ? reasoningBlock + "\n\n" + interruptedMessage
@@ -984,6 +989,9 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
     } else {
       logWarn(`Agent reached max iterations (${maxIterations})`);
     }
+
+    this.currentPayload = { ...this.currentPayload, status: "complete" };
+    const reasoningBlock = this.buildReasoningBlockMarkup();
 
     const limitMessage = timedOut
       ? "I've reached the time limit for reasoning. Here's what I found so far based on the search results."
