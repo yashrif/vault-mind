@@ -52,11 +52,11 @@ jest.mock("lucide-react", () => ({
   ),
   AlertCircle: ({
     className,
-    "aria-label": ariaLabel,
+    "aria-hidden": ariaHidden,
   }: {
     className?: string;
-    "aria-label"?: string;
-  }) => <span data-testid="alert-circle" className={className} aria-label={ariaLabel} />,
+    "aria-hidden"?: boolean | "true" | "false";
+  }) => <span data-testid="alert-circle" className={className} aria-hidden={ariaHidden} />,
 }));
 
 // ---------------------------------------------------------------------------
@@ -99,9 +99,7 @@ function makeItem(overrides: Partial<ReasoningItem> = {}): ReasoningItem {
 describe("ReasoningPanel", () => {
   describe("empty items", () => {
     it("returns null when items array is empty", () => {
-      const { container } = render(
-        <ReasoningPanel payload={makePayload({ items: [] })} isStreaming={false} />
-      );
+      const { container } = render(<ReasoningPanel payload={makePayload({ items: [] })} />);
       expect(container.firstChild).toBeNull();
     });
   });
@@ -113,7 +111,7 @@ describe("ReasoningPanel", () => {
         elapsedSeconds: 3,
         items: [makeItem({ state: "active" })],
       });
-      const { container } = render(<ReasoningPanel payload={payload} isStreaming={true} />);
+      const { container } = render(<ReasoningPanel payload={payload} />);
       // CortexSpinner renders as an <svg> with class "cortex-spinner"
       const spinner = container.querySelector("svg.cortex-spinner");
       expect(spinner).not.toBeNull();
@@ -125,7 +123,7 @@ describe("ReasoningPanel", () => {
         elapsedSeconds: 7,
         items: [makeItem()],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={true} />);
+      render(<ReasoningPanel payload={payload} />);
       expect(screen.getByText("7s")).toBeTruthy();
     });
 
@@ -135,7 +133,7 @@ describe("ReasoningPanel", () => {
         elapsedSeconds: 2,
         items: [makeItem()],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={true} />);
+      render(<ReasoningPanel payload={payload} />);
       expect(screen.getByText("Reasoning")).toBeTruthy();
     });
 
@@ -145,7 +143,7 @@ describe("ReasoningPanel", () => {
         elapsedSeconds: 2,
         items: [makeItem()],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={true} />);
+      render(<ReasoningPanel payload={payload} />);
       const collapsible = screen.getByTestId("collapsible");
       expect(collapsible.getAttribute("data-open")).toBe("true");
     });
@@ -162,7 +160,7 @@ describe("ReasoningPanel", () => {
           makeItem({ id: "c", summary: "Third step" }),
         ],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      render(<ReasoningPanel payload={payload} />);
       expect(screen.getByText("First step")).toBeTruthy();
       expect(screen.getByText("Second step")).toBeTruthy();
       expect(screen.getByText("Third step")).toBeTruthy();
@@ -174,7 +172,7 @@ describe("ReasoningPanel", () => {
         elapsedSeconds: 42,
         items: [makeItem()],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      render(<ReasoningPanel payload={payload} />);
       expect(screen.getByText("Reasoned for")).toBeTruthy();
       expect(screen.getByText("42s")).toBeTruthy();
     });
@@ -185,7 +183,7 @@ describe("ReasoningPanel", () => {
         elapsedSeconds: 5,
         items: [makeItem()],
       });
-      const { container } = render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      const { container } = render(<ReasoningPanel payload={payload} />);
       expect(screen.getByTestId("chevron-icon")).toBeTruthy();
       expect(container.querySelector("svg.cortex-spinner")).toBeNull();
     });
@@ -196,7 +194,7 @@ describe("ReasoningPanel", () => {
         elapsedSeconds: 5,
         items: [makeItem()],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      render(<ReasoningPanel payload={payload} />);
       const collapsible = screen.getByTestId("collapsible");
       expect(collapsible.getAttribute("data-open")).toBe("false");
     });
@@ -216,7 +214,7 @@ describe("ReasoningPanel", () => {
           }),
         ],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      render(<ReasoningPanel payload={payload} />);
       // Detail text should not be in the document initially
       expect(screen.queryByText("Found 5 notes matching the query")).toBeNull();
     });
@@ -234,7 +232,7 @@ describe("ReasoningPanel", () => {
           }),
         ],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      render(<ReasoningPanel payload={payload} />);
       // Find and click the disclosure button (aria-label "Toggle detail")
       const toggleBtn = screen.getByRole("button", { name: "Toggle detail" });
       fireEvent.click(toggleBtn);
@@ -254,7 +252,7 @@ describe("ReasoningPanel", () => {
           }),
         ],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      render(<ReasoningPanel payload={payload} />);
       const toggleBtn = screen.getByRole("button", { name: "Toggle detail" });
       fireEvent.click(toggleBtn); // open
       fireEvent.click(toggleBtn); // close
@@ -277,7 +275,7 @@ describe("ReasoningPanel", () => {
           }),
         ],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      render(<ReasoningPanel payload={payload} />);
       // Header and single item are rendered
       expect(screen.getByText("Reasoned for")).toBeTruthy();
       expect(screen.getByText("Reasoning transcript")).toBeTruthy();
@@ -298,7 +296,7 @@ describe("ReasoningPanel", () => {
           }),
         ],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      render(<ReasoningPanel payload={payload} />);
       // Detail hidden by default
       expect(screen.queryByText("Full transcript content here")).toBeNull();
       // Click to reveal
@@ -321,7 +319,7 @@ describe("ReasoningPanel", () => {
           }),
         ],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      render(<ReasoningPanel payload={payload} />);
       expect(screen.getByTestId("alert-circle")).toBeTruthy();
     });
 
@@ -337,7 +335,7 @@ describe("ReasoningPanel", () => {
           }),
         ],
       });
-      const { container } = render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      const { container } = render(<ReasoningPanel payload={payload} />);
       // There should be at least one element with tw-text-error that contains the summary text.
       // querySelectorAll is used because the AlertCircle icon also carries tw-text-error.
       const errorElements = container.querySelectorAll(".tw-text-error");
@@ -356,7 +354,7 @@ describe("ReasoningPanel", () => {
         elapsedSeconds: 45,
         items: [makeItem()],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      render(<ReasoningPanel payload={payload} />);
       expect(screen.getByText("45s")).toBeTruthy();
     });
 
@@ -366,7 +364,7 @@ describe("ReasoningPanel", () => {
         elapsedSeconds: 90,
         items: [makeItem()],
       });
-      render(<ReasoningPanel payload={payload} isStreaming={false} />);
+      render(<ReasoningPanel payload={payload} />);
       expect(screen.getByText("1m 30s")).toBeTruthy();
     });
   });

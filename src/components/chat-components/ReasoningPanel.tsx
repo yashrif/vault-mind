@@ -1,8 +1,8 @@
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { cn } from "@/lib/utils";
-import { ReasoningItem, ReasoningPayload } from "@/core/reasoning";
+import React, { useRef, useState } from "react";
 import { ChevronRight, AlertCircle } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ReasoningItem, ReasoningPayload } from "@/core/reasoning";
+import { cn } from "@/lib/utils";
 
 /**
  * Props for the ReasoningPanel component.
@@ -11,8 +11,6 @@ import React, { useEffect, useState } from "react";
 export interface ReasoningPanelProps {
   /** The full reasoning payload (source, status, elapsed time, items). */
   payload: ReasoningPayload;
-  /** Whether the parent message is currently streaming. */
-  isStreaming: boolean;
 }
 
 /**
@@ -90,8 +88,8 @@ const CortexSpinner: React.FC = () => {
  */
 const ActiveDot: React.FC = () => (
   <span
+    aria-hidden="true"
     className="tw-inline-block tw-size-1.5 tw-animate-pulse tw-rounded-full tw-bg-interactive-accent"
-    aria-label="active"
   />
 );
 
@@ -119,7 +117,7 @@ const ReasoningItemRow: React.FC<ReasoningItemRowProps> = ({ item }) => {
         {/* State indicator */}
         <span className="tw-mt-0.5 tw-flex tw-shrink-0 tw-items-center">
           {isActive && <ActiveDot />}
-          {isError && <AlertCircle className="tw-size-3 tw-text-error" aria-label="error" />}
+          {isError && <AlertCircle aria-hidden="true" className="tw-size-3 tw-text-error" />}
           {!isActive && !isError && (
             // Invisible placeholder to keep alignment consistent
             <span className="tw-inline-block tw-w-1.5" />
@@ -185,18 +183,17 @@ const ReasoningItemRow: React.FC<ReasoningItemRowProps> = ({ item }) => {
  *
  * Returns null when `payload.items` is empty.
  */
-export const ReasoningPanel: React.FC<ReasoningPanelProps> = ({ payload, isStreaming: _ }) => {
+export const ReasoningPanel: React.FC<ReasoningPanelProps> = ({ payload }) => {
   const { status, elapsedSeconds, items } = payload;
   const [isExpanded, setIsExpanded] = useState(status === "reasoning");
+  const prevStatusRef = useRef(status);
 
-  // Auto-expand during reasoning, auto-collapse when done
-  useEffect(() => {
-    if (status === "reasoning") {
-      setIsExpanded(true);
-    } else if (status === "collapsed" || status === "complete") {
-      setIsExpanded(false);
-    }
-  }, [status]);
+  // Synchronous during render (no useEffect lag):
+  if (prevStatusRef.current !== status) {
+    prevStatusRef.current = status;
+    if (status === "reasoning") setIsExpanded(true);
+    else if (status === "collapsed" || status === "complete") setIsExpanded(false);
+  }
 
   // Nothing to show
   if (items.length === 0) {
@@ -204,22 +201,26 @@ export const ReasoningPanel: React.FC<ReasoningPanelProps> = ({ payload, isStrea
   }
 
   const isActive = status === "reasoning";
-  const canExpand = !isActive && items.length > 0;
+  const canExpand = !isActive;
 
   return (
     <Collapsible
       open={canExpand ? isExpanded : isActive}
       onOpenChange={canExpand ? setIsExpanded : undefined}
-      disabled={!canExpand}
       className="agent-reasoning-block"
     >
-      <CollapsibleTrigger asChild disabled={!canExpand}>
-        <div
-          className={cn(
-            "agent-reasoning-header",
-            canExpand && "tw-cursor-pointer",
-            !canExpand && "tw-cursor-default"
-          )}
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          disabled={!canExpand}
+          className={cn("agent-reasoning-header", !canExpand && "tw-cursor-default")}
+          aria-label={
+            isActive
+              ? "Reasoning in progress"
+              : isExpanded
+                ? "Collapse reasoning"
+                : "Expand reasoning"
+          }
         >
           {/* Spinner or expand chevron */}
           <span className="agent-reasoning-icon">
@@ -238,7 +239,7 @@ export const ReasoningPanel: React.FC<ReasoningPanelProps> = ({ payload, isStrea
           {/* Title and timer */}
           <span className="agent-reasoning-title">{isActive ? "Reasoning" : "Reasoned for"}</span>
           <span className="agent-reasoning-timer">{formatTime(elapsedSeconds)}</span>
-        </div>
+        </button>
       </CollapsibleTrigger>
 
       {/* Item list — visible when expanded or actively reasoning */}
