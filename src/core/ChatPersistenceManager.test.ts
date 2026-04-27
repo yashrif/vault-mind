@@ -1537,6 +1537,73 @@ tags:
     });
   });
 
+  describe("reasoning marker handling", () => {
+    it("should preserve CORTEX_REASONING marker through save and load cycle", () => {
+      const cortexMarker =
+        '<!--CORTEX_REASONING:v1:{"version":1,"source":"agent","status":"complete","elapsedSeconds":5,"items":[{"type":"step","summary":"Searched notes"}]}-->';
+      const messageWithReasoning = `${cortexMarker}Here is the answer.`;
+
+      const messages: ChatMessage[] = [
+        {
+          id: "1",
+          message: messageWithReasoning,
+          sender: AI_SENDER,
+          timestamp: {
+            epoch: 1695513480000,
+            display: "2024/09/23 22:18:00",
+            fileName: "2024_09_23_221800",
+          },
+          isVisible: true,
+        },
+      ];
+
+      // Format (save path) — marker must be preserved
+      const formatted = (persistenceManager as any).formatChatContent(messages);
+      expect(formatted).toContain("<!--CORTEX_REASONING:v1:");
+
+      // Parse (load path) — marker must still be present in loaded message
+      const fullContent = `---\nepoch: 1695513480000\nmodelKey: gpt-4\ntags:\n  - cortex-conversation\n---\n\n${formatted}`;
+      const parsed = (persistenceManager as any).parseChatContent(fullContent);
+
+      expect(parsed).toHaveLength(1);
+      expect(parsed[0].message).toContain("<!--CORTEX_REASONING:v1:");
+      expect(parsed[0].message).toContain("Here is the answer.");
+    });
+
+    it("should strip legacy AGENT_REASONING marker on load", () => {
+      const agentMarker = '<!--AGENT_REASONING:complete:12:["Searched vault","Found results"]-->';
+      const content = `---\nepoch: 1695513480000\nmodelKey: gpt-4\ntags:\n  - cortex-conversation\n---\n\n**ai**: ${agentMarker}Here is the answer.\n[Timestamp: 2024/09/23 22:18:00]`;
+
+      const parsed = (persistenceManager as any).parseChatContent(content);
+
+      expect(parsed).toHaveLength(1);
+      expect(parsed[0].message).not.toContain("AGENT_REASONING");
+      expect(parsed[0].message).toBe("Here is the answer.");
+    });
+
+    it("should strip legacy AGENT_REASONING marker on save", () => {
+      const agentMarker = '<!--AGENT_REASONING:complete:12:["Searched vault","Found results"]-->';
+      const messages: ChatMessage[] = [
+        {
+          id: "1",
+          message: `${agentMarker}Here is the answer.`,
+          sender: AI_SENDER,
+          timestamp: {
+            epoch: 1695513480000,
+            display: "2024/09/23 22:18:00",
+            fileName: "2024_09_23_221800",
+          },
+          isVisible: true,
+        },
+      ];
+
+      const formatted = (persistenceManager as any).formatChatContent(messages);
+
+      expect(formatted).not.toContain("AGENT_REASONING");
+      expect(formatted).toContain("Here is the answer.");
+    });
+  });
+
   describe("lastAccessedAt preservation", () => {
     it("should preserve lastAccessedAt when updating existing file", async () => {
       const messages: ChatMessage[] = [
