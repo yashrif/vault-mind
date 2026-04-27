@@ -1,4 +1,5 @@
 import { compactAssistantOutput } from "@/context/ChatHistoryCompactor";
+import { stripReasoningForLLMContext } from "@/core/reasoning";
 import { getSettings, subscribeToSettingsChange } from "@/settings/model";
 import { BaseChatMemory, BufferWindowMemory } from "@langchain/classic/memory";
 import { BaseChatMessageHistory } from "@langchain/core/chat_history";
@@ -70,15 +71,25 @@ export default class MemoryManager {
 
   /**
    * Save a conversation turn to memory.
-   * The output (assistant response) is compacted to reduce memory bloat from
-   * accumulated tool results (localSearch, readNote, etc.).
+   * The output (assistant response) is first stripped of CORTEX_REASONING markers
+   * and legacy <think> tags, then compacted to reduce memory bloat from accumulated
+   * tool results (localSearch, readNote, etc.).
+   *
+   * This ensures LangChain memory never contains reasoning markers that are
+   * irrelevant to future LLM context.
    */
   async saveContext(input: any, output: any): Promise<void> {
+    // Strip reasoning markers before any further processing
+    const strippedOutput =
+      typeof output === "string"
+        ? stripReasoningForLLMContext(output)
+        : { ...output, output: stripReasoningForLLMContext(output.output) };
+
     // Compact the output to prevent memory bloat from tool results
     const compactedOutput =
-      typeof output === "string"
-        ? compactAssistantOutput(output)
-        : { ...output, output: compactAssistantOutput(output.output) };
+      typeof strippedOutput === "string"
+        ? compactAssistantOutput(strippedOutput)
+        : { ...strippedOutput, output: compactAssistantOutput(strippedOutput.output) };
 
     if (this.debug) {
       console.log("Saving to memory - Input:", input, "Output (compacted):", compactedOutput);
