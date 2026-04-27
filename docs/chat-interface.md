@@ -160,9 +160,28 @@ Hover over an AI response to reveal action buttons:
 - **Show Sources** — If the response used vault or web search, this shows the source references. Only appears when sources are available.
 - **Insert at cursor** — Inserts the AI's response at your cursor position in the active note.
 - **Replace at cursor** — Replaces the currently selected text in your note with the AI's response.
-- **Copy** — Copies the response to clipboard.
+- **Copy** — Copies the response to clipboard. Note: Only the visible answer is copied, not the reasoning.
 - **Regenerate** — Asks the AI to generate a new response to the same message.
 - **Delete** — Removes this response from the conversation.
+
+#### Reasoning Panel
+
+Some AI models include a reasoning or thinking phase as part of their response. When available, a collapsible **reasoning panel** appears above the response showing the model's internal thinking.
+
+While the model is thinking:
+
+- The reasoning panel expands automatically to show a live progress indicator
+- You can continue reading or scrolling; the panel stays visible
+
+After the response is complete:
+
+- The reasoning panel collapses by default, showing a summary badge (e.g., "Reasoning – 2 minutes")
+- Click the panel header to expand and read the full thinking transcript
+- The reasoning is saved with your chat history for future reference
+
+**Important**: The reasoning is display-only metadata. It is not fed back to the model in future conversation turns — only the visible answer is used for context.
+
+When you copy or share a message, only the visible response is included — the reasoning remains private to this conversation.
 
 ---
 

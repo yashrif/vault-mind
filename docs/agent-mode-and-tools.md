@@ -147,6 +147,39 @@ See [Context and Mentions](context-and-mentions.md) for the full @-mention refer
 
 ---
 
+## Reasoning Panel
+
+The agent includes a **reasoning panel** above its final response that shows each step of the agent's thinking process. This helps you understand how the agent reached its answer.
+
+### Viewing Reasoning Steps
+
+The reasoning panel displays as a collapsible section with a summary. While the agent is working:
+
+- The reasoning panel expands automatically and shows a live progress indicator
+- Each step is listed as you work through it
+- You can read along or scroll past; the panel stays visible
+
+After the agent finishes:
+
+- The reasoning panel collapses by default, showing how many steps were taken (e.g., "Reasoning – 3 steps")
+- Click the panel header to expand and review the full transcript
+
+### Expandable Detail Rows
+
+Click any step in the reasoning panel to expand and see more information:
+
+- What the step was trying to accomplish
+- Tool arguments used (for steps that called a tool)
+- Tool results or findings (previews of search results, file reads, etc.)
+
+This lets you inspect the agent's reasoning at any level of detail.
+
+### Reasoning and Chat History
+
+The reasoning is saved with your chat history and appears again when you load a previous conversation. However, the reasoning is display-only — it is not fed back to the model in future turns. Only the visible answer becomes part of the conversation context.
+
+---
+
 ## Tool Call Indicators
 
 While the agent is working, the chat shows status indicators for each tool call:
