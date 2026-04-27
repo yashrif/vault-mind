@@ -59,7 +59,8 @@ const INLINE_PATTERNS: InlinePattern[] = [
   { kind: "italic", priority: 7, regex: /(^|[^\w])\*([^*\n]+)\*(?=[^\w]|$)/ },
   { kind: "italic", priority: 8, regex: /(^|[^\w])_([^_\n]+)_(?=[^\w]|$)/ },
 ];
-const REASONING_BLOCK_REGEX = /<!--AGENT_REASONING:\w+:\d+:.+?-->/g;
+const REASONING_BLOCK_REGEX =
+  /<!--(?:AGENT_REASONING:\w+:\d+:.+?|CORTEX_REASONING:v1:[\s\S]*?)-->/g;
 const REASONING_PLACEHOLDER_PREFIX = "__TELEGRAM_REASONING_BLOCK_";
 
 /**

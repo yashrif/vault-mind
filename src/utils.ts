@@ -1003,6 +1003,11 @@ export function cleanMessageForCopy(message: string): string {
   // Use greedy .* so we match to the real closing --> even if the JSON payload contains -->
   cleanedMessage = cleanedMessage.replace(/<!--AGENT_REASONING:\w+:\d+:.*-->/g, "");
 
+  // Remove CORTEX_REASONING markers
+  // Format: <!--CORTEX_REASONING:v1:{...json...}-->
+  // Use non-greedy [\s\S]*? to handle multiline JSON payloads
+  cleanedMessage = cleanedMessage.replace(/<!--CORTEX_REASONING:v1:[\s\S]*?-->/g, "");
+
   // Clean up any resulting multiple consecutive newlines (more than 2)
   cleanedMessage = cleanedMessage.replace(/\n{3,}/g, "\n\n");
 

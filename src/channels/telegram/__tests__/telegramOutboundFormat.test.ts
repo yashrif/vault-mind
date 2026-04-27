@@ -79,4 +79,31 @@ Hello!`,
       transportMessages: [{ parseMode: "HTML", text: "Hello!" }],
     });
   });
+
+  it("removes CORTEX_REASONING:v1 markers from transport messages", () => {
+    const input = `<!--CORTEX_REASONING:v1:{"version":1,"source":"agent","status":"complete","elapsedSeconds":5,"items":["Searching notes","Analyzed results"]}-->
+
+Hello!`;
+
+    const result = formatTelegramOutboundMessage(input);
+    expect(result.storageText).toBe("Hello!");
+    expect(result.transportMessages).toEqual([{ parseMode: "HTML", text: "Hello!" }]);
+    // displayText preserves the reasoning marker for the Obsidian panel
+    expect(result.displayText).toContain("CORTEX_REASONING:v1");
+  });
+
+  it("preserves CORTEX_REASONING:v1 in displayText while stripping tool markers", () => {
+    const reasoning = `<!--CORTEX_REASONING:v1:{"version":1,"source":"agent","status":"complete","elapsedSeconds":3,"items":["Consulting notes"]}-->`;
+    const input = `${reasoning}
+
+<!--TOOL_CALL_START:123:localSearch:Local Search:🔍::true-->Searching...<!--TOOL_CALL_END:123:Found 5 results-->
+
+Hello!`;
+
+    const result = formatTelegramOutboundMessage(input);
+    expect(result.displayText).toContain("CORTEX_REASONING:v1");
+    expect(result.displayText).not.toContain("TOOL_CALL_START");
+    expect(result.storageText).toBe("Hello!");
+    expect(result.transportMessages).toEqual([{ parseMode: "HTML", text: "Hello!" }]);
+  });
 });

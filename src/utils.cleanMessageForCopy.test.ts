@@ -127,4 +127,32 @@ Here is the actual response.`;
     const expected = "Actual response.";
     expect(cleanMessageForCopy(input)).toBe(expected);
   });
+
+  it("should remove CORTEX_REASONING:v1 markers", () => {
+    const input = `<!--CORTEX_REASONING:v1:{"version":1,"source":"agent","status":"complete","elapsedSeconds":5,"items":["Searching notes","Analyzed results"]}-->Here is my response.`;
+    const expected = "Here is my response.";
+    expect(cleanMessageForCopy(input)).toBe(expected);
+  });
+
+  it("should remove CORTEX_REASONING:v1 markers with surrounding content", () => {
+    const input = `Some intro text
+<!--CORTEX_REASONING:v1:{"version":1,"source":"chat","status":"collapsed","elapsedSeconds":2,"items":["Thinking..."]}-->
+Here is the actual response.`;
+    const expected = "Some intro text\n\nHere is the actual response.";
+    expect(cleanMessageForCopy(input)).toBe(expected);
+  });
+
+  it("should remove CORTEX_REASONING:v1 markers whose JSON payload contains -->", () => {
+    const input = `<!--CORTEX_REASONING:v1:{"version":1,"source":"agent","status":"complete","elapsedSeconds":3,"items":["Step with --\\> inside"]}-->Actual response.`;
+    const expected = "Actual response.";
+    expect(cleanMessageForCopy(input)).toBe(expected);
+  });
+
+  it("should remove multiple CORTEX_REASONING:v1 markers", () => {
+    const input = `<!--CORTEX_REASONING:v1:{"version":1,"source":"agent","status":"complete","elapsedSeconds":1,"items":["Step 1"]}-->First response.
+
+<!--CORTEX_REASONING:v1:{"version":1,"source":"agent","status":"complete","elapsedSeconds":2,"items":["Step 2"]}-->Second response.`;
+    const expected = "First response.\n\nSecond response.";
+    expect(cleanMessageForCopy(input)).toBe(expected);
+  });
 });
