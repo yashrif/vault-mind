@@ -139,6 +139,19 @@ describe("parseReasoningPayload — malformed inputs", () => {
     const marker = `<!--CORTEX_REASONING:v1:${JSON.stringify(wrongVersion)}-->`;
     expect(parseReasoningPayload(marker)).toBeNull();
   });
+
+  it("returns null when JSON version is a string '1' instead of number 1", () => {
+    // Manually construct JSON where version is a string, not a number
+    const jsonWithStringVersion = JSON.stringify({
+      version: "1",
+      source: "chat",
+      status: "complete",
+      elapsedSeconds: 0,
+      items: [],
+    });
+    const marker = `<!--CORTEX_REASONING:v1:${jsonWithStringVersion}-->`;
+    expect(parseReasoningPayload(marker)).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -173,7 +186,62 @@ describe("parseReasoningPayload — contentAfter", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. stripReasoningForLLMContext
+// 5. Additional edge cases for parseReasoningPayload
+// ---------------------------------------------------------------------------
+
+describe("parseReasoningPayload — additional edge cases", () => {
+  it("finds the marker even when content appears before it, and contentAfter is correct", () => {
+    const marker = serializeReasoningPayload(chatPayload);
+    const input = `some text ${marker}\nafter text`;
+    const parsed = parseReasoningPayload(input);
+
+    // The marker is found despite preceding text
+    expect(parsed).not.toBeNull();
+    // contentAfter is the text that follows the marker (leading whitespace trimmed)
+    expect(parsed!.contentAfter).toBe("after text");
+    // The return type has no contentBefore field — the preceding text is not in the result
+    expect(parsed).not.toHaveProperty("contentBefore");
+  });
+
+  it("only parses the first marker when two markers are concatenated", () => {
+    const marker1 = serializeReasoningPayload(chatPayload);
+    const marker2 = serializeReasoningPayload(agentPayload);
+    const input = `${marker1}\n${marker2}`;
+    const parsed = parseReasoningPayload(input);
+
+    // The first marker is parsed
+    expect(parsed).not.toBeNull();
+    expect(parsed!.payload).toEqual(chatPayload);
+    // contentAfter contains the raw second marker text as a string (not parsed)
+    expect(parsed!.contentAfter).toBe(marker2);
+  });
+
+  it("round-trips a detail containing the literal escape sequence --\\>", () => {
+    const escapeSequencePayload: ReasoningPayload = {
+      ...chatPayload,
+      items: [
+        {
+          id: "esc",
+          kind: "transcript",
+          summary: "Escape test",
+          // The detail itself contains the four characters --, \, >
+          detail: "--\\>",
+          state: "done",
+        },
+      ],
+    };
+
+    const marker = serializeReasoningPayload(escapeSequencePayload);
+    const parsed = parseReasoningPayload(marker);
+
+    expect(parsed).not.toBeNull();
+    // The detail must survive the serialize→parse round-trip unchanged
+    expect(parsed!.payload.items[0].detail).toBe("--\\>");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6. stripReasoningForLLMContext
 // ---------------------------------------------------------------------------
 
 describe("stripReasoningForLLMContext", () => {

@@ -5,6 +5,22 @@ const MARKER_SUFFIX = "-->";
 const ESCAPED_CLOSE = "--\\>"; // how --> is stored inside the JSON
 
 /**
+ * Internal type guard that validates a parsed JSON value has the expected
+ * shape of a ReasoningPayload before callers rely on its discriminating fields.
+ */
+function isValidPayload(p: unknown): p is ReasoningPayload {
+  if (typeof p !== "object" || p === null) return false;
+  const o = p as Record<string, unknown>;
+  return (
+    o["version"] === 1 &&
+    (o["source"] === "chat" || o["source"] === "agent") &&
+    (o["status"] === "reasoning" || o["status"] === "collapsed" || o["status"] === "complete") &&
+    typeof o["elapsedSeconds"] === "number" &&
+    Array.isArray(o["items"])
+  );
+}
+
+/**
  * Serializes a ReasoningPayload into an HTML comment marker.
  * The --> sequence in JSON values is escaped to --\> to prevent early comment close.
  */
@@ -26,8 +42,9 @@ export function parseReasoningPayload(content: string): ParsedReasoning | null {
   if (suffixIdx === -1) return null;
   const rawJson = content.slice(jsonStart, suffixIdx).replace(/--\\>/g, "-->");
   try {
-    const payload = JSON.parse(rawJson) as ReasoningPayload;
-    if (payload.version !== 1) return null;
+    const parsed: unknown = JSON.parse(rawJson);
+    if (!isValidPayload(parsed)) return null;
+    const payload = parsed; // already narrowed by type guard
     const contentAfter = content.slice(suffixIdx + MARKER_SUFFIX.length).trimStart();
     return { payload, contentAfter };
   } catch {
