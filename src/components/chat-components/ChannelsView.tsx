@@ -40,15 +40,15 @@ export function ChannelsView({
   const [activeChannel] = useState<ChannelId>("telegram");
 
   return (
-    <div className="tw-flex tw-size-full tw-overflow-hidden">
-      <div className="tw-flex tw-w-32 tw-shrink-0 tw-flex-col tw-gap-1 tw-border-r tw-border-border tw-p-1">
+    <div className="tw-flex tw-size-full tw-min-w-0 tw-flex-col tw-overflow-hidden">
+      <div className="tw-flex tw-shrink-0 tw-items-center tw-gap-2 tw-overflow-x-auto tw-border-b tw-border-border tw-px-3 tw-py-2">
         {CHANNELS.map((ch) => (
           <Button
             key={ch.id}
             variant="ghost2"
             size="fit"
             className={cn(
-              "tw-w-full tw-justify-start tw-gap-2 tw-px-2 tw-py-1.5 tw-text-sm",
+              "tw-h-8 tw-shrink-0 tw-justify-start tw-gap-2 tw-rounded-full tw-px-3 tw-text-sm",
               activeChannel === ch.id ? "tw-text-accent" : "tw-text-muted"
             )}
           >
@@ -57,7 +57,7 @@ export function ChannelsView({
           </Button>
         ))}
       </div>
-      <div className="tw-flex tw-flex-1 tw-flex-col tw-overflow-hidden">
+      <div className="tw-flex tw-min-h-0 tw-min-w-0 tw-flex-1 tw-flex-col tw-overflow-hidden">
         {activeChannel === "telegram" && (
           <TelegramChannelView
             telegramStore={telegramStore}
