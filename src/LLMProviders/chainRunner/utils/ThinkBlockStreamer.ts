@@ -81,13 +81,18 @@ export class ThinkBlockStreamer {
 
     const payload: ReasoningPayload = {
       version: 1,
+      // Always "chat" because AutonomousAgentChainRunner always sets excludeThinking=true,
+      // so this code path is never reached from the agent flow.
       source: "chat",
       status: blockStatus,
+      // Intentional placeholder: chat streaming does not track reasoning elapsed time.
       elapsedSeconds: 0,
       items: [
         {
           id: "transcript-0",
           kind: "transcript",
+          // Intentional placeholder: a fixed summary is used since chat does not derive
+          // a dynamic summary from the reasoning content.
           summary: "Thought for a while",
           detail,
           state: itemState,
@@ -194,16 +199,14 @@ export class ThinkBlockStreamer {
     }
   }
 
-  private handleClaudeChunk(content: any[]) {
+  private handleClaudeChunk(content: any[]): void {
     let textContent = "";
-    let hasThinkingContent = false;
     for (const item of content) {
       switch (item.type) {
         case "text":
           textContent += item.text;
           break;
         case "thinking":
-          hasThinkingContent = true;
           // Skip thinking content if excludeThinking is enabled
           if (this.excludeThinking) {
             break;
@@ -213,7 +216,7 @@ export class ThinkBlockStreamer {
           if (item.thinking !== undefined) {
             this.thinkingTranscript += item.thinking;
           }
-          this.updateCurrentAiMessage(this.buildCompositeString("active", "reasoning"));
+          // processChunk's tail call to updateCurrentAiMessage handles all providers uniformly
           break;
       }
     }
@@ -224,27 +227,23 @@ export class ThinkBlockStreamer {
     if (textContent) {
       this.visibleAnswer += stripSpecialTokens(textContent);
     }
-    return hasThinkingContent;
   }
 
   private handleDeepseekChunk(chunk: any) {
-    // Handle standard string content
-    if (typeof chunk.content === "string") {
-      this.visibleAnswer += stripSpecialTokens(chunk.content);
-    }
-
     // Handle deepseek reasoning/thinking content
-    if (chunk.additional_kwargs?.reasoning_content) {
+    const reasoning = chunk.additional_kwargs?.reasoning_content;
+    if (reasoning) {
       // Skip thinking content if excludeThinking is enabled
       if (this.excludeThinking) {
         return true; // Indicate we handled (but skipped) a thinking chunk
       }
       this.hasOpenThinkBlock = true;
-      // Guard against undefined reasoning content
-      if (chunk.additional_kwargs.reasoning_content !== undefined) {
-        this.thinkingTranscript += chunk.additional_kwargs.reasoning_content;
-      }
+      this.thinkingTranscript += reasoning;
       return true; // Indicate we handled a thinking chunk
+    }
+    // Only append visible content when no reasoning content is present
+    if (typeof chunk.content === "string") {
+      this.visibleAnswer += stripSpecialTokens(chunk.content);
     }
     return false; // No thinking chunk handled
   }
@@ -286,7 +285,7 @@ export class ThinkBlockStreamer {
 
     // Handle standard string content (this is the actual response, not thinking)
     if (typeof chunk.content === "string" && chunk.content) {
-      this.visibleAnswer += chunk.content;
+      this.visibleAnswer += stripSpecialTokens(chunk.content);
     }
 
     return false; // No thinking handled

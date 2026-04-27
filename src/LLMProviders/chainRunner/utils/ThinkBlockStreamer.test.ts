@@ -538,4 +538,101 @@ describe("ThinkBlockStreamer", () => {
       expect(msgContent).toBe("Visible reply");
     });
   });
+
+  describe("handleTextLevelThinkTags (nvidia/nemotron/qwen3 text-level path)", () => {
+    it("should extract <think>...</think> block split across multiple chunks", () => {
+      let currentMessage = "";
+      const streamer = new ThinkBlockStreamer((msg) => {
+        currentMessage = msg;
+      });
+
+      // Chunk N: open tag
+      streamer.processChunk({ content: "<think>", additional_kwargs: {} });
+      // Chunk N+1: thinking content (still inside the block)
+      streamer.processChunk({ content: "some reasoning here", additional_kwargs: {} });
+      // Chunk N+2: close tag
+      streamer.processChunk({ content: "</think>", additional_kwargs: {} });
+
+      // Transcript should have the thinking content
+      const parsed = parseReasoningPayload(currentMessage);
+      expect(parsed).not.toBeNull();
+      expect(parsed!.payload.items[0].detail).toContain("some reasoning here");
+
+      // visibleAnswer should contain no raw think tags
+      expect(currentMessage).not.toContain("<think>");
+      expect(currentMessage).not.toContain("</think>");
+    });
+
+    it("should handle malformed </think> without prior <think> without crashing", () => {
+      let currentMessage = "";
+      const streamer = new ThinkBlockStreamer((msg) => {
+        currentMessage = msg;
+      });
+
+      // Only a close tag — no open tag ever seen
+      streamer.processChunk({ content: "prefix text", additional_kwargs: {} });
+      streamer.processChunk({ content: "</think>", additional_kwargs: {} });
+      streamer.processChunk({ content: "suffix text", additional_kwargs: {} });
+
+      // Should not crash; content after </think> should end up in visibleAnswer
+      expect(currentMessage).not.toContain("</think>");
+      expect(currentMessage).not.toContain("<think>");
+      // suffix text must be present
+      expect(currentMessage).toContain("suffix text");
+    });
+
+    it("should suppress text-level <think> content when excludeThinking=true", () => {
+      let currentMessage = "";
+      const streamer = new ThinkBlockStreamer(
+        (msg) => {
+          currentMessage = msg;
+        },
+        true // excludeThinking = true
+      );
+
+      streamer.processChunk({ content: "<think>secret thoughts</think>", additional_kwargs: {} });
+      streamer.processChunk({ content: "visible answer", additional_kwargs: {} });
+
+      // Thinking content must be suppressed — no CORTEX_REASONING marker
+      expect(currentMessage).not.toContain("CORTEX_REASONING");
+      expect(currentMessage).not.toContain("secret thoughts");
+      expect(currentMessage).not.toContain("<think>");
+      expect(currentMessage).not.toContain("</think>");
+      // Visible answer must still appear
+      expect(currentMessage).toContain("visible answer");
+    });
+  });
+
+  describe("excludeThinking option — Deepseek reasoning_content path", () => {
+    it("should skip Deepseek reasoning_content and produce no marker when excludeThinking=true", () => {
+      let currentMessage = "";
+      const streamer = new ThinkBlockStreamer(
+        (msg) => {
+          currentMessage = msg;
+        },
+        true // excludeThinking = true
+      );
+
+      // Thinking chunk — must be suppressed entirely
+      streamer.processChunk({
+        content: "",
+        additional_kwargs: {
+          reasoning_content: "Deepseek thinking that should be hidden",
+        },
+      });
+
+      expect(currentMessage).toBe("");
+      expect(currentMessage).not.toContain("CORTEX_REASONING");
+      expect(currentMessage).not.toContain("Deepseek thinking");
+
+      // Regular visible content must still be delivered
+      streamer.processChunk({
+        content: "Here is the answer.",
+        additional_kwargs: {},
+      });
+
+      expect(currentMessage).toBe("Here is the answer.");
+      expect(currentMessage).not.toContain("CORTEX_REASONING");
+    });
+  });
 });
