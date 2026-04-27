@@ -443,10 +443,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
         });
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for backward compat; old <think> tags no longer emitted
-      const processThinkSection = (content: string): string => {
-        return processCollapsibleSection(content, "think", "Thought for a while", "Thinking...");
-      };
+      // processThinkSection removed: ThinkBlockStreamer no longer emits <think> tags; old persisted tags render as plain text (hard cut, no compat).
 
       const processWriteFileSection = (content: string): string => {
         // Normalise legacy <writeToFile> tags from saved history to <writeFile>
@@ -669,7 +666,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
 
       // Parse and extract CORTEX_REASONING marker if present
       const parsedReasoning = parseReasoningPayload(originMessage);
-      setReasoningPayload(parsedReasoning ? parsedReasoning.payload : null);
+      setReasoningPayload(parsedReasoning?.payload ?? null);
 
       // Use content after reasoning marker (or full message if no marker present)
       const messageContent = parsedReasoning ? parsedReasoning.contentAfter : originMessage;
