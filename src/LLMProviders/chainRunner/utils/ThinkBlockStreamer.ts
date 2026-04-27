@@ -10,23 +10,39 @@ import {
 } from "./nativeToolCalling";
 import { logInfo, logWarn } from "@/logger";
 import { stripSpecialTokens } from "@/utils/stripSpecialTokens";
+import { serializeReasoningPayload } from "@/core/reasoning";
+import type { ReasoningPayload, ReasoningItemState, ReasoningStatus } from "@/core/reasoning";
+
+/** Maximum number of characters stored in the transcript detail field. */
+const MAX_TRANSCRIPT_DETAIL_CHARS = 12000;
+
+/** Prefix added when the transcript is truncated to stay within the limit. */
+const TRUNCATION_PREFIX = "[Earlier reasoning omitted]\n";
 
 /**
  * ThinkBlockStreamer handles streaming content from various LLM providers
  * that support thinking/reasoning modes (like Claude and Deepseek).
  * Also accumulates native tool calls from tool_call_chunks during streaming.
  * Also detects truncation due to token limits across all providers.
+ *
+ * When thinking content is present and `excludeThinking` is false, the
+ * streamer emits a CORTEX_REASONING marker (serialized ReasoningPayload)
+ * prepended to the visible answer. If there is no thinking content the
+ * streamer emits just the visible answer with no marker.
  */
 export class ThinkBlockStreamer {
   private hasOpenThinkBlock = false;
-  private fullResponse = "";
+  /** Accumulates all think/reasoning content (never appears in the visible answer). */
+  private thinkingTranscript = "";
+  /** Accumulates the non-thinking visible text. */
+  private visibleAnswer = "";
   private errorResponse = "";
   private wasTruncated = false;
   private tokenUsage: TokenUsage | null = null;
   // Track if we've handled text-level think tags (e.g., from nvidia/nemotron)
   private hasHandledTextLevelThinkTag = false;
-  // Character index where an excluded text-level think block started.
-  // -1 means we're not currently inside an excluded block.
+  // Character index (within visibleAnswer) where an excluded text-level think
+  // block started. -1 means we're not currently inside an excluded block.
   private excludedThinkBlockStart = -1;
 
   // Native tool call accumulation
@@ -41,13 +57,55 @@ export class ThinkBlockStreamer {
   }
 
   /**
+   * Build the composite string that is passed to `updateCurrentAiMessage`.
+   * When thinking content exists and `excludeThinking` is false the string is:
+   *   `serializeReasoningPayload(payload) + "\n" + visibleAnswer`
+   * Otherwise it is just `visibleAnswer`.
+   *
+   * @param itemState - Whether the reasoning item is still active or done.
+   * @param blockStatus - The lifecycle status of the reasoning block.
+   */
+  private buildCompositeString(
+    itemState: ReasoningItemState = "active",
+    blockStatus: ReasoningStatus = "reasoning"
+  ): string {
+    if (!this.thinkingTranscript) {
+      return this.visibleAnswer;
+    }
+
+    // Cap the transcript detail and prefix with truncation notice if needed.
+    let detail = this.thinkingTranscript;
+    if (detail.length > MAX_TRANSCRIPT_DETAIL_CHARS) {
+      detail = TRUNCATION_PREFIX + detail.slice(detail.length - MAX_TRANSCRIPT_DETAIL_CHARS);
+    }
+
+    const payload: ReasoningPayload = {
+      version: 1,
+      source: "chat",
+      status: blockStatus,
+      elapsedSeconds: 0,
+      items: [
+        {
+          id: "transcript-0",
+          kind: "transcript",
+          summary: "Thought for a while",
+          detail,
+          state: itemState,
+        },
+      ],
+    };
+
+    return serializeReasoningPayload(payload) + "\n" + this.visibleAnswer;
+  }
+
+  /**
    * Handle text-level think tags embedded in content (e.g., nvidia/nemotron, qwen3 models).
    * Some models output thinking with only </think> closing tag, no opening tag.
    * This method detects and fixes this during streaming.
    *
    * When excludeThinking is true, thinking content is suppressed during streaming
    * (not just stripped after the close tag arrives) by tracking the position where
-   * the excluded block started and truncating fullResponse on each chunk.
+   * the excluded block started and truncating visibleAnswer on each chunk.
    */
   private handleTextLevelThinkTags() {
     if (this.excludeThinking) {
@@ -55,19 +113,35 @@ export class ThinkBlockStreamer {
       return;
     }
 
-    const hasCloseTag = this.fullResponse.includes("</think>");
-    const hasOpenTag = this.fullResponse.includes("<think>");
+    // When not excluding: detect <think>...</think> embedded directly in visibleAnswer
+    // and migrate that content into thinkingTranscript.
+    const hasCloseTag = this.visibleAnswer.includes("</think>");
+    const hasOpenTag = this.visibleAnswer.includes("<think>");
 
     if (!hasCloseTag) return;
 
-    // excludeThinking is false - fix missing opening tag if needed
+    // Fix missing opening tag (some chat templates omit it)
     if (!hasOpenTag && !this.hasHandledTextLevelThinkTag) {
       this.hasHandledTextLevelThinkTag = true;
       logWarn(
         "Detected </think> closing tag without opening <think> tag. " +
           "This may indicate a misconfigured chat template in LM Studio. Adding opening tag."
       );
-      this.fullResponse = "<think>" + this.fullResponse;
+      this.visibleAnswer = "<think>" + this.visibleAnswer;
+    }
+
+    // Extract all complete <think>...</think> blocks from visibleAnswer
+    // and accumulate them into thinkingTranscript.
+    const closeIdx = this.visibleAnswer.indexOf("</think>");
+    const openIdx = this.visibleAnswer.indexOf("<think>");
+
+    if (openIdx !== -1 && closeIdx !== -1 && openIdx < closeIdx) {
+      // Complete block present — extract it
+      const thinkContent = this.visibleAnswer.slice(openIdx + "<think>".length, closeIdx);
+      const before = this.visibleAnswer.slice(0, openIdx);
+      const after = this.visibleAnswer.slice(closeIdx + "</think>".length);
+      this.thinkingTranscript += thinkContent;
+      this.visibleAnswer = (before + after).trimStart();
     }
   }
 
@@ -81,42 +155,42 @@ export class ThinkBlockStreamer {
   private handleExcludedThinkTags() {
     // Currently inside an excluded block from a previous chunk
     if (this.excludedThinkBlockStart >= 0) {
-      const closeIdx = this.fullResponse.indexOf("</think>", this.excludedThinkBlockStart);
+      const closeIdx = this.visibleAnswer.indexOf("</think>", this.excludedThinkBlockStart);
       if (closeIdx !== -1) {
         // Block closed -- stitch content before and after the block
-        const before = this.fullResponse.substring(0, this.excludedThinkBlockStart);
-        const after = this.fullResponse.substring(closeIdx + "</think>".length);
-        this.fullResponse = (before + after).trimStart();
+        const before = this.visibleAnswer.substring(0, this.excludedThinkBlockStart);
+        const after = this.visibleAnswer.substring(closeIdx + "</think>".length);
+        this.visibleAnswer = (before + after).trimStart();
         this.excludedThinkBlockStart = -1;
       } else {
         // Still streaming thinking -- truncate to the safe prefix
-        this.fullResponse = this.fullResponse.substring(0, this.excludedThinkBlockStart);
+        this.visibleAnswer = this.visibleAnswer.substring(0, this.excludedThinkBlockStart);
       }
       return;
     }
 
     // Not inside a block -- check for a new one
-    const openIdx = this.fullResponse.indexOf("<think>");
+    const openIdx = this.visibleAnswer.indexOf("<think>");
     if (openIdx !== -1) {
       this.excludedThinkBlockStart = openIdx;
-      const closeIdx = this.fullResponse.indexOf("</think>", openIdx);
+      const closeIdx = this.visibleAnswer.indexOf("</think>", openIdx);
       if (closeIdx !== -1) {
         // Complete block in one pass
-        const before = this.fullResponse.substring(0, openIdx);
-        const after = this.fullResponse.substring(closeIdx + "</think>".length);
-        this.fullResponse = (before + after).trimStart();
+        const before = this.visibleAnswer.substring(0, openIdx);
+        const after = this.visibleAnswer.substring(closeIdx + "</think>".length);
+        this.visibleAnswer = (before + after).trimStart();
         this.excludedThinkBlockStart = -1;
       } else {
         // Incomplete -- truncate
-        this.fullResponse = this.fullResponse.substring(0, openIdx);
+        this.visibleAnswer = this.visibleAnswer.substring(0, openIdx);
       }
       return;
     }
 
     // Handle malformed: only </think> without <think> (e.g., some chat templates)
-    const closeIdx = this.fullResponse.indexOf("</think>");
+    const closeIdx = this.visibleAnswer.indexOf("</think>");
     if (closeIdx !== -1) {
-      this.fullResponse = this.fullResponse.substring(closeIdx + "</think>".length).trimStart();
+      this.visibleAnswer = this.visibleAnswer.substring(closeIdx + "</think>".length).trimStart();
     }
   }
 
@@ -134,25 +208,21 @@ export class ThinkBlockStreamer {
           if (this.excludeThinking) {
             break;
           }
-          if (!this.hasOpenThinkBlock) {
-            this.fullResponse += "\n<think>";
-            this.hasOpenThinkBlock = true;
-          }
+          this.hasOpenThinkBlock = true;
           // Guard against undefined thinking content
           if (item.thinking !== undefined) {
-            this.fullResponse += item.thinking;
+            this.thinkingTranscript += item.thinking;
           }
-          this.updateCurrentAiMessage(this.fullResponse);
+          this.updateCurrentAiMessage(this.buildCompositeString("active", "reasoning"));
           break;
       }
     }
     // Close think block before adding text content
     if (textContent && this.hasOpenThinkBlock) {
-      this.fullResponse += "</think>";
       this.hasOpenThinkBlock = false;
     }
     if (textContent) {
-      this.fullResponse += stripSpecialTokens(textContent);
+      this.visibleAnswer += stripSpecialTokens(textContent);
     }
     return hasThinkingContent;
   }
@@ -160,7 +230,7 @@ export class ThinkBlockStreamer {
   private handleDeepseekChunk(chunk: any) {
     // Handle standard string content
     if (typeof chunk.content === "string") {
-      this.fullResponse += stripSpecialTokens(chunk.content);
+      this.visibleAnswer += stripSpecialTokens(chunk.content);
     }
 
     // Handle deepseek reasoning/thinking content
@@ -169,13 +239,10 @@ export class ThinkBlockStreamer {
       if (this.excludeThinking) {
         return true; // Indicate we handled (but skipped) a thinking chunk
       }
-      if (!this.hasOpenThinkBlock) {
-        this.fullResponse += "\n<think>";
-        this.hasOpenThinkBlock = true;
-      }
+      this.hasOpenThinkBlock = true;
       // Guard against undefined reasoning content
       if (chunk.additional_kwargs.reasoning_content !== undefined) {
-        this.fullResponse += chunk.additional_kwargs.reasoning_content;
+        this.thinkingTranscript += chunk.additional_kwargs.reasoning_content;
       }
       return true; // Indicate we handled a thinking chunk
     }
@@ -207,23 +274,19 @@ export class ThinkBlockStreamer {
       if (this.excludeThinking) {
         return true;
       }
-      if (!this.hasOpenThinkBlock) {
-        this.fullResponse += "\n<think>";
-        this.hasOpenThinkBlock = true;
-      }
-      this.fullResponse += chunk.additional_kwargs.delta.reasoning;
+      this.hasOpenThinkBlock = true;
+      this.thinkingTranscript += chunk.additional_kwargs.delta.reasoning;
       return true; // Handled thinking
     }
 
     // Close think block before adding regular content
     if (typeof chunk.content === "string" && chunk.content && this.hasOpenThinkBlock) {
-      this.fullResponse += "</think>";
       this.hasOpenThinkBlock = false;
     }
 
     // Handle standard string content (this is the actual response, not thinking)
     if (typeof chunk.content === "string" && chunk.content) {
-      this.fullResponse += chunk.content;
+      this.visibleAnswer += chunk.content;
     }
 
     return false; // No thinking handled
@@ -282,7 +345,6 @@ export class ThinkBlockStreamer {
 
     // Close think block BEFORE processing non-thinking content
     if (this.hasOpenThinkBlock && !isThinkingChunk) {
-      this.fullResponse += "</think>";
       this.hasOpenThinkBlock = false;
     }
 
@@ -305,7 +367,7 @@ export class ThinkBlockStreamer {
     // Handle text-level think tags (e.g., from nvidia/nemotron models)
     this.handleTextLevelThinkTags();
 
-    this.updateCurrentAiMessage(this.fullResponse);
+    this.updateCurrentAiMessage(this.buildCompositeString("active", "reasoning"));
   }
 
   processErrorChunk(errorMessage: string) {
@@ -342,29 +404,42 @@ export class ThinkBlockStreamer {
   /**
    * Build an AIMessage with the accumulated content and tool calls.
    * Use this to add the complete response to conversation history.
+   * The message content uses just the visible answer (no reasoning marker) so
+   * LLM context stays clean.
    */
   buildAIMessage(): AIMessage {
     const toolCalls = this.getToolCalls();
-    return createAIMessageWithToolCalls(this.fullResponse, toolCalls);
+    return createAIMessageWithToolCalls(this.visibleAnswer, toolCalls);
   }
 
+  /**
+   * Finalise streaming and return the persisted content string along with
+   * truncation and token usage metadata.
+   *
+   * The returned `content` contains the CORTEX_REASONING marker (if any
+   * thinking content was accumulated) followed by the visible answer. This
+   * is the value that gets written to the chat history file.
+   */
   close(): StreamingResult {
-    // Make sure to close any open think block at the end
+    // Ensure any open think block is considered closed
     if (this.hasOpenThinkBlock) {
-      this.fullResponse += "</think>";
+      this.hasOpenThinkBlock = false;
     }
 
     // Final check for text-level think tags (in case stream ended before </think> was seen)
     this.handleTextLevelThinkTags();
 
     if (this.errorResponse) {
-      this.fullResponse += this.errorResponse;
+      this.visibleAnswer += this.errorResponse;
     }
 
-    this.updateCurrentAiMessage(this.fullResponse);
+    // Build final composite string with "complete" status
+    const finalComposite = this.buildCompositeString("done", "complete");
+
+    this.updateCurrentAiMessage(finalComposite);
 
     return {
-      content: this.fullResponse,
+      content: finalComposite,
       wasTruncated: this.wasTruncated,
       tokenUsage: this.tokenUsage,
     };
