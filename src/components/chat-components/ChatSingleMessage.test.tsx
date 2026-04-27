@@ -6,6 +6,8 @@ import ChatSingleMessage, {
 import { ChatMessage } from "@/types/message";
 import type { App } from "obsidian";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { serializeReasoningPayload } from "@/core/reasoning";
+import type { ReasoningPayload } from "@/core/reasoning";
 
 jest.mock("@/settings/model", () => ({
   useSettingsValue: jest.fn(() => ({
@@ -33,6 +35,11 @@ jest.mock("@/LLMProviders/chainRunner/utils/toolCallParser", () => ({
 
 jest.mock("@/LLMProviders/chainRunner/utils/citationUtils", () => ({
   processInlineCitations: jest.fn((content: string) => content),
+}));
+
+jest.mock("@/components/chat-components/ReasoningPanel", () => ({
+  ReasoningPanel: ({ payload }: { payload: ReasoningPayload }) =>
+    React.createElement("div", { "data-testid": "reasoning-panel", "data-status": payload.status }),
 }));
 
 jest.mock("react-resizable-panels", () => {
@@ -193,5 +200,68 @@ describe("ChatSingleMessage", () => {
     expect(messageSegment?.querySelector(".footnote-backref")).toBeNull();
     expect(messageSegment?.querySelector(".content-hr")).not.toBeNull();
     expect(messageSegment?.querySelector('a[href="#fn-2"]')?.textContent).toBe("2");
+  });
+
+  it("renders ReasoningPanel and strips marker text when message has CORTEX_REASONING marker", async () => {
+    const payload: ReasoningPayload = {
+      version: 1,
+      source: "chat",
+      status: "complete",
+      elapsedSeconds: 5,
+      items: [{ id: "1", kind: "transcript", summary: "Thought about it", state: "done" }],
+    };
+    const marker = serializeReasoningPayload(payload);
+    const messageWithReasoning: ChatMessage = {
+      ...baseMessage,
+      message: `${marker}\n\nHere is the answer.`,
+    };
+
+    renderMarkdownMock.mockImplementation((_markdown: string, el: HTMLElement) => {
+      el.innerHTML = `<p>${_markdown}</p>`;
+    });
+
+    const { container } = render(
+      <TooltipProvider>
+        <ChatSingleMessage
+          message={messageWithReasoning}
+          app={createAppStub()}
+          isStreaming={false}
+          onDelete={() => {}}
+        />
+      </TooltipProvider>
+    );
+
+    await waitFor(() =>
+      expect(container.querySelector("[data-testid='reasoning-panel']")).not.toBeNull()
+    );
+
+    // ReasoningPanel is present
+    const panel = container.querySelector("[data-testid='reasoning-panel']");
+    expect(panel).not.toBeNull();
+    expect(panel?.getAttribute("data-status")).toBe("complete");
+
+    // The raw marker text must not appear in the rendered DOM
+    expect(container.textContent).not.toContain("CORTEX_REASONING");
+  });
+
+  it("does not render ReasoningPanel when message has no CORTEX_REASONING marker", async () => {
+    renderMarkdownMock.mockImplementation((_markdown: string, el: HTMLElement) => {
+      el.innerHTML = `<p>${_markdown}</p>`;
+    });
+
+    const { container } = render(
+      <TooltipProvider>
+        <ChatSingleMessage
+          message={baseMessage}
+          app={createAppStub()}
+          isStreaming={false}
+          onDelete={() => {}}
+        />
+      </TooltipProvider>
+    );
+
+    await waitFor(() => expect(renderMarkdownMock).toHaveBeenCalled());
+
+    expect(container.querySelector("[data-testid='reasoning-panel']")).toBeNull();
   });
 });
