@@ -1,3 +1,4 @@
+import { serializeReasoningPayload } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { cleanMessageForCopy } from "./utils";
 
 describe("cleanMessageForCopy", () => {
@@ -75,8 +76,7 @@ More content here.`;
   it("should handle nested think blocks", () => {
     const input =
       "Before\n<think>Outer thought <think>Inner thought</think> back to outer</think>\nAfter";
-    // Since we're not handling nested blocks, the outer block will be removed but inner content remains
-    const expected = "Before\n back to outer</think>\nAfter";
+    const expected = "Before\n back to outer\nAfter";
     expect(cleanMessageForCopy(input)).toBe(expected);
   });
 
@@ -108,22 +108,42 @@ End`;
     expect(cleanMessageForCopy(input)).toBe(expected);
   });
 
-  it("should remove agent reasoning blocks", () => {
-    const input = `<!--AGENT_REASONING:complete:12:["Searching notes","Read 3 notes","Analyzing content"]-->Here is my response based on the analysis.`;
+  it("should remove shared reasoning markers", () => {
+    const input = `${serializeReasoningPayload({
+      source: "agent",
+      status: "complete",
+      elapsedSeconds: 12,
+      items: [
+        { id: "step-0", kind: "step", summary: "Searching notes" },
+        { id: "step-1", kind: "step", summary: "Read 3 notes" },
+        { id: "step-2", kind: "step", summary: "Analyzing content" },
+      ],
+    })}Here is my response based on the analysis.`;
     const expected = "Here is my response based on the analysis.";
     expect(cleanMessageForCopy(input)).toBe(expected);
   });
 
-  it("should remove agent reasoning blocks with surrounding content", () => {
-    const input = `Some intro text
-<!--AGENT_REASONING:collapsed:5:["Searching notes"]-->
+  it("should remove shared reasoning markers when they prefix the visible answer", () => {
+    const input = `${serializeReasoningPayload({
+      source: "agent",
+      status: "collapsed",
+      elapsedSeconds: 5,
+      items: [{ id: "step-0", kind: "step", summary: "Searching notes" }],
+    })}
 Here is the actual response.`;
-    const expected = "Some intro text\n\nHere is the actual response.";
+    const expected = "Here is the actual response.";
     expect(cleanMessageForCopy(input)).toBe(expected);
   });
 
-  it("should handle agent reasoning blocks whose step summaries contain -->", () => {
-    const input = `<!--AGENT_REASONING:complete:8:["Step with --> inside"]-->Actual response.`;
+  it("should handle shared reasoning markers whose detail contains -->", () => {
+    const input = `${serializeReasoningPayload({
+      source: "agent",
+      status: "complete",
+      elapsedSeconds: 8,
+      items: [
+        { id: "step-0", kind: "step", summary: "Step with arrow", detail: "Step with --> inside" },
+      ],
+    })}Actual response.`;
     const expected = "Actual response.";
     expect(cleanMessageForCopy(input)).toBe(expected);
   });

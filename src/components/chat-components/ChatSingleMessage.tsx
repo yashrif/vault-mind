@@ -27,17 +27,20 @@ import {
   renderToolCallBanner,
   type ToolCallRootRecord,
 } from "@/components/chat-components/toolCallRootManager";
-import { AgentReasoningBlock } from "@/components/chat-components/AgentReasoningBlock";
+import { ReasoningPanel } from "@/components/chat-components/AgentReasoningBlock";
 import { USER_SENDER } from "@/constants";
 import { cn } from "@/lib/utils";
 import { parseToolCallMarkers } from "@/LLMProviders/chainRunner/utils/toolCallParser";
-import { parseReasoningBlock } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
+import {
+  parseReasoningMessage,
+  ReasoningPayload,
+} from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { processInlineCitations } from "@/LLMProviders/chainRunner/utils/citationUtils";
 import { ChatMessage } from "@/types/message";
 import { cleanMessageForCopy, extractYoutubeVideoId, insertIntoEditor } from "@/utils";
 import { preprocessAIResponse } from "@/utils/markdownPreprocess";
 import { App, Component, MarkdownRenderer, MarkdownView, TFile } from "obsidian";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSettingsValue } from "@/settings/model";
 import { FileText, Mic, Music, Video } from "lucide-react";
 import {
@@ -100,6 +103,23 @@ export const normalizeFootnoteRendering = (root: HTMLElement): void => {
 };
 
 const INLINE_CITATION_RE = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
+const reasoningOpenStatesByMessage = new Map<string, Map<string, boolean>>();
+
+/**
+ * Get the persisted reasoning disclosure-state map for a message.
+ *
+ * @param messageId - Stable message identifier.
+ * @returns Mutable map keyed by reasoning disclosure IDs.
+ */
+function getReasoningOpenStates(messageId: string): Map<string, boolean> {
+  let states = reasoningOpenStatesByMessage.get(messageId);
+  if (!states) {
+    states = new Map<string, boolean>();
+    reasoningOpenStatesByMessage.set(messageId, states);
+  }
+
+  return states;
+}
 
 /**
  * Makes inline citation numbers (e.g., [1], [2]) clickable by linking them
@@ -331,12 +351,6 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
 }) => {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
-  // Agent Reasoning Block state
-  const [reasoningData, setReasoningData] = useState<{
-    status: "reasoning" | "collapsed" | "complete";
-    elapsedSeconds: number;
-    steps: string[];
-  } | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const componentRef = useRef<Component | null>(null);
   const isUnmountingRef = useRef<boolean>(false);
@@ -364,6 +378,16 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
   // Use ref to avoid triggering re-renders when map contents change
   const collapsibleOpenStateMapRef = useRef(getMessageCollapsibleStates(messageId.current));
   const collapsibleOpenStateMap = collapsibleOpenStateMapRef.current;
+  const reasoningOpenStateRef = useRef(getReasoningOpenStates(messageId.current));
+  const parsedReasoningMessage = useMemo(() => {
+    if (message.sender === USER_SENDER) {
+      return null;
+    }
+
+    return parseReasoningMessage(message.message);
+  }, [message.message, message.sender]);
+  const reasoningPayload: ReasoningPayload | null = parsedReasoningMessage?.payload ?? null;
+  const visibleMessageContent = parsedReasoningMessage?.contentAfter ?? message.message;
 
   // Check if current model has reasoning capability
   const settings = useSettingsValue();
@@ -447,10 +471,6 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
         });
       };
 
-      const processThinkSection = (content: string): string => {
-        return processCollapsibleSection(content, "think", "Thought for a while", "Thinking...");
-      };
-
       const processWriteFileSection = (content: string): string => {
         // Normalise legacy <writeToFile> tags from saved history to <writeFile>
         // so they continue to render correctly after the tool rename.
@@ -526,11 +546,8 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
         (file) => `![](${app.vault.getResourcePath(file)})`
       );
 
-      // Process think sections (no-op if none); do not depend on current model selection
-      const thinkSectionProcessed = processThinkSection(noteImageProcessed);
-
       // Process writeFile sections
-      const writeFileSectionProcessed = processWriteFileSection(thinkSectionProcessed);
+      const writeFileSectionProcessed = processWriteFileSection(noteImageProcessed);
 
       // Transform markdown sources section into HTML structure
       const sourcesSectionProcessed = processInlineCitations(
@@ -668,23 +685,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
         overwriteExisting: !isStreaming,
       });
 
-      const originMessage = message.message;
-
-      // Parse and extract agent reasoning block if present
-      const reasoningBlockData = parseReasoningBlock(originMessage);
-      if (reasoningBlockData?.hasReasoning && reasoningBlockData.status !== "idle") {
-        setReasoningData({
-          status: reasoningBlockData.status as "reasoning" | "collapsed" | "complete",
-          elapsedSeconds: reasoningBlockData.elapsedSeconds,
-          steps: reasoningBlockData.steps,
-        });
-      } else {
-        setReasoningData(null);
-      }
-
-      // Use content after reasoning block (or full message if no reasoning block)
-      const messageContent = reasoningBlockData?.contentAfter ?? originMessage;
-      const processedMessage = preprocess(messageContent);
+      const processedMessage = preprocess(visibleMessageContent);
       const parsedMessage = parseToolCallMarkers(processedMessage, messageId.current);
 
       if (!isUnmountingRef.current) {
@@ -848,7 +849,15 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
     return () => {
       isUnmountingRef.current = true;
     };
-  }, [message, app, componentRef, isStreaming, preprocess, collapsibleOpenStateMap]);
+  }, [
+    message,
+    app,
+    componentRef,
+    isStreaming,
+    preprocess,
+    collapsibleOpenStateMap,
+    visibleMessageContent,
+  ]);
 
   // Cleanup effect that only runs on component unmount
   useEffect(() => {
@@ -1010,13 +1019,11 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
         <div className="tw-flex tw-max-w-full tw-flex-col tw-gap-2 tw-overflow-hidden">
           {!isEditing && <MessageContext context={message.context} />}
 
-          {/* Agent Reasoning Block (if present) */}
-          {reasoningData && message.sender !== USER_SENDER && (
-            <AgentReasoningBlock
-              status={reasoningData.status}
-              elapsedSeconds={reasoningData.elapsedSeconds}
-              steps={reasoningData.steps}
-              isStreaming={isStreaming}
+          {reasoningPayload && message.sender !== USER_SENDER && (
+            <ReasoningPanel
+              payload={reasoningPayload}
+              messageId={messageId.current}
+              openStateRef={reasoningOpenStateRef}
             />
           )}
 

@@ -1,3 +1,4 @@
+import { composeReasoningMessage } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import {
   mapTelegramMessageToChatMessage,
   mapTelegramMessagesToChatMessages,
@@ -57,17 +58,43 @@ describe("TelegramMessageAdapter", () => {
       sender_type: "bot" as const,
       source: "telegram" as const,
       text: "Hello from bot",
-      displayText: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
-
-Hello from bot`,
+      displayText: composeReasoningMessage(
+        {
+          source: "agent",
+          status: "complete",
+          elapsedSeconds: 3,
+          items: [
+            {
+              id: "step-0",
+              kind: "step",
+              summary: "Consulting my notes",
+            },
+          ],
+        },
+        "Hello from bot"
+      ),
       date: Math.floor(storedAt / 1000),
       stored_at: storedAt,
     };
 
     const chatMessage = mapTelegramMessageToChatMessage(telegramMessage, 0);
 
-    expect(chatMessage.message).toBe(`<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
-
-Hello from bot`);
+    expect(chatMessage.message).toBe(
+      composeReasoningMessage(
+        {
+          source: "agent",
+          status: "complete",
+          elapsedSeconds: 3,
+          items: [
+            {
+              id: "step-0",
+              kind: "step",
+              summary: "Consulting my notes",
+            },
+          ],
+        },
+        "Hello from bot"
+      )
+    );
   });
 });

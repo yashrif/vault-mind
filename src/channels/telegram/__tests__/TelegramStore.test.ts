@@ -4,6 +4,7 @@ jest.mock("@/logger", () => ({
   logError: jest.fn(),
 }));
 
+import { composeReasoningMessage } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { TelegramStore } from "../TelegramStore";
 import type { TelegramUpdate } from "../TelegramTypes";
 
@@ -232,17 +233,43 @@ describe("TelegramStore", () => {
 
     it("stores optional richer display text separately from the Telegram-safe text", async () => {
       await store.appendBotMessage("Hello!", 111, "telegram", {
-        displayText: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
-
-Hello!`,
+        displayText: composeReasoningMessage(
+          {
+            source: "agent",
+            status: "complete",
+            elapsedSeconds: 3,
+            items: [
+              {
+                id: "step-0",
+                kind: "step",
+                summary: "Consulting my notes",
+              },
+            ],
+          },
+          "Hello!"
+        ),
       });
 
       const msgs = store.getVisibleMessages();
       const botMessage = msgs[msgs.length - 1];
       expect(botMessage.text).toBe("Hello!");
-      expect(botMessage.displayText).toBe(`<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
-
-Hello!`);
+      expect(botMessage.displayText).toBe(
+        composeReasoningMessage(
+          {
+            source: "agent",
+            status: "complete",
+            elapsedSeconds: 3,
+            items: [
+              {
+                id: "step-0",
+                kind: "step",
+                summary: "Consulting my notes",
+              },
+            ],
+          },
+          "Hello!"
+        )
+      );
     });
 
     it("reuses the transient streaming ID and clears reply state in one notify cycle", async () => {

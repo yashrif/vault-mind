@@ -1,9 +1,45 @@
 /**
- * Agent Reasoning Block State Management
- *
- * This module provides state management for the Agent Reasoning Block UI component,
- * which replaces the old tool call banner with a more informative reasoning display.
+ * Shared reasoning payload helpers for chat and agent responses.
  */
+
+import { compactAssistantOutput } from "@/context/ChatHistoryCompactor";
+
+const REASONING_MARKER_PREFIX = "<!--CORTEX_REASONING:v1:";
+const MAX_REASONING_DETAIL_LENGTH = 400;
+const CHAT_REASONING_TRANSCRIPT_ID = "transcript";
+const CHAT_REASONING_TRANSCRIPT_SUMMARY = "Reasoning transcript";
+
+/**
+ * Shared reasoning lifecycle states exposed in persisted reasoning payloads.
+ */
+export type ReasoningLifecycleStatus = "reasoning" | "collapsed" | "complete";
+
+/**
+ * State value used by the legacy internal agent timer state.
+ */
+export type ReasoningStatus = "idle" | ReasoningLifecycleStatus;
+
+/**
+ * Shared reasoning item persisted in assistant display text.
+ */
+export interface ReasoningItem {
+  id: string;
+  kind: "transcript" | "step";
+  summary: string;
+  detail?: string;
+  toolName?: string;
+  state?: "active" | "done" | "error";
+}
+
+/**
+ * Shared reasoning payload persisted in assistant display text.
+ */
+export interface ReasoningPayload {
+  source: "chat" | "agent";
+  status: ReasoningLifecycleStatus;
+  elapsedSeconds: number;
+  items: ReasoningItem[];
+}
 
 /**
  * Represents a single reasoning step in the agent loop
@@ -13,15 +49,6 @@ export interface ReasoningStep {
   summary: string;
   toolName?: string;
 }
-
-/**
- * Status of the reasoning block
- * - idle: No agent activity
- * - reasoning: Agent is actively processing/executing tools
- * - collapsed: Reasoning complete, block is collapsed
- * - complete: Response complete, block can be expanded
- */
-export type ReasoningStatus = "idle" | "reasoning" | "collapsed" | "complete";
 
 /**
  * Full state for the Agent Reasoning Block
@@ -46,69 +73,208 @@ export function createInitialReasoningState(): AgentReasoningState {
 }
 
 /**
- * Data structure for serialized reasoning block (embedded in message)
+ * Parsed reasoning data from a shared persisted marker.
  */
-export interface SerializedReasoningData {
-  elapsed: number;
-  steps: string[];
-}
-
-/**
- * Serialize reasoning state to a marker format for embedding in messages.
- * Format: <!--AGENT_REASONING:status:elapsedSeconds:["step1","step2"]-->
- *
- * @param state - The reasoning state to serialize
- * @returns Marker string to embed in message
- */
-export function serializeReasoningBlock(state: AgentReasoningState): string {
-  if (state.status === "idle") {
-    return "";
-  }
-
-  const stepsJson = JSON.stringify(state.steps.map((s) => s.summary));
-  return `<!--AGENT_REASONING:${state.status}:${state.elapsedSeconds}:${stepsJson}-->`;
-}
-
-/**
- * Parsed reasoning data from a marker
- */
-export interface ParsedReasoningBlock {
-  hasReasoning: boolean;
-  status: ReasoningStatus;
-  elapsedSeconds: number;
-  steps: string[];
+export interface ParsedReasoningMessage {
+  payload: ReasoningPayload;
   contentAfter: string;
 }
 
 /**
- * Parse reasoning block marker from message content.
+ * Escape raw closing comment sequences so the reasoning marker remains valid HTML comment syntax.
  *
- * @param content - Message content that may contain reasoning marker
- * @returns Parsed reasoning data or null if no marker found
+ * @param serializedJson - Raw JSON payload string.
+ * @returns JSON with comment-closing sequences escaped.
  */
-export function parseReasoningBlock(content: string): ParsedReasoningBlock | null {
-  const match = content.match(/<!--AGENT_REASONING:(\w+):(\d+):(.+?)-->/);
-  if (!match) {
+function escapeReasoningJson(serializedJson: string): string {
+  return serializedJson.replace(/-->/g, "--\\>");
+}
+
+/**
+ * Restore escaped closing comment sequences prior to JSON parsing.
+ *
+ * @param serializedJson - Escaped JSON payload string.
+ * @returns JSON with original comment-closing sequences restored.
+ */
+function unescapeReasoningJson(serializedJson: string): string {
+  return serializedJson.replace(/--\\>/g, "-->");
+}
+
+/**
+ * Serialize a shared reasoning payload into the persisted comment marker.
+ *
+ * @param payload - Shared reasoning payload.
+ * @returns Persisted reasoning marker.
+ */
+export function serializeReasoningPayload(payload: ReasoningPayload): string {
+  const serializedJson = escapeReasoningJson(JSON.stringify(payload));
+  return `${REASONING_MARKER_PREFIX}${serializedJson}-->`;
+}
+
+/**
+ * Build a chat reasoning payload from a transcript and lifecycle status.
+ *
+ * @param detail - Transcript content to surface in the shared reasoning panel.
+ * @param elapsedSeconds - Whole seconds spent reasoning so far.
+ * @param status - Lifecycle status for the reasoning panel.
+ * @returns Shared reasoning payload for chat-mode responses.
+ */
+export function createChatReasoningPayload(
+  detail: string,
+  elapsedSeconds: number,
+  status: Extract<ReasoningLifecycleStatus, "reasoning" | "complete">
+): ReasoningPayload {
+  return {
+    source: "chat",
+    status,
+    elapsedSeconds,
+    items: [
+      {
+        id: CHAT_REASONING_TRANSCRIPT_ID,
+        kind: "transcript",
+        summary: CHAT_REASONING_TRANSCRIPT_SUMMARY,
+        detail,
+        state: status === "reasoning" ? "active" : "done",
+      },
+    ],
+  };
+}
+
+/**
+ * Compose assistant display text from a persisted reasoning payload and visible answer text.
+ *
+ * @param payload - Shared reasoning payload.
+ * @param visibleText - Visible assistant answer text.
+ * @returns Combined display text.
+ */
+export function composeReasoningMessage(payload: ReasoningPayload, visibleText: string): string {
+  const marker = serializeReasoningPayload(payload);
+  if (!visibleText) {
+    return marker;
+  }
+
+  return `${marker}\n\n${visibleText}`;
+}
+
+/**
+ * Parse a shared reasoning marker from assistant display text.
+ *
+ * @param content - Assistant display text.
+ * @returns Parsed reasoning payload and visible answer text.
+ */
+export function parseReasoningMessage(content: string): ParsedReasoningMessage | null {
+  const markerStart = content.indexOf(REASONING_MARKER_PREFIX);
+  if (markerStart === -1) {
     return null;
   }
 
-  const [fullMatch, status, elapsed, stepsJson] = match;
-
-  let steps: string[] = [];
-  try {
-    steps = JSON.parse(stepsJson) as string[];
-  } catch {
-    // Invalid JSON, return empty steps
-    steps = [];
+  const markerContentStart = markerStart + REASONING_MARKER_PREFIX.length;
+  const markerEnd = content.indexOf("-->", markerContentStart);
+  if (markerEnd === -1) {
+    return null;
   }
 
-  return {
-    hasReasoning: true,
-    status: status as ReasoningStatus,
-    elapsedSeconds: parseInt(elapsed, 10),
-    steps,
-    contentAfter: content.replace(fullMatch, "").trim(),
-  };
+  const escapedJson = content.slice(markerContentStart, markerEnd);
+  const rawJson = unescapeReasoningJson(escapedJson);
+
+  try {
+    const payload = JSON.parse(rawJson) as ReasoningPayload;
+    return {
+      payload,
+      contentAfter: content.slice(markerEnd + 3).trim(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Strip shared reasoning metadata and stray raw think tags from assistant output before memory use.
+ *
+ * @param content - Raw assistant output string.
+ * @returns Clean assistant answer suitable for memory/history.
+ */
+export function stripReasoningForLLMContext(content: string): string {
+  let stripped = content;
+  const parsed = parseReasoningMessage(stripped);
+  if (parsed) {
+    stripped = parsed.contentAfter;
+  }
+
+  stripped = stripped.replace(/<think>[\s\S]*?<\/think>/g, "");
+  stripped = stripped.replace(/<think>[\s\S]*$/g, "");
+  stripped = stripped.replace(/<\/think>/g, "");
+  stripped = stripped.replace(/\n{3,}/g, "\n\n").trim();
+
+  return stripped;
+}
+
+/**
+ * Prepare assistant output for memory by stripping reasoning metadata before compaction.
+ *
+ * @param output - Raw assistant output.
+ * @returns Compacted assistant output safe for LLM memory.
+ */
+export function prepareAssistantOutputForMemory(output: string | any[]): string | any[] {
+  if (Array.isArray(output)) {
+    return compactAssistantOutput(
+      output.map((item) => {
+        if (item?.type === "text" && typeof item.text === "string") {
+          return { ...item, text: stripReasoningForLLMContext(item.text) };
+        }
+        return item;
+      })
+    );
+  }
+
+  return compactAssistantOutput(stripReasoningForLLMContext(output));
+}
+
+/**
+ * Clip persisted reasoning detail to a bounded size.
+ *
+ * @param detail - Candidate detail string.
+ * @returns Bounded detail string or undefined when empty.
+ */
+export function sanitizeReasoningDetail(detail?: string): string | undefined {
+  if (!detail) {
+    return undefined;
+  }
+
+  const normalizedDetail = detail.replace(/\r\n?/g, "\n").trim();
+  if (!normalizedDetail) {
+    return undefined;
+  }
+
+  return normalizedDetail.length > MAX_REASONING_DETAIL_LENGTH
+    ? `${normalizedDetail.slice(0, MAX_REASONING_DETAIL_LENGTH - 1).trimEnd()}…`
+    : normalizedDetail;
+}
+
+/**
+ * Convert arbitrary tool data into a short reasoning-safe preview string.
+ *
+ * @param value - Arbitrary tool value.
+ * @returns Normalized preview text or undefined when not useful.
+ */
+export function summarizeReasoningValue(value: unknown): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    return sanitizeReasoningDetail(value);
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return sanitizeReasoningDetail(String(value));
+  }
+
+  try {
+    return sanitizeReasoningDetail(JSON.stringify(value, null, 2));
+  } catch {
+    return sanitizeReasoningDetail(String(value));
+  }
 }
 
 /**

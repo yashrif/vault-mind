@@ -1,8 +1,9 @@
 import React from "react";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import ChatSingleMessage, {
   normalizeFootnoteRendering,
 } from "@/components/chat-components/ChatSingleMessage";
+import { serializeReasoningPayload } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { ChatMessage } from "@/types/message";
 import type { App } from "obsidian";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -193,5 +194,47 @@ describe("ChatSingleMessage", () => {
     expect(messageSegment?.querySelector(".footnote-backref")).toBeNull();
     expect(messageSegment?.querySelector(".content-hr")).not.toBeNull();
     expect(messageSegment?.querySelector('a[href="#fn-2"]')?.textContent).toBe("2");
+  });
+
+  it("renders the shared reasoning panel and passes only visible answer text to markdown", async () => {
+    const reasoningMarker = serializeReasoningPayload({
+      source: "agent",
+      status: "complete",
+      elapsedSeconds: 9,
+      items: [
+        { id: "step-0", kind: "step", summary: "Listing vault tasks", detail: "command: tasks" },
+      ],
+    });
+
+    renderMarkdownMock.mockImplementation((_markdown: string, el: HTMLElement) => {
+      el.textContent = "Rendered";
+    });
+
+    const { getByText } = render(
+      <TooltipProvider>
+        <ChatSingleMessage
+          message={{ ...baseMessage, message: `${reasoningMarker}\n\nFinal answer` }}
+          app={createAppStub()}
+          isStreaming={false}
+          onDelete={() => {}}
+        />
+      </TooltipProvider>
+    );
+
+    await waitFor(() =>
+      expect(renderMarkdownMock).toHaveBeenCalledWith(
+        "Final answer",
+        expect.any(HTMLElement),
+        "",
+        expect.anything()
+      )
+    );
+
+    const reasoningToggle = getByText("Thought for");
+    expect(reasoningToggle).toBeTruthy();
+    expect(getByText("9s")).toBeTruthy();
+
+    fireEvent.click(reasoningToggle);
+    expect(getByText("Listing vault tasks")).toBeTruthy();
   });
 });

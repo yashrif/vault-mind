@@ -1,3 +1,7 @@
+import {
+  composeReasoningMessage,
+  parseReasoningMessage,
+} from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { cleanMessageForCopy } from "@/utils";
 import { stripSpecialTokens } from "@/utils/stripSpecialTokens";
 
@@ -59,9 +63,6 @@ const INLINE_PATTERNS: InlinePattern[] = [
   { kind: "italic", priority: 7, regex: /(^|[^\w])\*([^*\n]+)\*(?=[^\w]|$)/ },
   { kind: "italic", priority: 8, regex: /(^|[^\w])_([^_\n]+)_(?=[^\w]|$)/ },
 ];
-const REASONING_BLOCK_REGEX = /<!--AGENT_REASONING:\w+:\d+:.+?-->/g;
-const REASONING_PLACEHOLDER_PREFIX = "__TELEGRAM_REASONING_BLOCK_";
-
 /**
  * Normalize raw model output into richer local display text while preserving
  * reasoning blocks for the shared Obsidian chat UI.
@@ -70,20 +71,17 @@ const REASONING_PLACEHOLDER_PREFIX = "__TELEGRAM_REASONING_BLOCK_";
  * @returns Cleaned display text with reasoning preserved and other artifacts removed.
  */
 function buildDisplayText(message: string): string {
-  const preservedReasoningBlocks: string[] = [];
-  const messageWithPlaceholders = stripSpecialTokens(message).replace(
-    REASONING_BLOCK_REGEX,
-    (reasoningBlock) => {
-      const reasoningIndex = preservedReasoningBlocks.push(reasoningBlock) - 1;
-      return `${REASONING_PLACEHOLDER_PREFIX}${reasoningIndex}__`;
-    }
+  const normalizedMessage = stripSpecialTokens(message);
+  const parsedReasoning = parseReasoningMessage(normalizedMessage);
+  const cleanedVisibleText = cleanMessageForCopy(
+    parsedReasoning?.contentAfter ?? normalizedMessage
   );
 
-  return cleanMessageForCopy(messageWithPlaceholders)
-    .replace(
-      new RegExp(`${REASONING_PLACEHOLDER_PREFIX}(\\d+)__`, "g"),
-      (_match, indexText: string) => preservedReasoningBlocks[Number(indexText)] ?? ""
-    )
+  return (
+    parsedReasoning
+      ? composeReasoningMessage(parsedReasoning.payload, cleanedVisibleText)
+      : cleanedVisibleText
+  )
     .replace(/\r\n?/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

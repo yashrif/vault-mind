@@ -1,4 +1,106 @@
-import { summarizeToolCall, summarizeToolResult } from "./AgentReasoningState";
+import {
+  composeReasoningMessage,
+  parseReasoningMessage,
+  prepareAssistantOutputForMemory,
+  serializeReasoningPayload,
+  stripReasoningForLLMContext,
+  summarizeToolCall,
+  summarizeToolResult,
+} from "./AgentReasoningState";
+
+jest.mock("@/context/ChatHistoryCompactor", () => ({
+  compactAssistantOutput: jest.fn((value: string) => `COMPACTED:${value}`),
+}));
+
+describe("shared reasoning payload helpers", () => {
+  test("serializes and parses a chat reasoning marker with escaped closing comment sequence", () => {
+    const payload = {
+      source: "chat" as const,
+      status: "complete" as const,
+      elapsedSeconds: 7,
+      items: [
+        {
+          id: "transcript",
+          kind: "transcript" as const,
+          summary: "Reasoning transcript",
+          detail: "step 1 --> detail",
+        },
+      ],
+    };
+
+    const marker = serializeReasoningPayload(payload);
+    expect(marker).toContain("<!--CORTEX_REASONING:v1:");
+    expect(marker).toContain("--\\>");
+
+    const composed = composeReasoningMessage(payload, "Final answer");
+    const parsed = parseReasoningMessage(composed);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.payload).toEqual(payload);
+    expect(parsed?.contentAfter).toBe("Final answer");
+  });
+
+  test("returns a marker only when composing with empty visible text", () => {
+    const payload = {
+      source: "chat" as const,
+      status: "reasoning" as const,
+      elapsedSeconds: 0,
+      items: [
+        {
+          id: "transcript",
+          kind: "transcript" as const,
+          summary: "Reasoning transcript",
+          detail: "thinking",
+        },
+      ],
+    };
+
+    const composed = composeReasoningMessage(payload, "");
+    expect(composed).toBe(serializeReasoningPayload(payload));
+  });
+
+  test("strips the shared marker and stray think tags before memory usage", () => {
+    const payload = {
+      source: "chat" as const,
+      status: "complete" as const,
+      elapsedSeconds: 2,
+      items: [
+        {
+          id: "transcript",
+          kind: "transcript" as const,
+          summary: "Reasoning transcript",
+          detail: "hidden reasoning",
+        },
+      ],
+    };
+
+    const composed = composeReasoningMessage(payload, "Visible answer");
+
+    expect(
+      stripReasoningForLLMContext(`${composed}\n\n<think>extra hidden</think>\nTrailing`)
+    ).toBe("Visible answer\n\nTrailing");
+  });
+
+  test("prepares assistant output for memory by stripping reasoning before compaction", () => {
+    const payload = {
+      source: "chat" as const,
+      status: "complete" as const,
+      elapsedSeconds: 2,
+      items: [
+        {
+          id: "transcript",
+          kind: "transcript" as const,
+          summary: "Reasoning transcript",
+          detail: "hidden reasoning",
+        },
+      ],
+    };
+
+    const composed = composeReasoningMessage(payload, "Visible answer");
+
+    expect(prepareAssistantOutputForMemory(composed)).toBe("COMPACTED:Visible answer");
+  });
+});
 
 describe("AgentReasoningState tool summaries", () => {
   test("summarizeToolCall has daily/random CLI specific wording", () => {

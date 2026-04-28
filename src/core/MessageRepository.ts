@@ -1,7 +1,18 @@
 import { PromptContextEnvelope } from "@/context/PromptContextTypes";
+import { stripReasoningForLLMContext } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { formatDateTime } from "@/utils";
 import { ChatMessage, MessageContext, NewChatMessage, StoredMessage } from "@/types/message";
 import { logInfo } from "@/logger";
+
+/**
+ * Determine whether a sender label represents a user-authored message.
+ *
+ * @param sender - Stored sender label.
+ * @returns True when the sender should preserve raw display text for LLM projection.
+ */
+function isUserMessageSender(sender: string): boolean {
+  return sender === "user" || sender === "USER";
+}
 
 /**
  * MessageRepository - Single source of truth for all messages
@@ -52,7 +63,11 @@ export class MessageRepository {
       const storedMessage: StoredMessage = {
         id,
         displayText: message.message,
-        processedText: message.originalMessage || message.message,
+        processedText:
+          message.originalMessage ??
+          (isUserMessageSender(message.sender)
+            ? message.message
+            : stripReasoningForLLMContext(message.message)),
         sender: message.sender,
         timestamp,
         context: message.context,
@@ -116,12 +131,12 @@ export class MessageRepository {
     message.displayText = newDisplayText;
 
     // For user messages, mark that processed text needs updating
-    if (message.sender === "user" || message.sender === "USER") {
+    if (isUserMessageSender(message.sender)) {
       // ProcessedText will be updated by ContextManager
       logInfo(`[MessageRepository] Edited user message ${id}, needs context reprocessing`);
     } else {
-      // For AI messages, display and processed are the same
-      message.processedText = newDisplayText;
+      // Assistant processed text must remain the clean visible answer.
+      message.processedText = stripReasoningForLLMContext(newDisplayText);
       logInfo(`[MessageRepository] Edited AI message ${id}`);
     }
 
@@ -205,7 +220,7 @@ export class MessageRepository {
       .map((msg) => ({
         id: msg.id,
         message: msg.displayText,
-        originalMessage: msg.displayText,
+        originalMessage: isUserMessageSender(msg.sender) ? msg.displayText : msg.processedText,
         sender: msg.sender,
         timestamp: msg.timestamp,
         isVisible: true,
@@ -237,7 +252,7 @@ export class MessageRepository {
     return {
       id: msg.id,
       message: msg.processedText, // TRANSITIONAL: Full context (legacy format)
-      originalMessage: msg.displayText,
+      originalMessage: isUserMessageSender(msg.sender) ? msg.displayText : msg.processedText,
       sender: msg.sender,
       timestamp: msg.timestamp,
       isVisible: false, // LLM messages are not for display
@@ -261,8 +276,8 @@ export class MessageRepository {
   getLLMMessages(): ChatMessage[] {
     return this.messages.map((msg) => ({
       id: msg.id,
-      message: msg.displayText, // Changed from processedText to prevent context duplication
-      originalMessage: msg.displayText,
+      message: isUserMessageSender(msg.sender) ? msg.displayText : msg.processedText,
+      originalMessage: isUserMessageSender(msg.sender) ? msg.displayText : msg.processedText,
       sender: msg.sender,
       timestamp: msg.timestamp,
       isVisible: false,
@@ -284,7 +299,7 @@ export class MessageRepository {
     return {
       id: msg.id,
       message: msg.displayText,
-      originalMessage: msg.displayText,
+      originalMessage: isUserMessageSender(msg.sender) ? msg.displayText : msg.processedText,
       sender: msg.sender,
       timestamp: msg.timestamp,
       isVisible: msg.isVisible,
@@ -305,7 +320,11 @@ export class MessageRepository {
       this.messages.push({
         id: msg.id || this.generateId(),
         displayText: msg.message,
-        processedText: msg.originalMessage || msg.message,
+        processedText:
+          msg.originalMessage ??
+          (isUserMessageSender(msg.sender)
+            ? msg.message
+            : stripReasoningForLLMContext(msg.message)),
         sender: msg.sender,
         timestamp: msg.timestamp || formatDateTime(new Date()),
         context: msg.context,

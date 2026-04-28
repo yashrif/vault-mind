@@ -145,6 +145,18 @@ Before any messages are sent, the messages area shows:
 
 Each message in the conversation shows the sender name and content. AI responses are rendered with full markdown formatting.
 
+### Reasoning panel
+
+When a model or the autonomous agent exposes reasoning progress, Cortex shows it in a shared **Reasoning** panel above the final answer.
+
+- The panel appears in both **Chat** and **Agent** mode
+- While a response is still being worked out, the panel opens automatically
+- After the answer is finished, the panel collapses by default
+- In Chat mode, the panel usually contains one reasoning transcript
+- In Agent mode, the panel can contain multiple steps with expandable details
+
+Reasoning is kept in your local chat history for display, but Cortex does not feed those saved reasoning notes back into future model context.
+
 #### User message buttons
 
 Hover over your message to reveal action buttons:

@@ -13,6 +13,7 @@ import {
 import { logInfo, logWarn } from "@/logger";
 import { CortexSettings } from "@/settings/model";
 import { ChatMessage } from "@/types/message";
+import { stripReasoningForLLMContext } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { MemoryVariables } from "@langchain/core/memory";
 import { RunnableSequence } from "@langchain/core/runnables";
@@ -974,10 +975,7 @@ export function getProviderKeyManagementURL(provider: string): string {
  * This is more comprehensive than removeThinkTags which is used for RAG.
  */
 export function cleanMessageForCopy(message: string): string {
-  let cleanedMessage = message;
-
-  // First use the existing removeThinkTags function
-  cleanedMessage = removeThinkTags(cleanedMessage);
+  let cleanedMessage = stripReasoningForLLMContext(message);
 
   // Remove writeFile blocks wrapped in XML codeblocks (also handles legacy writeToFile tag)
   cleanedMessage = cleanedMessage.replace(
@@ -997,11 +995,6 @@ export function cleanMessageForCopy(message: string): string {
     /<!--TOOL_CALL_START:[^:]+:[^:]+:[^:]+:[^:]+:[^:]*:[^:]+-->[\s\S]*?<!--TOOL_CALL_END:[^:]+:[\s\S]*?-->/g,
     ""
   );
-
-  // Remove agent reasoning blocks
-  // Format: <!--AGENT_REASONING:status:elapsed:["step1","step2"]-->
-  // Use greedy .* so we match to the real closing --> even if the JSON payload contains -->
-  cleanedMessage = cleanedMessage.replace(/<!--AGENT_REASONING:\w+:\d+:.*-->/g, "");
 
   // Clean up any resulting multiple consecutive newlines (more than 2)
   cleanedMessage = cleanedMessage.replace(/\n{3,}/g, "\n\n");

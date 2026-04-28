@@ -12,7 +12,7 @@ jest.mock("@/utils", () => ({
   formatDateTime: jest.fn().mockReturnValue("2024-01-01 00:00:00"),
   cleanMessageForCopy: jest.fn().mockImplementation((message: string) =>
     message
-      .replace(/<!--AGENT_REASONING:\w+:\d+:.*-->/g, "")
+      .replace(/<!--CORTEX_REASONING:v1:[\s\S]*?-->/g, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim()
   ),
@@ -77,6 +77,7 @@ import { TelegramAgent } from "../TelegramAgent";
 import { TelegramClient } from "../TelegramClient";
 import { TelegramStore } from "../TelegramStore";
 import { updateChatMemory } from "@/chatUtils";
+import { composeReasoningMessage } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import type { TelegramStoredMessage } from "../TelegramTypes";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -305,11 +306,23 @@ describe("TelegramAgent", () => {
         ) => {
           callOrder.push("runChain");
           onPartial("**Partial**");
+          const displayText = composeReasoningMessage(
+            {
+              source: "agent",
+              status: "complete",
+              elapsedSeconds: 3,
+              items: [
+                {
+                  id: "step-0",
+                  kind: "step",
+                  summary: "Consulting my notes",
+                },
+              ],
+            },
+            "# Reply\n\n- I am the **AI** reply"
+          );
           addMessage({
-            message: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
-# Reply
-
-- I am the **AI** reply`,
+            message: displayText,
           });
         }
       );
@@ -341,10 +354,21 @@ describe("TelegramAgent", () => {
       42,
       "telegram",
       {
-        displayText: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
-# Reply
-
-- I am the **AI** reply`,
+        displayText: composeReasoningMessage(
+          {
+            source: "agent",
+            status: "complete",
+            elapsedSeconds: 3,
+            items: [
+              {
+                id: "step-0",
+                kind: "step",
+                summary: "Consulting my notes",
+              },
+            ],
+          },
+          "# Reply\n\n- I am the **AI** reply"
+        ),
         localId: "stream-42",
       }
     );

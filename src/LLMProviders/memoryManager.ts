@@ -1,4 +1,4 @@
-import { compactAssistantOutput } from "@/context/ChatHistoryCompactor";
+import { prepareAssistantOutputForMemory } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { getSettings, subscribeToSettingsChange } from "@/settings/model";
 import { BaseChatMemory, BufferWindowMemory } from "@langchain/classic/memory";
 import { BaseChatMessageHistory } from "@langchain/core/chat_history";
@@ -74,11 +74,10 @@ export default class MemoryManager {
    * accumulated tool results (localSearch, readNote, etc.).
    */
   async saveContext(input: any, output: any): Promise<void> {
-    // Compact the output to prevent memory bloat from tool results
     const compactedOutput =
       typeof output === "string"
-        ? compactAssistantOutput(output)
-        : { ...output, output: compactAssistantOutput(output.output) };
+        ? prepareAssistantOutputForMemory(output)
+        : { ...output, output: prepareAssistantOutputForMemory(output.output) };
 
     if (this.debug) {
       console.log("Saving to memory - Input:", input, "Output (compacted):", compactedOutput);

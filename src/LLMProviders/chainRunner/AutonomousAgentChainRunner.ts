@@ -42,8 +42,11 @@ import {
   createInitialReasoningState,
   extractFirstSentence,
   LocalSearchSourceInfo,
-  serializeReasoningBlock,
+  ReasoningItem,
+  serializeReasoningPayload,
+  sanitizeReasoningDetail,
   summarizeToolCall,
+  summarizeReasoningValue,
   summarizeToolResult,
 } from "./utils/AgentReasoningState";
 import { findDuplicateQuery, stripLeakedRoleLines } from "./utils/queryDeduplication";
@@ -60,6 +63,8 @@ type AgentSource = {
   score: number;
   explanation?: any;
 };
+
+type AgentReasoningItem = ReasoningItem & { detailedOnly?: boolean };
 
 /**
  * Dependencies for the ReAct agent loop - simplified for native tool calling
@@ -124,7 +129,8 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
   private reasoningState: AgentReasoningState = createInitialReasoningState();
   private reasoningTimerInterval: ReturnType<typeof setInterval> | null = null;
   private accumulatedContent = ""; // Track content to include in timer updates
-  private allReasoningSteps: Array<{ timestamp: number; summary: string; toolName?: string }> = []; // Full history of all steps
+  private allReasoningItems: AgentReasoningItem[] = [];
+  private reasoningItemCounter = 0;
   private abortHandledByTimer = false; // Flag to prevent duplicate interrupted messages
 
   private getAvailableTools(runtimePolicy?: RuntimeChainPolicy): StructuredTool[] {
@@ -169,7 +175,8 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
       steps: [],
     };
     this.accumulatedContent = "";
-    this.allReasoningSteps = []; // Reset full history
+    this.allReasoningItems = [];
+    this.reasoningItemCounter = 0;
     this.abortHandledByTimer = false; // Reset abort flag
 
     // Add initial step immediately for better UX (randomized for variety)
@@ -202,8 +209,9 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
     ];
     const randomStep = initialSteps[Math.floor(Math.random() * initialSteps.length)];
     this.addReasoningStep(randomStep);
+    this.emitReasoningProgress(updateFn);
 
-    // Update every 100ms for smooth timer - always includes accumulated content
+    // Update at whole-second cadence to reduce marker churn while reasoning.
     this.reasoningTimerInterval = setInterval(() => {
       // Check for abort and show interrupted message immediately
       if (abortController?.signal.aborted && this.reasoningState.status === "reasoning") {
@@ -220,17 +228,13 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
       }
 
       if (this.reasoningState.startTime && this.reasoningState.status === "reasoning") {
-        this.reasoningState.elapsedSeconds = Math.floor(
-          (Date.now() - this.reasoningState.startTime) / 1000
-        );
-        // Always update with reasoning block + any accumulated content
-        const reasoningBlock = this.buildReasoningBlockMarkup();
-        const fullMessage = reasoningBlock
-          ? reasoningBlock + (this.accumulatedContent ? "\n\n" + this.accumulatedContent : "")
-          : this.accumulatedContent;
-        updateFn(fullMessage);
+        const nextElapsedSeconds = Math.floor((Date.now() - this.reasoningState.startTime) / 1000);
+        if (nextElapsedSeconds !== this.reasoningState.elapsedSeconds) {
+          this.reasoningState.elapsedSeconds = nextElapsedSeconds;
+          this.emitReasoningProgress(updateFn);
+        }
       }
-    }, 100);
+    }, 1000);
   }
 
   /**
@@ -241,14 +245,27 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
    * @param summary - Human-readable summary of the step
    * @param toolName - Optional name of the tool associated with this step
    */
-  private addReasoningStep(summary: string, toolName?: string, detailedOnly = false): void {
+  private addReasoningStep(
+    summary: string,
+    toolName?: string,
+    detailedOnly = false,
+    detail?: string,
+    state: ReasoningItem["state"] = "done"
+  ): void {
     const step = {
       timestamp: Date.now(),
       summary,
       toolName,
     };
-    // Always add to full history
-    this.allReasoningSteps.push(step);
+    this.allReasoningItems.push({
+      id: `step-${this.reasoningItemCounter++}`,
+      kind: "step",
+      summary,
+      detail: sanitizeReasoningDetail(detail),
+      toolName,
+      state,
+      detailedOnly,
+    });
 
     // For detailed-only steps, skip the rolling display
     if (detailedOnly) {
@@ -275,6 +292,57 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
   }
 
   /**
+   * Emit the current reasoning markup plus any accumulated visible content.
+   *
+   * @param updateFn - Active assistant-message update callback.
+   */
+  private emitReasoningProgress(updateFn: (message: string) => void): void {
+    const reasoningBlock = this.buildReasoningBlockMarkup();
+    const fullMessage = reasoningBlock
+      ? reasoningBlock + (this.accumulatedContent ? "\n\n" + this.accumulatedContent : "")
+      : this.accumulatedContent;
+    updateFn(fullMessage);
+  }
+
+  /**
+   * Build a short detail preview for a tool call.
+   *
+   * @param args - Tool arguments.
+   * @returns Bounded detail preview.
+   */
+  private buildToolCallReasoningDetail(args?: Record<string, unknown>): string | undefined {
+    return summarizeReasoningValue(args);
+  }
+
+  /**
+   * Build a short detail preview for a tool result.
+   *
+   * @param toolName - Executed tool name.
+   * @param result - Tool execution result.
+   * @param sourceInfo - Optional local-search source summary.
+   * @returns Bounded detail preview.
+   */
+  private buildToolResultReasoningDetail(
+    toolName: string,
+    result: { success: boolean; result?: string },
+    sourceInfo?: LocalSearchSourceInfo
+  ): string | undefined {
+    if (!result.success) {
+      return sanitizeReasoningDetail(result.result);
+    }
+
+    if (toolName === "localSearch" && sourceInfo) {
+      const titlePreview = sourceInfo.titles.slice(0, 5).join("\n");
+      const detail = titlePreview
+        ? `Matched ${sourceInfo.count} note(s):\n${titlePreview}`
+        : `Matched ${sourceInfo.count} note(s)`;
+      return sanitizeReasoningDetail(detail);
+    }
+
+    return summarizeReasoningValue(result.result);
+  }
+
+  /**
    * Get early feedback message for a tool that may take a while to stream.
    * This provides immediate UX feedback while the model generates content.
    *
@@ -289,16 +357,24 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
    * @returns Markup string for the reasoning block
    */
   private buildReasoningBlockMarkup(): string {
-    // When complete, use full history for the expanded view
-    if (this.reasoningState.status === "complete" || this.reasoningState.status === "collapsed") {
-      const stateWithFullHistory: AgentReasoningState = {
-        ...this.reasoningState,
-        steps: this.allReasoningSteps,
-      };
-      return serializeReasoningBlock(stateWithFullHistory);
-    }
-    // During reasoning, use the rolling window
-    return serializeReasoningBlock(this.reasoningState);
+    const visibleItems = this.allReasoningItems.filter((item) => !item.detailedOnly);
+    const payloadItems =
+      this.reasoningState.status === "complete" || this.reasoningState.status === "collapsed"
+        ? this.allReasoningItems
+        : visibleItems.slice(-4);
+
+    return serializeReasoningPayload({
+      source: "agent",
+      status: this.reasoningState.status === "idle" ? "complete" : this.reasoningState.status,
+      elapsedSeconds: this.reasoningState.elapsedSeconds,
+      items: payloadItems.map(({ detailedOnly, ...item }, index) => ({
+        ...item,
+        state:
+          this.reasoningState.status === "reasoning" && index === payloadItems.length - 1
+            ? "active"
+            : (item.state ?? "done"),
+      })),
+    });
   }
 
   // TODO: Unify system prompt construction -- this static method and prepareAgentConversation()
@@ -770,6 +846,7 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
         const findingSummary = extractFirstSentence(cleanedContent);
         if (findingSummary) {
           this.addReasoningStep(findingSummary);
+          this.emitReasoningProgress(updateCurrentAiMessage);
         }
       }
 
@@ -828,7 +905,13 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
 
         // Add tool call step (shown in both rolling display and expanded view)
         const toolCallSummary = summarizeToolCall(tc.name, toolCall.args);
-        this.addReasoningStep(toolCallSummary, tc.name);
+        this.addReasoningStep(
+          toolCallSummary,
+          tc.name,
+          false,
+          this.buildToolCallReasoningDetail(toolCall.args)
+        );
+        this.emitReasoningProgress(updateCurrentAiMessage);
 
         logToolCall(toolCall, iteration);
 
@@ -868,11 +951,16 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
         }
 
         // Add tool result step only when it provides new info (failure or source counts).
-        // Skip redundant success steps like "Listed vault tasks" after "Listing vault tasks".
         const resultSummary = summarizeToolResult(tc.name, result, sourceInfo, toolCall.args);
-        if (!result.success || sourceInfo) {
-          this.addReasoningStep(resultSummary, tc.name);
-        }
+        const shouldShowInRollingReasoning = !result.success || Boolean(sourceInfo);
+        this.addReasoningStep(
+          resultSummary,
+          tc.name,
+          !shouldShowInRollingReasoning,
+          this.buildToolResultReasoningDetail(tc.name, result, sourceInfo),
+          result.success ? "done" : "error"
+        );
+        this.emitReasoningProgress(updateCurrentAiMessage);
 
         // Add ToolMessage to conversation
         const toolMessage = createToolResultMessage(
@@ -895,6 +983,7 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
           // Model is stuck in a search loop -- force synthesis without tools
           logInfo("[Agent] Model stuck in search loop, forcing synthesis without tools");
           this.addReasoningStep("Synthesizing answer from search results");
+          this.emitReasoningProgress(updateCurrentAiMessage);
 
           messages.push(
             new HumanMessage(

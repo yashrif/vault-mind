@@ -124,6 +124,21 @@ describe("MessageRepository", () => {
       const fullMessage = messageRepo.getLLMMessage(id1);
       expect(fullMessage?.message).toBe("Hello with context");
     });
+
+    it("should project clean assistant processedText to LLM history while keeping displayText for UI", () => {
+      messageRepo.addMessage("Hello", "Hello with context", "user");
+      messageRepo.addMessage(
+        '<!--CORTEX_REASONING:v1:{"source":"chat","status":"complete","elapsedSeconds":1,"items":[]}-->\n\nVisible answer',
+        "Visible answer",
+        "AI"
+      );
+
+      const displayMessages = messageRepo.getDisplayMessages();
+      const llmMessages = messageRepo.getLLMMessages();
+
+      expect(displayMessages[1].message).toContain("CORTEX_REASONING");
+      expect(llmMessages[1].message).toBe("Visible answer");
+    });
   });
 
   describe("editMessage", () => {

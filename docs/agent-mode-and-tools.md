@@ -149,14 +149,16 @@ See [Context and Mentions](context-and-mentions.md) for the full @-mention refer
 
 ## Tool Call Indicators
 
-While the agent is working, the chat shows status indicators for each tool call:
+While the agent is working, the chat shows a shared **Reasoning** panel above the answer. It updates live as the agent thinks and uses tools.
+
+During generation you may see step summaries such as:
 
 - "Reading files"
 - "Searching the web"
 - "Reading file tree"
 - "Compacting"
 
-This lets you see what the agent is doing as it works.
+When the answer is finished, the panel stays in the chat history and each saved step can be expanded to inspect more detail about what the agent did.
 
 ---
 

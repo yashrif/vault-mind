@@ -1,7 +1,10 @@
 import { getCurrentProject, ProjectConfig } from "@/aiParams";
 import { AI_SENDER, USER_SENDER } from "@/constants";
 import ChainManager from "@/LLMProviders/chainManager";
-import { parseReasoningBlock } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
+import {
+  parseReasoningMessage,
+  stripReasoningForLLMContext,
+} from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { logError, logInfo, logWarn } from "@/logger";
 import { getSettings } from "@/settings/model";
 import { ChatMessage } from "@/types/message";
@@ -272,15 +275,7 @@ export class ChatPersistenceManager {
     return messages
       .map((message) => {
         const timestamp = message.timestamp ? message.timestamp.display : "Unknown time";
-
-        // Strip agent reasoning block from AI messages before saving
-        let messageText = message.message;
-        if (message.sender === AI_SENDER) {
-          const reasoningData = parseReasoningBlock(messageText);
-          if (reasoningData) {
-            messageText = reasoningData.contentAfter;
-          }
-        }
+        const messageText = message.message;
 
         let content = `**${message.sender}**: ${messageText}`;
 
@@ -376,21 +371,18 @@ export class ChatPersistenceManager {
 
       // Message is everything before context and timestamp
       messageText = contentLines.slice(0, endIndex).join("\n").trim();
+      let originalMessage = messageText;
 
-      // Strip old tool call markers and agent reasoning blocks from AI messages
+      // Strip old tool call markers from AI messages while preserving shared reasoning metadata
       if (sender === AI_SENDER) {
         // Strip old tool call banners: <!--TOOL_CALL_START:...-->...<!--TOOL_CALL_END:...-->
         messageText = messageText.replace(
           /<!--TOOL_CALL_START:[^:]+:[^:]+:[^:]+:[^:]+:[^:]*:[^:]+-->[\s\S]*?<!--TOOL_CALL_END:[^:]+:[\s\S]*?-->/g,
           ""
         );
-        // Strip agent reasoning blocks: <!--AGENT_REASONING:...-->
-        const reasoningData = parseReasoningBlock(messageText);
-        if (reasoningData) {
-          messageText = reasoningData.contentAfter;
-        }
-        // Clean up any resulting multiple consecutive newlines
         messageText = messageText.replace(/\n{3,}/g, "\n\n").trim();
+        const parsedReasoning = parseReasoningMessage(messageText);
+        originalMessage = parsedReasoning?.contentAfter ?? stripReasoningForLLMContext(messageText);
       }
 
       // Parse the timestamp
@@ -404,6 +396,7 @@ export class ChatPersistenceManager {
 
       messages.push({
         message: messageText,
+        originalMessage,
         sender,
         isVisible: true,
         timestamp: epoch

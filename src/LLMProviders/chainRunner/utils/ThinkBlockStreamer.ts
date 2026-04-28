@@ -8,28 +8,98 @@ import {
   buildToolCallsFromChunks,
   createAIMessageWithToolCalls,
 } from "./nativeToolCalling";
-import { logInfo, logWarn } from "@/logger";
+import { logInfo } from "@/logger";
 import { stripSpecialTokens } from "@/utils/stripSpecialTokens";
+import { composeReasoningMessage, createChatReasoningPayload } from "./AgentReasoningState";
+
+const THINKING_TRANSCRIPT_LIMIT = 12000;
+const THINKING_TRANSCRIPT_TRUNCATION_SUFFIX = "\n\n[Reasoning truncated at 12,000 characters]";
+
+interface TextLevelThinkingState {
+  hasReasoning: boolean;
+  isInsideReasoning: boolean;
+  sawReasoningClose: boolean;
+  transcript: string;
+  visibleText: string;
+}
 
 /**
- * ThinkBlockStreamer handles streaming content from various LLM providers
- * that support thinking/reasoning modes (like Claude and Deepseek).
- * Also accumulates native tool calls from tool_call_chunks during streaming.
- * Also detects truncation due to token limits across all providers.
+ * Parse text-level `<think>` tags from a raw streamed transcript.
+ *
+ * @param rawText - Full raw streamed text seen so far.
+ * @returns Split transcript/visible text state for text-level thinking models.
+ */
+function parseTextLevelThinking(rawText: string): TextLevelThinkingState {
+  let cursor = 0;
+  let visibleText = "";
+  let transcript = "";
+  let hasReasoning = false;
+  let isInsideReasoning = false;
+  let sawReasoningClose = false;
+
+  while (cursor < rawText.length) {
+    if (!isInsideReasoning) {
+      const nextOpen = rawText.indexOf("<think>", cursor);
+      const nextClose = rawText.indexOf("</think>", cursor);
+
+      if (nextClose !== -1 && (nextOpen === -1 || nextClose < nextOpen)) {
+        hasReasoning = true;
+        transcript += rawText.slice(cursor, nextClose);
+        cursor = nextClose + "</think>".length;
+        sawReasoningClose = true;
+        continue;
+      }
+
+      if (nextOpen === -1) {
+        visibleText += rawText.slice(cursor);
+        break;
+      }
+
+      visibleText += rawText.slice(cursor, nextOpen);
+      cursor = nextOpen + "<think>".length;
+      hasReasoning = true;
+      isInsideReasoning = true;
+      continue;
+    }
+
+    const nextClose = rawText.indexOf("</think>", cursor);
+    if (nextClose === -1) {
+      transcript += rawText.slice(cursor);
+      break;
+    }
+
+    transcript += rawText.slice(cursor, nextClose);
+    cursor = nextClose + "</think>".length;
+    isInsideReasoning = false;
+    sawReasoningClose = true;
+  }
+
+  return {
+    hasReasoning,
+    isInsideReasoning,
+    sawReasoningClose,
+    transcript,
+    visibleText,
+  };
+}
+
+/**
+ * ThinkBlockStreamer handles streaming content from reasoning-capable providers.
+ * Chat-mode responses emit the shared reasoning marker; excludeThinking mode strips
+ * reasoning and returns only the visible answer text.
  */
 export class ThinkBlockStreamer {
-  private hasOpenThinkBlock = false;
-  private fullResponse = "";
+  private visibleText = "";
+  private thinkingTranscript = "";
+  private rawTextLevelContent = "";
   private errorResponse = "";
   private wasTruncated = false;
   private tokenUsage: TokenUsage | null = null;
-  // Track if we've handled text-level think tags (e.g., from nvidia/nemotron)
-  private hasHandledTextLevelThinkTag = false;
-  // Character index where an excluded text-level think block started.
-  // -1 means we're not currently inside an excluded block.
-  private excludedThinkBlockStart = -1;
+  private reasoningSeen = false;
+  private reasoningStatus: "idle" | "reasoning" | "complete" = "idle";
+  private reasoningStartTime: number | null = null;
+  private transcriptTruncated = false;
 
-  // Native tool call accumulation
   private toolCallChunks: Map<number, ToolCallChunk> = new Map();
   private accumulatedToolCalls: NativeToolCall[] = [];
 
@@ -41,330 +111,331 @@ export class ThinkBlockStreamer {
   }
 
   /**
-   * Handle text-level think tags embedded in content (e.g., nvidia/nemotron, qwen3 models).
-   * Some models output thinking with only </think> closing tag, no opening tag.
-   * This method detects and fixes this during streaming.
-   *
-   * When excludeThinking is true, thinking content is suppressed during streaming
-   * (not just stripped after the close tag arrives) by tracking the position where
-   * the excluded block started and truncating fullResponse on each chunk.
+   * Mark reasoning as active and initialize timer state.
    */
-  private handleTextLevelThinkTags() {
+  private startReasoning(): void {
     if (this.excludeThinking) {
-      this.handleExcludedThinkTags();
+      this.reasoningSeen = true;
       return;
     }
 
-    const hasCloseTag = this.fullResponse.includes("</think>");
-    const hasOpenTag = this.fullResponse.includes("<think>");
-
-    if (!hasCloseTag) return;
-
-    // excludeThinking is false - fix missing opening tag if needed
-    if (!hasOpenTag && !this.hasHandledTextLevelThinkTag) {
-      this.hasHandledTextLevelThinkTag = true;
-      logWarn(
-        "Detected </think> closing tag without opening <think> tag. " +
-          "This may indicate a misconfigured chat template in LM Studio. Adding opening tag."
-      );
-      this.fullResponse = "<think>" + this.fullResponse;
+    this.reasoningSeen = true;
+    if (this.reasoningStartTime === null) {
+      this.reasoningStartTime = Date.now();
+    }
+    if (this.reasoningStatus === "idle") {
+      this.reasoningStatus = "reasoning";
     }
   }
 
   /**
-   * Strip text-level think tags when excludeThinking is true.
-   * Handles three streaming states:
-   * 1. Not inside a think block -- look for `<think>` to enter one
-   * 2. Inside an incomplete block (no `</think>` yet) -- truncate to pre-block content
-   * 3. Block just closed -- strip the complete block and exit the state
+   * Transition reasoning to complete once visible answer text starts flowing.
    */
-  private handleExcludedThinkTags() {
-    // Currently inside an excluded block from a previous chunk
-    if (this.excludedThinkBlockStart >= 0) {
-      const closeIdx = this.fullResponse.indexOf("</think>", this.excludedThinkBlockStart);
-      if (closeIdx !== -1) {
-        // Block closed -- stitch content before and after the block
-        const before = this.fullResponse.substring(0, this.excludedThinkBlockStart);
-        const after = this.fullResponse.substring(closeIdx + "</think>".length);
-        this.fullResponse = (before + after).trimStart();
-        this.excludedThinkBlockStart = -1;
-      } else {
-        // Still streaming thinking -- truncate to the safe prefix
-        this.fullResponse = this.fullResponse.substring(0, this.excludedThinkBlockStart);
-      }
-      return;
+  private completeReasoning(): void {
+    if (!this.excludeThinking && this.reasoningSeen) {
+      this.reasoningStatus = "complete";
     }
-
-    // Not inside a block -- check for a new one
-    const openIdx = this.fullResponse.indexOf("<think>");
-    if (openIdx !== -1) {
-      this.excludedThinkBlockStart = openIdx;
-      const closeIdx = this.fullResponse.indexOf("</think>", openIdx);
-      if (closeIdx !== -1) {
-        // Complete block in one pass
-        const before = this.fullResponse.substring(0, openIdx);
-        const after = this.fullResponse.substring(closeIdx + "</think>".length);
-        this.fullResponse = (before + after).trimStart();
-        this.excludedThinkBlockStart = -1;
-      } else {
-        // Incomplete -- truncate
-        this.fullResponse = this.fullResponse.substring(0, openIdx);
-      }
-      return;
-    }
-
-    // Handle malformed: only </think> without <think> (e.g., some chat templates)
-    const closeIdx = this.fullResponse.indexOf("</think>");
-    if (closeIdx !== -1) {
-      this.fullResponse = this.fullResponse.substring(closeIdx + "</think>".length).trimStart();
-    }
-  }
-
-  private handleClaudeChunk(content: any[]) {
-    let textContent = "";
-    let hasThinkingContent = false;
-    for (const item of content) {
-      switch (item.type) {
-        case "text":
-          textContent += item.text;
-          break;
-        case "thinking":
-          hasThinkingContent = true;
-          // Skip thinking content if excludeThinking is enabled
-          if (this.excludeThinking) {
-            break;
-          }
-          if (!this.hasOpenThinkBlock) {
-            this.fullResponse += "\n<think>";
-            this.hasOpenThinkBlock = true;
-          }
-          // Guard against undefined thinking content
-          if (item.thinking !== undefined) {
-            this.fullResponse += item.thinking;
-          }
-          this.updateCurrentAiMessage(this.fullResponse);
-          break;
-      }
-    }
-    // Close think block before adding text content
-    if (textContent && this.hasOpenThinkBlock) {
-      this.fullResponse += "</think>";
-      this.hasOpenThinkBlock = false;
-    }
-    if (textContent) {
-      this.fullResponse += stripSpecialTokens(textContent);
-    }
-    return hasThinkingContent;
-  }
-
-  private handleDeepseekChunk(chunk: any) {
-    // Handle standard string content
-    if (typeof chunk.content === "string") {
-      this.fullResponse += stripSpecialTokens(chunk.content);
-    }
-
-    // Handle deepseek reasoning/thinking content
-    if (chunk.additional_kwargs?.reasoning_content) {
-      // Skip thinking content if excludeThinking is enabled
-      if (this.excludeThinking) {
-        return true; // Indicate we handled (but skipped) a thinking chunk
-      }
-      if (!this.hasOpenThinkBlock) {
-        this.fullResponse += "\n<think>";
-        this.hasOpenThinkBlock = true;
-      }
-      // Guard against undefined reasoning content
-      if (chunk.additional_kwargs.reasoning_content !== undefined) {
-        this.fullResponse += chunk.additional_kwargs.reasoning_content;
-      }
-      return true; // Indicate we handled a thinking chunk
-    }
-    return false; // No thinking chunk handled
   }
 
   /**
-   * Handle OpenRouter reasoning/thinking content
+   * Append visible answer text.
    *
-   * OpenRouter exposes reasoning via two channels:
-   * - delta.reasoning (streaming, token-by-token)
-   * - reasoning_details (cumulative transcript array)
-   *
-   * STRATEGY: We use ONLY delta.reasoning for thinking content.
-   *
-   * Why delta-only?
-   * - Provides minimal latency (streaming as tokens arrive)
-   * - No duplication issues (single source of truth)
-   * - No complex cumulative bookkeeping needed
-   *
-   * Trade-offs:
-   * - Models that only populate reasoning_details (without delta.reasoning) won't show thinking
-   * - This is acceptable for now as most models use delta.reasoning for streaming
+   * @param text - Visible answer delta.
    */
-  private handleOpenRouterChunk(chunk: any) {
-    // Only process delta.reasoning (streaming), ignore reasoning_details entirely
-    if (chunk.additional_kwargs?.delta?.reasoning) {
-      // Skip thinking content if excludeThinking is enabled
-      if (this.excludeThinking) {
-        return true;
+  private appendVisibleText(text?: string): void {
+    if (!text) {
+      return;
+    }
+
+    this.visibleText += stripSpecialTokens(text);
+    if (this.reasoningStatus === "reasoning") {
+      this.completeReasoning();
+    }
+  }
+
+  /**
+   * Append reasoning transcript text while enforcing the persistence cap.
+   *
+   * @param text - Transcript delta.
+   */
+  private appendThinkingText(text?: string): void {
+    if (!text) {
+      return;
+    }
+
+    this.startReasoning();
+    if (this.excludeThinking || this.transcriptTruncated) {
+      return;
+    }
+
+    const nextTranscript = this.thinkingTranscript + stripSpecialTokens(text);
+    if (nextTranscript.length <= THINKING_TRANSCRIPT_LIMIT) {
+      this.thinkingTranscript = nextTranscript;
+      return;
+    }
+
+    this.thinkingTranscript =
+      nextTranscript.slice(0, THINKING_TRANSCRIPT_LIMIT) + THINKING_TRANSCRIPT_TRUNCATION_SUFFIX;
+    this.transcriptTruncated = true;
+  }
+
+  /**
+   * Get elapsed reasoning time in whole seconds.
+   *
+   * @returns Whole seconds since reasoning started.
+   */
+  private getElapsedSeconds(): number {
+    if (this.reasoningStartTime === null) {
+      return 0;
+    }
+
+    return Math.max(0, Math.floor((Date.now() - this.reasoningStartTime) / 1000));
+  }
+
+  /**
+   * Rebuild derived text from the accumulated raw text-level `<think>` transcript.
+   */
+  private syncTextLevelThinkingState(): void {
+    const parsedState = parseTextLevelThinking(this.rawTextLevelContent);
+
+    if (!parsedState.hasReasoning) {
+      this.visibleText = parsedState.visibleText;
+      return;
+    }
+
+    this.startReasoning();
+    this.visibleText = parsedState.visibleText;
+
+    if (this.excludeThinking) {
+      if (parsedState.sawReasoningClose && this.reasoningStatus === "reasoning") {
+        this.completeReasoning();
       }
-      if (!this.hasOpenThinkBlock) {
-        this.fullResponse += "\n<think>";
-        this.hasOpenThinkBlock = true;
-      }
-      this.fullResponse += chunk.additional_kwargs.delta.reasoning;
-      return true; // Handled thinking
+      return;
     }
 
-    // Close think block before adding regular content
-    if (typeof chunk.content === "string" && chunk.content && this.hasOpenThinkBlock) {
-      this.fullResponse += "</think>";
-      this.hasOpenThinkBlock = false;
+    if (parsedState.transcript.length <= THINKING_TRANSCRIPT_LIMIT) {
+      this.thinkingTranscript = parsedState.transcript;
+      this.transcriptTruncated = false;
+    } else if (!this.transcriptTruncated) {
+      this.thinkingTranscript =
+        parsedState.transcript.slice(0, THINKING_TRANSCRIPT_LIMIT) +
+        THINKING_TRANSCRIPT_TRUNCATION_SUFFIX;
+      this.transcriptTruncated = true;
     }
 
-    // Handle standard string content (this is the actual response, not thinking)
-    if (typeof chunk.content === "string" && chunk.content) {
-      this.fullResponse += chunk.content;
+    if (
+      parsedState.sawReasoningClose &&
+      (!parsedState.isInsideReasoning || parsedState.visibleText.length > 0)
+    ) {
+      this.completeReasoning();
+    }
+  }
+
+  /**
+   * Build the current streamed output.
+   *
+   * @returns Display text for the in-progress assistant message.
+   */
+  private buildOutput(): string {
+    const visibleAnswer = this.errorResponse
+      ? `${this.visibleText}${this.errorResponse}`
+      : this.visibleText;
+
+    if (this.excludeThinking || !this.reasoningSeen || !this.thinkingTranscript) {
+      return visibleAnswer;
     }
 
-    return false; // No thinking handled
+    const payload = createChatReasoningPayload(
+      this.thinkingTranscript,
+      this.getElapsedSeconds(),
+      this.reasoningStatus === "reasoning" ? "reasoning" : "complete"
+    );
+
+    return composeReasoningMessage(payload, visibleAnswer);
+  }
+
+  /**
+   * Push the latest composed output to the UI.
+   */
+  private emit(): void {
+    this.updateCurrentAiMessage(this.buildOutput());
   }
 
   /**
    * Accumulate native tool call chunks during streaming.
-   * LangChain providers send tool_call_chunks with incremental data.
+   *
+   * @param chunk - Raw streamed chunk.
    */
-  private handleToolCallChunks(chunk: any) {
-    // Check for tool_call_chunks in the chunk (LangChain streaming format)
+  private handleToolCallChunks(chunk: any): void {
     const toolCallChunks = chunk.tool_call_chunks;
     if (!toolCallChunks || !Array.isArray(toolCallChunks)) {
       return;
     }
 
-    for (const tc of toolCallChunks) {
-      const idx = tc.index ?? 0;
-      const existing = this.toolCallChunks.get(idx) || { name: "", args: "" };
+    for (const toolCallChunk of toolCallChunks) {
+      const index = toolCallChunk.index ?? 0;
+      const existingChunk = this.toolCallChunks.get(index) || { name: "", args: "" };
 
-      // Accumulate data from chunk
-      if (tc.id) existing.id = tc.id;
-      if (tc.name) existing.name += tc.name;
-      if (tc.args) existing.args += tc.args;
+      if (toolCallChunk.id) {
+        existingChunk.id = toolCallChunk.id;
+      }
+      if (toolCallChunk.name) {
+        existingChunk.name += toolCallChunk.name;
+      }
+      if (toolCallChunk.args) {
+        existingChunk.args += toolCallChunk.args;
+      }
 
-      this.toolCallChunks.set(idx, existing);
+      this.toolCallChunks.set(index, existingChunk);
     }
   }
 
-  processChunk(chunk: any) {
-    // Detect truncation using multi-provider detector
+  /**
+   * Process a Claude array-based streaming chunk.
+   *
+   * @param content - Claude content array.
+   */
+  private handleClaudeChunk(content: any[]): void {
+    for (const item of content) {
+      if (item.type === "thinking") {
+        this.appendThinkingText(item.thinking);
+        continue;
+      }
+
+      if (item.type === "text") {
+        this.appendVisibleText(item.text);
+      }
+    }
+  }
+
+  /**
+   * Process a non-Claude chunk, including native reasoning providers and text-level think tags.
+   *
+   * @param chunk - Raw streamed chunk.
+   */
+  private handleStandardChunk(chunk: any): void {
+    const deepseekReasoning = chunk.additional_kwargs?.reasoning_content;
+    const openRouterReasoning = chunk.additional_kwargs?.delta?.reasoning;
+    const content = typeof chunk.content === "string" ? chunk.content : "";
+
+    if (typeof deepseekReasoning === "string" && deepseekReasoning.length > 0) {
+      this.appendThinkingText(deepseekReasoning);
+    }
+
+    if (typeof openRouterReasoning === "string" && openRouterReasoning.length > 0) {
+      this.appendThinkingText(openRouterReasoning);
+    }
+
+    if (
+      content &&
+      !this.reasoningSeen &&
+      !deepseekReasoning &&
+      !openRouterReasoning &&
+      !chunk.additional_kwargs?.reasoning_details
+    ) {
+      this.rawTextLevelContent += stripSpecialTokens(content);
+      this.syncTextLevelThinkingState();
+      return;
+    }
+
+    this.appendVisibleText(content);
+  }
+
+  /**
+   * Process a streamed model chunk.
+   *
+   * @param chunk - Raw streamed chunk.
+   */
+  processChunk(chunk: any): void {
     const truncationResult = detectTruncation(chunk);
     if (truncationResult.wasTruncated) {
       this.wasTruncated = true;
     }
 
-    // Extract token usage if available
     const usage = extractTokenUsage(chunk);
     if (usage) {
       this.tokenUsage = usage;
     }
 
-    // Handle native tool call chunks (LangChain streaming)
     this.handleToolCallChunks(chunk);
 
-    // Determine if this chunk will handle thinking content
-    // Note: For OpenRouter, we process only delta.reasoning, but we still need to recognize
-    // reasoning_details as a thinking chunk to prevent premature think block closure
-    const isThinkingChunk =
-      Array.isArray(chunk.content) ||
-      chunk.additional_kwargs?.delta?.reasoning ||
-      (chunk.additional_kwargs?.reasoning_details &&
-        Array.isArray(chunk.additional_kwargs.reasoning_details) &&
-        chunk.additional_kwargs.reasoning_details.length > 0) ||
-      chunk.additional_kwargs?.reasoning_content; // Deepseek format
-
-    // Close think block BEFORE processing non-thinking content
-    if (this.hasOpenThinkBlock && !isThinkingChunk) {
-      this.fullResponse += "</think>";
-      this.hasOpenThinkBlock = false;
-    }
-
-    // Now process the chunk
-    // Route based on the actual chunk format
     if (Array.isArray(chunk.content)) {
-      // Claude format with content array
       this.handleClaudeChunk(chunk.content);
-    } else if (chunk.additional_kwargs?.reasoning_content) {
-      // Deepseek format with reasoning_content
-      this.handleDeepseekChunk(chunk);
-    } else if (isThinkingChunk) {
-      // OpenRouter format with delta.reasoning or reasoning_details
-      this.handleOpenRouterChunk(chunk);
     } else {
-      // Default case: regular content or other formats
-      this.handleDeepseekChunk(chunk);
+      this.handleStandardChunk(chunk);
     }
 
-    // Handle text-level think tags (e.g., from nvidia/nemotron models)
-    this.handleTextLevelThinkTags();
-
-    this.updateCurrentAiMessage(this.fullResponse);
+    this.emit();
   }
 
-  processErrorChunk(errorMessage: string) {
+  /**
+   * Append a formatted error chunk to the final visible answer.
+   *
+   * @param errorMessage - Error message to format.
+   */
+  processErrorChunk(errorMessage: string): void {
     this.errorResponse = formatErrorChunk(errorMessage);
   }
 
   /**
-   * Get the accumulated tool calls from streaming chunks.
-   * Call this after streaming is complete to get all tool calls.
+   * Get accumulated native tool calls.
+   *
+   * @returns Parsed native tool calls.
    */
   getToolCalls(): NativeToolCall[] {
-    // If we have pre-accumulated tool calls (from non-streaming), return those
     if (this.accumulatedToolCalls.length > 0) {
       return this.accumulatedToolCalls;
     }
-    // Otherwise build from streaming chunks
+
     return buildToolCallsFromChunks(this.toolCallChunks);
   }
 
   /**
-   * Check if there are any tool calls accumulated
+   * Check whether any tool calls were accumulated.
+   *
+   * @returns True when tool calls are present.
    */
   hasToolCalls(): boolean {
     return this.toolCallChunks.size > 0 || this.accumulatedToolCalls.length > 0;
   }
 
   /**
-   * Set tool calls directly (for non-streaming responses)
+   * Set pre-accumulated tool calls for non-streaming responses.
+   *
+   * @param toolCalls - Native tool calls to store.
    */
-  setToolCalls(toolCalls: NativeToolCall[]) {
+  setToolCalls(toolCalls: NativeToolCall[]): void {
     this.accumulatedToolCalls = toolCalls;
   }
 
   /**
-   * Build an AIMessage with the accumulated content and tool calls.
-   * Use this to add the complete response to conversation history.
+   * Build an AIMessage from the clean visible answer text plus tool calls.
+   *
+   * @returns LangChain AIMessage instance.
    */
   buildAIMessage(): AIMessage {
-    const toolCalls = this.getToolCalls();
-    return createAIMessageWithToolCalls(this.fullResponse, toolCalls);
+    return createAIMessageWithToolCalls(this.visibleText, this.getToolCalls());
   }
 
+  /**
+   * Finalize the stream and return the last composed output.
+   *
+   * @returns Final streaming result.
+   */
   close(): StreamingResult {
-    // Make sure to close any open think block at the end
-    if (this.hasOpenThinkBlock) {
-      this.fullResponse += "</think>";
+    if (this.rawTextLevelContent) {
+      this.syncTextLevelThinkingState();
     }
 
-    // Final check for text-level think tags (in case stream ended before </think> was seen)
-    this.handleTextLevelThinkTags();
-
-    if (this.errorResponse) {
-      this.fullResponse += this.errorResponse;
+    if (!this.excludeThinking && this.reasoningSeen) {
+      this.completeReasoning();
     }
 
-    this.updateCurrentAiMessage(this.fullResponse);
+    const finalContent = this.buildOutput();
+    this.updateCurrentAiMessage(finalContent);
 
     return {
-      content: this.fullResponse,
+      content: finalContent,
       wasTruncated: this.wasTruncated,
       tokenUsage: this.tokenUsage,
     };

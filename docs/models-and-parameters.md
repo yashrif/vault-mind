@@ -168,6 +168,8 @@ For reasoning-capable models (like deepseek-reasoner, claude-opus-4-6), controls
 - **Options**: minimal, low, medium, high, xhigh
 - **Default**: low
 - Higher effort = better results on complex tasks, slower responses
+- When a model exposes reasoning, Cortex can show it in the shared **Reasoning** panel in Chat or Agent mode
+- Saved reasoning stays local to the chat display and is not reused as future conversation context or sent out through Telegram
 
 ### Verbosity
 
