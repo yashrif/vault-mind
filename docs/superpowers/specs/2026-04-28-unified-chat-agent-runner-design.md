@@ -1,4 +1,4 @@
-# Unified Chat & Agent Runner — Design
+# Unified Chat & Agent Runner - Design
 
 **Date:** 2026-04-28
 **Branch:** `22-merge-chat-and-agent-while-using-the-agent-logics`
@@ -6,229 +6,302 @@
 
 ## Goal
 
-Route chat through the agent's execution pipeline (`AutonomousAgentChainRunner`) so chat and agent share one runner, one reasoning UI, and one persistence path — while preserving a meaningful chat-vs-agent distinction grounded in capability (read vs write) rather than a separate code path.
+Route Chat, Chat + RAG, Agent, Project Agent, and Telegram through one execution pipeline based on `AutonomousAgentChainRunner`, while preserving the user-visible capability boundaries:
+
+- Chat is conversational and may use read-only tools.
+- Chat + RAG is conversational but retrieval-biased through `localSearch`.
+- Agent can use write tools when enabled.
+- Project Agent is Agent plus project prompt/context.
+- Telegram remains a transport-specific preset with isolated memory and Telegram formatting.
+
+No migration or backwards-compatibility shim is required. Old runner paths, old settings shapes, and old UI surfaces can be removed outright.
 
 ## Motivation
 
-Today the plugin maintains four distinct chain runners (`LLMChainRunner`, `ToolChainRunner`, `VaultQAChainRunner`, `ProjectChainRunner`) plus the agent runner. Each duplicates streaming, error handling, history shaping, and reasoning rendering logic. Chat lacks the agent's reasoning panel and tool capabilities. Consolidating onto one runner removes duplication, brings the reasoning UI to chat, and makes it possible to expose tools to chat in a controlled way without changing the runner. The mode distinction stays — but as configuration of one runner, not as five parallel ones.
+The plugin currently maintains separate runners for basic chat, tool chat, Vault QA, project chat, and autonomous agent behavior. This duplicates streaming, error handling, prompt shaping, memory handling, and reasoning rendering. The target architecture keeps one runner and moves product differences into explicit presets.
+
+`Vault QA` is no longer a standalone mode. Its useful behavior becomes a first-class **RAG toggle** inside Chat. This removes the confusing peer mode while keeping retrieval visible and semantically honest.
 
 ## Architecture
 
-### Single Runner, Mode as Preset
+### Single Runner, Explicit Presets
 
-`AutonomousAgentChainRunner` is the only runner. Each `ChainType` maps to a **preset** — a bundle of:
+`chainManager.getChainRunner()` always returns `AutonomousAgentChainRunner`. The runner accepts a per-turn `ChainPreset`:
 
-1. **Tool list** — the array passed to `bindTools()` for that turn (after permission resolution)
-2. **System prompt** — conversational, autonomous, vault-only, or telegram-flavored (sourced from the existing `RuntimeChainPolicy.promptTarget`)
-3. **Runtime policy** — the existing `RuntimeChainPolicy` (`promptTarget`, `richContextPolicy`, `autonomousToolPolicy`, `historyScope`). Each preset is a thin wrapper that selects the appropriate policy plus a tool list and (optionally) an output adapter.
-4. **Output adapter** — for `TELEGRAM_CHAIN`, response formatting; otherwise identity
+```ts
+type PromptProfile = "chat" | "chat_rag" | "agent" | "project_agent" | "telegram";
 
-`chainManager.getChainRunner()` always returns `AutonomousAgentChainRunner`, constructed with a preset derived from the active `ChainType` plus the resolved tool list and the existing `RuntimeChainPolicy`. The runner consumes the preset and runs the ReAct loop.
+interface ChainPreset {
+  id: "chat" | "chat_rag" | "agent" | "project_agent" | "telegram";
+  promptProfile: PromptProfile;
+  runtimePolicy: RuntimeChainPolicy;
+  tools: StructuredTool[];
+  outputAdapter?: (text: string) => string | Promise<string>;
+}
+```
 
-### No-Tools Path
-
-`bindTools()` throws on models without native tool-calling support, so the runner cannot unconditionally call it for chat with zero costly tools enabled (or for any model that lacks tool support). The runner therefore branches on resolved tool list:
-
-- **Tool list empty (or model lacks tool calling)** — skip `bindTools()` and use a raw streaming path (`chatModel.stream(messages)`). This reproduces today's `LLMChainRunner` behavior and preserves compatibility with non-tool-capable models.
-- **Tool list non-empty (and model supports tool calling)** — bind tools and run the ReAct loop as today.
-
-The decision is per-turn, based on the resolved permissions and a model-capability check. The capability check already exists in `ToolChainRunner` — it must be lifted to a shared utility (see Pre-Extraction step below) before `ToolChainRunner` can be deleted.
+`promptProfile` controls the built-in mode instructions. `promptTarget` remains part of `RuntimeChainPolicy` for user-selected prompt storage (`default` vs `telegram`). This keeps runtime behavior separate from where custom prompt content is loaded from.
 
 ### Preset Mapping
 
-Each preset wraps an existing `RuntimeChainPolicy` (in `src/runtime/RuntimeChainPolicy.ts`) plus the resolved tool list and an optional output adapter. The runtime policy fields (`promptTarget`, `richContextPolicy`, `autonomousToolPolicy`, `historyScope`) are not duplicated — they are consumed as-is from the existing policy resolver.
+| Preset        | UI state                                  | Tool source                              | Prompt profile  | Runtime policy                       | Output adapter     |
+| ------------- | ----------------------------------------- | ---------------------------------------- | --------------- | ------------------------------------ | ------------------ |
+| Chat          | `mode=chat`, `retrievalPolicy=none`       | resolved Chat read-only tools            | `chat`          | shared history, standard context     | none               |
+| Chat + RAG    | `mode=chat`, `retrievalPolicy=vault_auto` | Chat read-only tools + `localSearch`     | `chat_rag`      | shared history, standard context     | none               |
+| Agent         | `mode=agent`, `scope=global`              | resolved Agent tools                     | `agent`         | shared history, plus context         | none               |
+| Project Agent | `mode=agent`, `scope=project`             | resolved Agent tools + project overrides | `project_agent` | shared history, plus project context | none               |
+| Telegram      | `chainType=TELEGRAM_CHAIN` override       | existing Telegram full-builtin behavior  | `telegram`      | existing Telegram policy unchanged   | Telegram formatter |
 
-| ChainType            | Tool list source                                          | RuntimeChainPolicy                                                                                                                                                                                  | Output adapter              |
-| -------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `LLM_CHAIN` (chat)   | resolved `chat` permissions; write tools filtered out     | new `chat` policy (new `promptTarget: "chat"` value with conversational system prompt, `richContextPolicy: "standard"`, `autonomousToolPolicy: "settings_filtered"`, `historyScope: "shared_repo"`) | none                        |
-| `TOOL_CHAIN` (agent) | resolved `agent` permissions                              | existing default policy (`promptTarget: "default"`, `autonomousToolPolicy: "settings_filtered"`)                                                                                                    | none                        |
-| `VAULT_QA_CHAIN`     | only `localSearch`                                        | new `vault_qa` policy with vault-only prompt                                                                                                                                                        | none                        |
-| `PROJECT_CHAIN`      | resolved `agent` permissions, scoped to project overrides | existing project policy + project context appended to `contextEnvelope`                                                                                                                             | none                        |
-| `TELEGRAM_CHAIN`     | resolved `agent` permissions                              | **existing** Telegram policy unchanged (`promptTarget: "telegram"`, `richContextPolicy: "plus"`, `historyScope: "telegram_visible_thread"`, `autonomousToolPolicy: "full_builtin"`)                 | Telegram outbound formatter |
+`VAULT_QA_CHAIN` is removed from user-facing dispatch. `deriveChainType()` should stop mapping `retrievalPolicy=vault_auto` to a standalone runner; instead, retrieval policy participates in preset selection.
 
-The `LLM_CHAIN` chat policy is new (chat does not currently have a runtime policy entry). The vault-QA policy is also new (today's `VaultQAChainRunner` doesn't go through the policy system). All other chains use their existing policy values verbatim — the unification is in the runner, not in the policies.
+### Chat + RAG Semantics
 
-### Capability Boundary: Read vs Write
+Chat + RAG is retrieval-biased, not retrieval-forced. When the user asks a vault-grounded question, the `chat_rag` prompt profile instructs the model to use `localSearch` before answering. When the user says something like `Hi`, asks a generic writing question, or otherwise does not need vault grounding, the model may answer without calling `localSearch`.
 
-The chat-vs-agent identity is grounded in _what the mode can do_, not _how many tools it has_:
+This is intentional for efficiency. The RAG toggle means “make vault retrieval available and preferred when relevant,” not “run search on every turn.”
 
-- **Read tools** — `localSearch`, `webSearch`, `getCurrentTime`, `getFileTree`, `youtubeTranscription`, `pomodoroTool`, MCP read-only tools. Available to both chat and agent.
-- **Write tools** — `composer` (create/edit notes) and any future state-mutating tool (delete, run shell, etc.). Available to agent only. Never bound to a chat-mode runner.
+### Tool-Capability Errors
 
-This boundary is enforced in the tool registry, not in user-facing settings: tools gain a new field `accessLevel: "free" | "costly" | "write"`, separate from the existing `category` field (which remains the UI taxonomy: `search`, `time`, `file`, `media`, `mcp`, `memory`, `custom`, `cli`). The permission resolver refuses to bind `accessLevel: "write"` tools when the mode is chat. Adding a new write tool automatically inherits this boundary; no per-tool decision is required.
+The runner branches by resolved tool list and model capability:
 
-## Tool Permission Cascade
+- **No tools resolved**: use raw streaming via `chatModel.stream(messages)`. This preserves plain Chat behavior and works with non-tool-capable models.
+- **Tools resolved and model supports native tool calling**: call `bindTools()` and run the ReAct loop.
+- **Tools resolved and model does not support native tool calling**: show a friendly natural error and do not silently answer without tools.
 
-### Two Levels: Global, Project (agent only)
+Suggested error copy:
 
-There are no thread-level overrides. A thread inherits its mode's permissions fully. Per-thread customization was considered and rejected — it overlaps with project's purpose and dilutes project-as-a-scope.
+> This model cannot use tools, so RAG or Agent mode will not work with it. Choose a model with tool-calling support or turn RAG off.
 
-**Level 1 — Global (settings tab):**
+This rule prevents the UI from implying that RAG, Agent, Project Agent, or Telegram tool behavior happened when the model could not actually call tools.
 
-```
-toolDefaults: {
-  chat:  { localSearch: true,  webSearch: false, youtubeTranscription: false }
-  agent: { localSearch: true,  webSearch: true,  youtubeTranscription: true,
-           composer: true /* + future write tools */ }
-}
-```
+## Tool Permission Model
 
-Stored in the existing settings model. Only tools with `accessLevel: "costly"` and `accessLevel: "write"` are listed — `accessLevel: "free"` tools are always on, no toggle. Chat config never lists `write` tools (mode-restricted).
+### Access Levels
 
-**Level 2 — Project (agent only):**
-
-```
-project.toolOverrides.agent: {
-  localSearch: "inherit" | true | false
-  webSearch:   "inherit" | true | false
-  composer:    "inherit" | true | false
-  ...
-}
-```
-
-Tri-state per tool. No `chat` block — projects only configure agent. The chat config remains global.
-
-### Resolution
-
-A new module `src/core/ToolPermissions.ts` exports:
+`ToolMetadata.category` remains the UI taxonomy (`search`, `time`, `file`, `media`, `mcp`, `memory`, `custom`, `cli`). Add a separate access field:
 
 ```ts
-resolveToolPermissions(mode: "chat" | "agent", projectId?: string): Tool[]
+type ToolAccessLevel = "free" | "costly" | "write" | "mixed";
+
+interface ToolMetadata {
+  id: string;
+  displayName: string;
+  description: string;
+  category: ToolUiCategory;
+  accessLevel: ToolAccessLevel;
+  operations?: Record<string, "read" | "write">;
+}
 ```
 
-Algorithm:
+Access semantics:
 
-1. Start with all `accessLevel: "free"` tools (always on).
-2. For each `accessLevel: "costly"` tool, look up `globalDefaults[mode][tool]`. Apply.
-3. For `agent` mode with a `projectId`: for each tool, if `project.toolOverrides.agent[tool]` is `true` or `false`, override; if `"inherit"`, keep the global value.
-4. For `chat` mode: `accessLevel: "write"` tools are filtered out unconditionally, regardless of any setting.
-5. Return the array of tools to pass to `bindTools()`.
+- `free`: passive, cheap, always available when its runtime dependency exists.
+- `costly`: read-only but user-configurable because it may cost money, time, or external requests.
+- `write`: mutates vault/app/external state; Agent-only.
+- `mixed`: one registered tool can perform both read and write operations; not directly bindable in Chat.
 
-`chainManager.runChain()` calls `resolveToolPermissions` before constructing the preset, so the resolved tool list is part of the `ChainPreset` passed to the unified runner.
+Mixed tools are treated conservatively. Chat and Chat + RAG never bind a `mixed` tool directly. Implementation must either split the tool into read/write registrations or keep the mixed tool Agent-only.
 
-### UI Surface
+Examples:
 
-**Settings tab — "Default tools" section** (in `BasicSettings.tsx`):
+- Split `obsidianBases` into a read/query tool and a create/mutate tool, or mark the existing tool `mixed` and Agent-only.
+- Split daily-note read/path behavior from create/update behavior, or mark the existing daily-note tool `mixed` and Agent-only.
+- `writeFile`, `editFile`, and future note-mutating tools are `write`.
+- `localSearch`, `webSearch`, and `youtubeTranscription` are `costly`.
+- `getCurrentTime`, `getFileTree`, and `readNote` are `free` if they are passive and vault-safe.
 
-- Two columns: Chat / Agent
-- Rows: only `costly` tools (and `write` tools in the Agent column)
-- Free tools are not listed; explanatory copy notes "passive tools like time and file tree are always available"
+### Permission Cascade
 
-**Project settings — "Tool access" section:**
+There are two levels: global defaults and project overrides. There are no per-thread tool permission overrides.
 
-- Single column (Agent only)
-- Rows: same as global Agent column
-- Each row is tri-state: inherit (default) / on / off, with a reset affordance to return to inherit
-- "Inherited" state shows the value cascading from global as a faded indicator
+Global defaults live in settings:
 
-**Chat header — `ChatToolControls`:**
+```ts
+toolDefaults: {
+  chat: {
+    webSearch: false,
+    youtubeTranscription: false
+  },
+  agent: {
+    localSearch: true,
+    webSearch: true,
+    youtubeTranscription: true,
+    writeFile: true,
+    editFile: true
+  }
+}
+```
 
-- Becomes a read-only indicator showing which tools are active in this thread (resolved from the cascade)
-- No toggles — toggles live in settings/project, not on the thread
+`localSearch` for Chat is controlled by the RAG toggle, not by generic Chat defaults.
+
+Project overrides are Agent-only:
+
+```ts
+project.toolOverrides.agent: {
+  localSearch: "inherit" | true | false,
+  webSearch: "inherit" | true | false,
+  writeFile: "inherit" | true | false,
+  editFile: "inherit" | true | false
+}
+```
+
+### Resolution API
+
+Create `src/core/ToolPermissions.ts`:
+
+```ts
+interface ToolPermissionContext {
+  surface: "chat" | "agent" | "telegram";
+  ragEnabled?: boolean;
+  projectId?: string;
+}
+
+function resolveToolPermissions(context: ToolPermissionContext): StructuredTool[];
+```
+
+Resolution rules:
+
+1. Register built-in tools if needed and filter out vault-required tools when no vault is available.
+2. Always include eligible `free` tools.
+3. For `surface="chat"`, include enabled `costly` tools only; always filter out `write` and `mixed`.
+4. For `surface="chat"` with `ragEnabled=true`, include `localSearch` even if generic Chat defaults omit it.
+5. For `surface="agent"`, include enabled `costly`, `write`, and `mixed` tools; apply project tri-state overrides when `projectId` exists.
+6. For `surface="telegram"`, preserve the existing Telegram full-builtin behavior from `RuntimeChainPolicy`; do not route it through normal Chat/Agent defaults.
+
+## Prompt Profiles
+
+Add a runtime `PromptProfile` layer:
+
+```ts
+type PromptProfile = "chat" | "chat_rag" | "agent" | "project_agent" | "telegram";
+```
+
+Prompt profile responsibilities:
+
+- `chat`: conversational assistant, no autonomous/write behavior.
+- `chat_rag`: conversational assistant with vault retrieval guidance; use `localSearch` for vault-grounded questions, but do not search for greetings or generic non-vault requests.
+- `agent`: autonomous tool-using assistant; may call read and write tools according to permissions.
+- `project_agent`: agent prompt plus project system prompt and project context.
+- `telegram`: Telegram-safe assistant with transport-aware wording, isolated history, and Telegram formatting constraints.
+
+`RuntimeChainPolicy` should gain `promptProfile`. `promptTarget` should remain for custom prompt source selection, with Telegram continuing to use `promptTarget: "telegram"`. Non-Telegram profiles can use the shared default custom prompt source unless a later feature adds per-profile custom prompt files.
+
+## UI Surface
+
+- Remove `Vault QA` as a peer mode.
+- Keep Chat and Agent as visible interaction modes.
+- Add a first-class RAG toggle for Chat. This sets `retrievalPolicy=vault_auto` and selects the `chat_rag` preset.
+- Keep Project as Agent scope, not a separate runner family.
+- Keep Telegram as transport/channel behavior with its own preset.
+- Convert old per-thread tool toggles into resolved tool indicators where appropriate. The RAG toggle is the only Chat-level retrieval control; individual tool permissions live in settings/project config.
+- Update suggested prompts so the old Vault QA prompts attach to Chat + RAG instead of a standalone Vault QA mode.
 
 ## Reasoning UI & Persistence
 
-There are two separate persistence paths and the spec deliberately treats them as distinct:
+There are two separate persistence paths:
 
-1. **UI markdown persistence** — what `ChatPersistenceManager` writes to the saved chat file. This includes `AGENT_REASONING` markers so the reasoning panel can re-render on reload.
-2. **LLM memory across turns / reloads** — what the chat model sees as context. This is shaped by `BaseChainRunner` / `chatHistoryUtils.ts`.
+1. **UI markdown persistence**: what `ChatPersistenceManager` writes to saved chat files. Reasoning markers are saved with assistant display text so the reasoning panel can render on reload.
+2. **LLM memory across turns/reloads**: what the model sees as context. This remains user/assistant content only; prior structured `AIMessage(tool_calls)` / `ToolMessage` chains are not reconstructed across reloads.
 
-### Reasoning Panel
+`AgentReasoningBlock` rendering in `ChatSingleMessage.tsx` becomes mode-agnostic. It renders whenever the assistant message contains reasoning markers, regardless of whether the response came from Chat + RAG, Agent, Project Agent, or Telegram.
 
-`AgentReasoningBlock` rendering in `ChatSingleMessage.tsx` becomes mode-agnostic. The component renders whenever the message text contains `AGENT_REASONING` markers, regardless of the originating `ChainType`. The marker name is preserved (no rename to `CORTEX_REASONING`) — keeps the diff small and lets persisted threads continue rendering.
+Behavior:
 
-Behavior by mode:
+- Plain Chat with no tool calls: no reasoning marker, no panel.
+- Chat + RAG with a tool call: reasoning marker present, shared panel renders.
+- Agent/Project Agent/Telegram with tool calls: shared panel renders.
 
-- Chat with no tool calls → no markers → panel stays hidden → identical to today's chat
-- Chat with tool calls → markers present → panel renders, same UI as agent today
-- Agent → unchanged from today
-
-### UI Markdown Persistence
-
-Reasoning is saved alongside the final request/response in the markdown file:
-
-- Tool calls and tool results that occurred during a turn are embedded in the assistant message text via `AGENT_REASONING` markers. This is the existing mechanism in `ChatPersistenceManager` for agent threads; chat threads now use the same path.
-- The full turn — user request, reasoning trace, final response — persists as one unit. Reload reproduces the panel for the human reader.
-
-### LLM Memory (Within a Turn vs Across Reloads)
-
-- **Within a single turn** — the runner builds the message list with `AIMessage(tool_calls)` and `ToolMessage` entries. This is the standard ReAct flow and is unchanged. Chat now produces this same shape when tools are used.
-- **Across reloads** — `BaseChainRunner` / `chatHistoryUtils.ts` reconstitute LLM memory from saved user/assistant content only. The structured `tool_calls` / `ToolMessage` chain is **not** reconstructed; the model sees the final responses, not the intermediate tool calls. This matches today's agent reload behavior. Cross-reload structured tool-call memory is a non-goal for this change.
-
-`MessageRepository` is unchanged. It stores `displayText` and `processedText` per message; the LLM-facing view continues to be assembled by `ChatManager` from those fields. No new field is added to track intermediate tool-call structure for reload — that is explicitly deferred.
+The marker name is not renamed in this change.
 
 ## Code Changes
 
 ### Sequencing: Pre-Extraction Required
 
-`AutonomousAgentChainRunner extends ToolChainRunner` and inherits non-trivial behavior: multimodal-content building, model-capability checks, local-search result formatting, and a fallback path. These cannot be deleted with `ToolChainRunner` itself — they must first be lifted into `BaseChainRunner` (or a sibling `chainRunnerUtils.ts`) so the agent runner no longer depends on the tool-runner class. This is a prerequisite step in the plan, not a separate refactor:
+`AutonomousAgentChainRunner` currently extends `ToolChainRunner`. Before deleting `ToolChainRunner`, lift the shared behavior it owns into `BaseChainRunner` or focused utilities:
 
-1. **Phase 0 — Lift shared utilities**: extract from `ToolChainRunner` into `BaseChainRunner` / shared utils:
-   - Multimodal content assembly (the `streamMultimodalResponse` helpers)
-   - Model capability check (does this model support `bindTools()`)
-   - Local search result formatting
-   - Tool-execution fallback / retry path
-2. **Phase 1 — Switch agent runner to use the lifted utilities** instead of inheriting from `ToolChainRunner`. Change `AutonomousAgentChainRunner extends ToolChainRunner` to `extends BaseChainRunner`. Verify agent mode still behaves identically.
-3. **Phase 2 — Build presets and the no-tools branch** in `AutonomousAgentChainRunner`. Land permission resolver, tag tool registry with `accessLevel`.
-4. **Phase 3 — Switch chat / vault-QA / project / telegram dispatch** to the unified runner via presets. Update UI surfaces.
-5. **Phase 4 — Delete the obsolete runners** (`LLMChainRunner`, `ToolChainRunner`, `VaultQAChainRunner`, `ProjectChainRunner`) and the `enableAutonomousAgent` flag.
+1. Multimodal content assembly.
+2. Model capability checks, including native tool-calling support.
+3. Local-search result formatting.
+4. Shared raw streaming path.
+5. Friendly tool-capability error handling.
 
-### Delete (in Phase 4)
+Then change `AutonomousAgentChainRunner` to extend `BaseChainRunner`.
 
-- `src/LLMProviders/chainRunner/LLMChainRunner.ts` and its test
-- `src/LLMProviders/chainRunner/ToolChainRunner.ts`
-- `src/LLMProviders/chainRunner/VaultQAChainRunner.ts`
-- `src/LLMProviders/chainRunner/ProjectChainRunner.ts`
-- `src/chainFactory.ts` (already marked deprecated; remove if unused after the merge)
-- The `enableAutonomousAgent` flag and any code branches that depended on it
+### Delete
+
+- `src/LLMProviders/chainRunner/LLMChainRunner.ts` and its test.
+- `src/LLMProviders/chainRunner/ToolChainRunner.ts`.
+- `src/LLMProviders/chainRunner/VaultQAChainRunner.ts`.
+- `src/LLMProviders/chainRunner/ProjectChainRunner.ts`.
+- `src/chainFactory.ts` if no remaining imports require it after replacing `ChainType` dispatch.
+- `enableAutonomousAgent` and all UI/settings branches depending on it.
+- The user-facing Vault QA mode.
+
+No migration or backwards-compatibility shim is required for removed settings or modes.
 
 ### Add
 
-- `src/LLMProviders/chainRunner/presets/` — one file per `ChainType` exporting a `ChainPreset` (`{ runtimePolicy, toolListResolver, outputAdapter? }`). The `runtimePolicy` references the existing `RuntimeChainPolicy` map; the preset adds the resolved tool list and any output transform.
-- `src/core/ToolPermissions.ts` — `resolveToolPermissions(mode, projectId?)` walking the cascade
-- `ToolRegistry` extension — add `accessLevel: "free" | "costly" | "write"` to `ToolMetadata` (separate from the existing `category` field). Existing tool registrations are updated with the appropriate `accessLevel`.
-- New `RuntimeChainPolicy` entries for `chat` and `vault_qa` (chat does not have a dedicated policy today; vault-QA bypasses the policy system).
+- `src/LLMProviders/chainRunner/presets/` with presets for `chat`, `chat_rag`, `agent`, `project_agent`, and `telegram`.
+- `src/core/ToolPermissions.ts` with `resolveToolPermissions()`.
+- `ToolMetadata.accessLevel` and optional `ToolMetadata.operations`.
+- `RuntimeChainPolicy.promptProfile`.
+- Prompt-profile support in the system prompt builder.
 
 ### Modify
 
-- `chainManager.getChainRunner()` — always returns `AutonomousAgentChainRunner` constructed with the preset; remove the switch over `ChainType → Runner` mapping
-- `chainManager.runChain()` — calls `resolveToolPermissions` before constructing the preset; passes resolved tool list and `ChainPreset` into the runner
-- `AutonomousAgentChainRunner` — extends `BaseChainRunner` (not `ToolChainRunner`); accepts a `ChainPreset` per run; branches on resolved tool list (empty → raw streaming path; non-empty → ReAct loop with `bindTools()`)
-- `BaseChainRunner` — gains the lifted utilities (multimodal content, capability check, search result formatting, fallback path) so both the unified runner and any future runner can use them
-- `ChatSingleMessage.tsx` — drop the agent-mode gate on `AgentReasoningBlock` rendering; render whenever markers are present
-- `BasicSettings.tsx` — add "Default tools" section (Chat / Agent columns)
-- Project settings UI — add "Tool access" section (Agent column only, tri-state per tool)
-- `ChatToolControls.tsx` — convert from toggle widget to read-only indicator of active tools
-- `settings/model.ts` — add `toolDefaults` schema; add `toolOverrides` to project schema
-- All existing tool registrations in `src/tools/` — set the `accessLevel` field on each `ToolMetadata`
+- `aiParams.ts`: stop deriving a standalone Vault QA chain from `retrievalPolicy=vault_auto`; use retrieval policy during preset selection instead.
+- `RuntimeChainPolicy.ts`: preserve Telegram policy, add `promptProfile`, and map Chat/Agent/Project/Telegram presets explicitly.
+- `chainManager.runChain()`: construct the preset, resolve tools, and pass the preset to `AutonomousAgentChainRunner`.
+- `AutonomousAgentChainRunner`: branch between raw streaming, ReAct loop, and friendly tool-capability error.
+- `ToolRegistry` and all built-in tool registrations: set `accessLevel`; mark unsplit mixed tools as `mixed` and Agent-only.
+- Chat UI controls: replace Vault QA with a RAG toggle; remove old autonomous-agent toggles.
+- `SuggestedPrompts.tsx`: move Vault QA-style prompts under Chat + RAG.
+- `settings/model.ts`: add `toolDefaults` and project `toolOverrides`; remove `enableAutonomousAgent`.
+- User docs in `docs/`: explain Chat, Chat + RAG, Agent, Project Agent, and Telegram behavior in non-technical terms.
 
-### Tests
+## Tests
 
-- `AutonomousAgentChainRunner.test.ts` — extended with cases for:
-  - Chat preset, empty tool list → no `bindTools()` call, raw streaming path
-  - Chat preset, read-only tool set → `bindTools()` called, ReAct loop runs
-  - Vault-QA preset → only `localSearch` bound, "answer from vault only" prompt active. **Lock the new soft-enforcement semantics**: a test case where the model could ignore the directive and still return a response (no hard retrieval guarantee).
-  - Telegram preset → existing telegram policy preserved (`promptTarget`, `historyScope`, etc.)
-- `ToolPermissions.test.ts` — cascade resolution: free tools always present, costly tools follow global, project tri-state, chat strips `accessLevel: "write"` tools
-- Existing `LLMChainRunner.test.ts` and `ToolChainRunner` references deleted with the runners
-- **User docs updated** for the vault-QA semantic change (model-decided retrieval instead of guaranteed retrieval) — see `docs/` index for which file owns this
+- `ToolPermissions.test.ts`
+
+  - Chat includes `free` tools and enabled `costly` tools.
+  - Chat filters out `write` and `mixed`.
+  - Chat + RAG includes `localSearch`.
+  - Agent includes enabled `costly`, `write`, and `mixed`.
+  - Project Agent applies tri-state overrides.
+  - Telegram preserves full-builtin policy.
+
+- `AutonomousAgentChainRunner.test.ts`
+
+  - Plain Chat with no tools uses raw streaming and does not call `bindTools()`.
+  - Tool-required preset with a non-tool-capable model returns the friendly natural error.
+  - Chat + RAG with a greeting can complete without `localSearch`.
+  - Chat + RAG with a vault-grounded request can call `localSearch` and render reasoning.
+  - Agent and Project Agent run the ReAct path with resolved tools.
+  - Telegram preset preserves prompt profile, history scope, and output adapter.
+
+- UI tests
+
+  - Vault QA is not rendered as a peer mode.
+  - RAG toggle selects the `chat_rag` preset.
+  - Suggested prompts reflect Chat + RAG instead of Vault QA.
+  - Old autonomous-agent toggle controls are removed.
+
+- Docs/tests cleanup
+  - Remove tests that assert `LLMChainRunner`, `ToolChainRunner`, `VaultQAChainRunner`, or `ProjectChainRunner` dispatch.
+  - Update user-facing docs for the new mode model.
 
 ## Non-Goals / Deferred
 
-- **Migration / backwards compatibility** — explicitly not in scope. Old runners are deleted outright. The `enableAutonomousAgent` flag is removed without a fallback. `toolDefaults` ships with built-in defaults — no migration code reads pre-existing settings shapes. Existing persisted chat threads continue to render because the markdown format hasn't changed, but no internal-API or settings shims are added.
-- **Hard enforcement of "answer from vault only" for vault-QA** — soft enforcement via system prompt is acceptable. A post-response filter is not added. **This is a behavioral change from today's `VaultQAChainRunner`, which guarantees retrieval before answering.** New semantics are locked via tests and user-doc updates as part of this change.
-- **Forcing first-turn retrieval for vault-QA** — accepted that the model decides when to call `localSearch`. Strong system-prompt directive only.
-- **Cross-reload structured tool-call memory** — when a thread is reloaded, the LLM sees user/assistant content only, not the prior `AIMessage(tool_calls)` / `ToolMessage` chain. Same as today's agent reload behavior. Improving this is out of scope.
-- **Rename `AGENT_REASONING` to `CORTEX_REASONING`** — left as a separate cleanup; not part of this change.
-- **Per-thread tool permission overrides** — explicitly rejected; project is the customization scope for agent mode.
-- **MCP tool access-level tagging beyond a default** — MCP server tools register with `accessLevel: "costly"` by default; finer per-tool tagging from MCP metadata is a follow-up.
+- Migration or backwards compatibility for old settings, old modes, old runners, or old internal APIs.
+- Per-thread tool permission overrides.
+- Cross-reload reconstruction of structured `AIMessage(tool_calls)` / `ToolMessage` history.
+- Renaming the existing reasoning marker.
+- Fine-grained MCP metadata beyond default `accessLevel: "costly"`.
+- Splitting every mixed tool in the first pass. Mixed tools that are not split are Agent-only.
 
 ## Open Implementation Notes
 
-- **Tool registry category default**: every registered tool in `src/tools/` (Composer, Note, Tag, ObsidianCli, FileTree, Search, Time, Youtube, memory, MCP, etc.) must be reviewed and tagged before the runner can resolve permissions. Suggested baseline:
-  - `free`: `getCurrentTime`, `getFileTree`, `pomodoroTool`, `ReadNoteTool`, and any other purely passive query
-  - `costly`: `localSearch`, `webSearch`, `youtubeTranscription`, MCP tools (default; individual MCP tools may be re-tagged)
-  - `write`: `composer`, any `NoteTools` / `TagTools` / `ObsidianCliTools` / `ObsidianCliDailyTools` operation that mutates vault state or runs a command
-    Each tool's category is determined by per-tool review during implementation; the mapping above is a starting point, not a final decision.
-- **Iteration cap** (currently 4) stays uniform across modes. Not a per-mode setting.
-- **Telegram preset** continues to dispatch through the existing channel adapter; the unification is internal — no Telegram contract changes.
+- `localSearch` should be controlled by Chat's RAG toggle, not by generic Chat tool defaults.
+- `mixed` tools should be reviewed one by one. Prefer split read/write registrations when the read side is useful in Chat; otherwise keep the tool Agent-only.
+- Telegram must continue to use isolated memory, Telegram prompt target/profile, fixed tool behavior, typing/reply state, and Telegram outbound formatting.
+- The iteration cap stays uniform across tool-using presets unless a later feature creates per-preset limits.
