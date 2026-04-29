@@ -1,8 +1,8 @@
-import { useChainType } from "@/aiParams";
-import { ChainType } from "@/chainFactory";
+import { useChainPresetId } from "@/aiParams";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { VAULT_VECTOR_STORE_STRATEGY } from "@/constants";
+import type { ChainPresetId } from "@/runtime/ChainPreset";
 import { useSettingsValue } from "@/settings/model";
 import { PlusCircle, TriangleAlert } from "lucide-react";
 import React, { useMemo } from "react";
@@ -62,16 +62,16 @@ const SUGGESTED_PROMPTS: Record<string, NotePrompt> = {
   },
 };
 
-const PROMPT_KEYS: Record<ChainType, Array<keyof typeof SUGGESTED_PROMPTS>> = {
-  [ChainType.LLM_CHAIN]: ["activeNote", "quoteNote", "fun"],
-  [ChainType.VAULT_QA_CHAIN]: ["qaVault", "qaVault", "quoteNote"],
-  [ChainType.TOOL_CHAIN]: ["agentMode", "agentMode", "agentMode"],
-  [ChainType.PROJECT_CHAIN]: ["agentMode", "agentMode", "agentMode"],
-  [ChainType.TELEGRAM_CHAIN]: ["activeNote", "quoteNote", "fun"],
+const PROMPT_KEYS: Record<ChainPresetId, Array<keyof typeof SUGGESTED_PROMPTS>> = {
+  chat: ["activeNote", "quoteNote", "fun"],
+  chat_rag: ["qaVault", "qaVault", "quoteNote"],
+  agent: ["agentMode", "agentMode", "agentMode"],
+  project_agent: ["agentMode", "agentMode", "agentMode"],
+  telegram: ["activeNote", "quoteNote", "fun"],
 };
 
-function getRandomPrompt(chainType: ChainType = ChainType.LLM_CHAIN) {
-  const keys = PROMPT_KEYS[chainType] || PROMPT_KEYS[ChainType.LLM_CHAIN];
+function getRandomPrompt(presetId: ChainPresetId = "chat") {
+  const keys = PROMPT_KEYS[presetId] || PROMPT_KEYS.chat;
 
   // For repeated keys, shuffle once and take multiple items
   const shuffledPrompts: Record<string, string[]> = {};
@@ -92,8 +92,8 @@ interface SuggestedPromptsProps {
 }
 
 export const SuggestedPrompts: React.FC<SuggestedPromptsProps> = ({ onClick }) => {
-  const [chainType] = useChainType();
-  const prompts = useMemo(() => getRandomPrompt(chainType), [chainType]);
+  const [presetId] = useChainPresetId();
+  const prompts = useMemo(() => getRandomPrompt(presetId), [presetId]);
   const settings = useSettingsValue();
   const indexVaultToVectorStore = settings.indexVaultToVectorStore as VAULT_VECTOR_STORE_STRATEGY;
 
@@ -134,24 +134,23 @@ export const SuggestedPrompts: React.FC<SuggestedPromptsProps> = ({ onClick }) =
           </div>
         </CardContent>
       </Card>
-      {chainType === ChainType.VAULT_QA_CHAIN && (
+      {presetId === "chat_rag" && (
         <div className="tw-rounded-md tw-border tw-border-solid tw-border-border tw-p-2 tw-text-sm">
-          Please note that this is a retrieval-based QA. Questions should contain keywords and
-          concepts that exist literally in your vault
+          Vault retrieval is on. Cortex will prefer searching your notes when the request needs
+          vault context.
         </div>
       )}
-      {chainType === ChainType.VAULT_QA_CHAIN &&
-        indexVaultToVectorStore === VAULT_VECTOR_STORE_STRATEGY.NEVER && (
-          <div className="tw-rounded-md tw-border tw-border-solid tw-border-border tw-p-2 tw-text-sm">
-            <div>
-              <TriangleAlert className="tw-size-4" /> Your auto-index strategy is set to{" "}
-              <b>NEVER</b>. Before proceeding, click the{" "}
-              <span className="tw-text-accent">Refresh Index</span> button below or run the{" "}
-              <span className="tw-text-accent">Cortex command: Index (refresh) vault for QA</span>{" "}
-              to update the index.
-            </div>
+      {presetId === "chat_rag" && indexVaultToVectorStore === VAULT_VECTOR_STORE_STRATEGY.NEVER && (
+        <div className="tw-rounded-md tw-border tw-border-solid tw-border-border tw-p-2 tw-text-sm">
+          <div>
+            <TriangleAlert className="tw-size-4" /> Your auto-index strategy is set to <b>NEVER</b>.
+            Before proceeding, click the <span className="tw-text-accent">Refresh Index</span>{" "}
+            button below or run the{" "}
+            <span className="tw-text-accent">Cortex command: Index (refresh) vault for QA</span> to
+            update the index.
           </div>
-        )}
+        </div>
+      )}
     </div>
   );
 };

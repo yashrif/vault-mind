@@ -289,6 +289,32 @@ describe("TelegramAgent", () => {
     expect(mockClearReplyState).toHaveBeenCalledWith("stream-42");
   });
 
+  it("passes the telegram preset to the unified runner", async () => {
+    const runChain = jest
+      .fn()
+      .mockImplementation(
+        async (
+          _userMsg: unknown,
+          _abort: unknown,
+          _onPartial: unknown,
+          addMessage: (m: { message: string }) => void
+        ) => {
+          addMessage({ message: "telegram reply" });
+        }
+      );
+    const agent = new TelegramAgent(client, store, makeChainManager(runChain) as any);
+
+    await agent.enqueueReply(makeUserMsg());
+    await flushQueue();
+
+    expect(runChain).toHaveBeenCalledTimes(1);
+    expect(runChain.mock.calls[0][4]).toEqual(
+      expect.objectContaining({
+        presetId: "telegram",
+      })
+    );
+  });
+
   // ── 3. Happy path ─────────────────────────────────────────────────────────
 
   it("calls runChain, then sendMessage, then appendBotMessage for a telegram user message", async () => {

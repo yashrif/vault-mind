@@ -2,21 +2,6 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ChatToolControls } from "@/components/chat-components/ChatToolControls";
 import { updateSetting } from "@/settings/model";
-import { ChainType } from "@/chainFactory";
-
-jest.mock("@/chainFactory", () => ({
-  ChainType: {
-    LLM_CHAIN: "llm_chain",
-    VAULT_QA_CHAIN: "vault_qa",
-    TOOL_CHAIN: "Cortex_plus",
-    PROJECT_CHAIN: "project",
-    TELEGRAM_CHAIN: "telegram",
-  },
-}));
-
-jest.mock("@/utils", () => ({
-  isAgentChain: (chain: string) => chain === "Cortex_plus",
-}));
 
 jest.mock("@/settings/model", () => ({
   updateSetting: jest.fn(),
@@ -74,7 +59,6 @@ describe("ChatToolControls autonomous behavior", () => {
   const setVaultToggle = jest.fn();
   const setWebToggle = jest.fn();
   const setComposerToggle = jest.fn();
-  const setAutonomousAgentToggle = jest.fn();
 
   const baseProps = {
     vaultToggle: false,
@@ -83,32 +67,31 @@ describe("ChatToolControls autonomous behavior", () => {
     setWebToggle,
     composerToggle: false,
     setComposerToggle,
-    autonomousAgentToggle: false,
-    setAutonomousAgentToggle,
-    currentChain: ChainType.TOOL_CHAIN,
+    presetId: "agent" as const,
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("toggles autonomous mode for non-Telegram chains", () => {
-    render(<ChatToolControls {...baseProps} currentChain={ChainType.TOOL_CHAIN} />);
+  it("renders manual tool toggles without the legacy autonomous switch", () => {
+    render(<ChatToolControls {...baseProps} presetId="agent" />);
 
-    const autonomousButton = screen.getAllByTestId("brain-icon")[0].closest("button");
-    expect(autonomousButton).not.toBeNull();
+    expect(screen.queryByTestId("brain-icon")).toBeNull();
 
-    fireEvent.click(autonomousButton!);
+    const vaultButton = screen.getAllByTestId("database-icon")[0].closest("button");
+    expect(vaultButton).not.toBeNull();
 
-    expect(setAutonomousAgentToggle).toHaveBeenCalledWith(true);
-    expect(updateSetting).toHaveBeenCalledWith("enableAutonomousAgent", true);
+    fireEvent.click(vaultButton!);
+
+    expect(setVaultToggle).toHaveBeenCalledWith(true);
+    expect(updateSetting).not.toHaveBeenCalled();
   });
 
   it("does not render tool controls in Telegram chain", () => {
-    render(<ChatToolControls {...baseProps} currentChain={ChainType.TELEGRAM_CHAIN} />);
+    render(<ChatToolControls {...baseProps} presetId="telegram" />);
 
     expect(screen.queryByTestId("brain-icon")).toBeNull();
-    expect(setAutonomousAgentToggle).not.toHaveBeenCalled();
     expect(updateSetting).not.toHaveBeenCalled();
   });
 });

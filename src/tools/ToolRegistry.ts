@@ -4,11 +4,25 @@ import { StructuredTool } from "@langchain/core/tools";
  * Tool metadata for registration and UI display.
  * Contains tool configuration including execution control properties.
  */
+export type ToolAccessLevel = "free" | "costly" | "write" | "mixed";
+export type ToolOperationAccess = "read" | "write";
+export type ToolUiCategory =
+  | "search"
+  | "time"
+  | "file"
+  | "media"
+  | "mcp"
+  | "memory"
+  | "custom"
+  | "cli";
+
 export interface ToolMetadata {
   id: string;
   displayName: string;
   description: string;
-  category: "search" | "time" | "file" | "media" | "mcp" | "memory" | "custom" | "cli";
+  category: ToolUiCategory;
+  accessLevel: ToolAccessLevel;
+  operations?: Record<string, ToolOperationAccess>;
   isAlwaysEnabled?: boolean; // Tools that are always available (e.g., time tools)
   requiresVault?: boolean; // Tools that need vault access
   customPromptInstructions?: string; // Optional custom instructions for this tool
@@ -116,7 +130,9 @@ export class ToolRegistry {
    * Get configurable tools (excludes always-enabled tools)
    */
   getConfigurableTools(): ToolDefinition[] {
-    return Array.from(this.tools.values()).filter((def) => !def.metadata.isAlwaysEnabled);
+    return Array.from(this.tools.values()).filter(
+      (def) => !def.metadata.isAlwaysEnabled && def.metadata.accessLevel !== "free"
+    );
   }
 
   /**

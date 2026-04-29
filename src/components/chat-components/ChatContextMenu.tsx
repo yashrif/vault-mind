@@ -14,9 +14,10 @@ import {
 } from "@/components/chat-components/ContextBadges";
 import { SelectedTextContext, WebTabContext, isWebSelectedTextContext } from "@/types/message";
 import { Separator } from "@/components/ui/separator";
-import { getCurrentProject, useChainType, useIndexingProgress } from "@/aiParams";
+import { getCurrentProject, useChainPresetId, useIndexingProgress } from "@/aiParams";
 import { useProjectContextStatus } from "@/hooks/useProjectContextStatus";
-import { getDomainFromUrl, isAgentChain, openFileInWorkspace } from "@/utils";
+import { getDomainFromUrl, openFileInWorkspace } from "@/utils";
+import { isAgentPresetId } from "@/runtime/ChainPreset";
 import { mergeWebTabContexts } from "@/utils/urlNormalization";
 import { AtMentionTypeahead } from "./AtMentionTypeahead";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -110,12 +111,12 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
   onTypeaheadSelect,
   lexicalEditorRef,
 }) => {
-  const [currentChain] = useChainType();
+  const [presetId] = useChainPresetId();
   const contextStatus = useProjectContextStatus();
   const [indexingState] = useIndexingProgress();
   const [showTypeahead, setShowTypeahead] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const isAgentMode = isAgentChain(currentChain);
+  const isAgentMode = isAgentPresetId(presetId);
 
   const handleTypeaheadClose = () => {
     setShowTypeahead(false);

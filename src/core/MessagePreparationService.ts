@@ -1,5 +1,4 @@
 import { getCurrentProject } from "@/aiParams";
-import { ChainType } from "@/chainFactory";
 import { processPrompt, type ProcessedPromptResult } from "@/commands/customCommandUtils";
 import { PromptContextEngine } from "@/context/PromptContextEngine";
 import {
@@ -9,12 +8,8 @@ import {
 } from "@/context/PromptContextTypes";
 import type ChainManager from "@/LLMProviders/chainManager";
 import { logInfo, logWarn } from "@/logger";
-import {
-  injectVirtualToolMarkers,
-  PromptResolutionTarget,
-  resolveRuntimeChainPolicy,
-  RuntimeChainPolicy,
-} from "@/runtime/RuntimeChainPolicy";
+import { injectVirtualToolMarkers, RuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
+import type { LegacyChainId } from "@/runtime/ChainPreset";
 import { getSettings } from "@/settings/model";
 import {
   getEffectiveUserPrompt,
@@ -36,9 +31,9 @@ export interface PreparedMessageResult {
 interface PrepareMessageParams {
   message: ChatMessage;
   messageRepo: MessageRepository;
-  chainType: ChainType;
+  legacyChainId: LegacyChainId;
   vault: Vault;
-  runtimePolicy?: RuntimeChainPolicy;
+  runtimePolicy: RuntimeChainPolicy;
   includeActiveNote?: boolean;
   activeNote: TFile | null;
   updateLoadingMessage?: (message: string) => void;
@@ -62,21 +57,15 @@ export class MessagePreparationService {
    * Prepare a stored user message for chain execution and persistence.
    */
   async prepareMessage(params: PrepareMessageParams): Promise<PreparedMessageResult> {
-    const runtimePolicy = params.runtimePolicy ?? resolveRuntimeChainPolicy(params.chainType);
     const { processedPrompt: systemPrompt, includedFiles: systemPromptIncludedFiles } =
-      await this.getSystemPromptForMessage(
-        params.chainType,
-        runtimePolicy.promptTarget,
-        params.vault,
-        params.activeNote
-      );
+      await this.getSystemPromptForMessage(params.runtimePolicy, params.vault, params.activeNote);
 
     const { processedContent, contextEnvelope } = await this.contextManager.processMessageContext(
       params.message,
       this.fileParserManager,
       params.vault,
-      params.chainType,
-      runtimePolicy,
+      params.legacyChainId,
+      params.runtimePolicy,
       params.includeActiveNote ?? false,
       params.activeNote,
       params.messageRepo,
@@ -89,7 +78,7 @@ export class MessagePreparationService {
       message: params.message,
       processedContent,
       contextEnvelope,
-      runtimePolicy,
+      runtimePolicy: params.runtimePolicy,
     });
 
     return {
@@ -187,18 +176,19 @@ export class MessagePreparationService {
    * Resolve the per-message system prompt, including project-mode additions.
    */
   private async getSystemPromptForMessage(
-    chainType: ChainType,
-    promptTarget: PromptResolutionTarget,
+    runtimePolicy: RuntimeChainPolicy,
     vault: Vault,
     activeNote: TFile | null
   ): Promise<ProcessedPromptResult> {
+    const promptTarget = runtimePolicy.promptTarget;
     const userCustomPrompt = getEffectiveUserPrompt(promptTarget);
     const allIncludedFiles: TFile[] = [];
     const basePromptWithMemory = await getSystemPromptWithMemory(
       this.chainManager.userMemoryManager,
-      promptTarget
+      promptTarget,
+      runtimePolicy.promptProfile
     );
-    const systemPromptWithoutMemory = getSystemPrompt(promptTarget);
+    const systemPromptWithoutMemory = getSystemPrompt(promptTarget, runtimePolicy.promptProfile);
 
     let processedBasePromptWithMemory = basePromptWithMemory;
 
@@ -229,7 +219,7 @@ export class MessagePreparationService {
       processedBasePromptWithMemory = nextProcessedBasePromptWithMemory;
     }
 
-    if (chainType === ChainType.PROJECT_CHAIN) {
+    if (runtimePolicy.promptProfile === "project_agent") {
       const project = getCurrentProject();
       if (project) {
         const { default: ProjectManager } = await import("@/LLMProviders/projectManager");
@@ -286,8 +276,7 @@ export class MessagePreparationService {
     };
 
     const shouldInjectVirtualMarkers =
-      params.runtimePolicy.manualToolPolicy === "forced_virtual_markers" &&
-      !getSettings().enableAutonomousAgent;
+      params.runtimePolicy.manualToolPolicy === "forced_virtual_markers";
 
     if (!shouldInjectVirtualMarkers || !params.contextEnvelope) {
       return baseMessage;

@@ -1,5 +1,5 @@
 import {
-  deriveChainType,
+  deriveChainPresetId,
   type Mode,
   type ProjectConfig,
   type RetrievalPolicy,
@@ -9,7 +9,6 @@ import {
   useRetrievalPolicy,
   useScope,
 } from "@/aiParams";
-import { ChainType } from "@/chainFactory";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,11 +18,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ProjectScopePopover } from "@/components/chat-components/ProjectScopePopover";
 import { cn } from "@/lib/utils";
+import type { ChainPresetId } from "@/runtime/ChainPreset";
 import { Bot, ChevronDown, Database, MessageCircle } from "lucide-react";
 import React from "react";
 
 interface ChainModeSelectorProps {
-  onSelectChain: (chainType: ChainType) => void | Promise<void>;
+  onSelectChain: (presetId: ChainPresetId) => void | Promise<void>;
   className?: string;
   align?: "start" | "center" | "end";
 }
@@ -43,7 +43,7 @@ const MODE_OPTIONS: ModeOption[] = [
  * Chat-header mode controls. Renders the Chat/Agent mode switch plus a
  * conditional secondary control: a retrieval toggle for Chat mode and a
  * project-scope popover for Agent mode. Each change derives the internal
- * ChainType and reports it via onSelectChain so the parent's transition
+ * preset ID and reports it via onSelectChain so the parent's transition
  * handler (autosave on leaving Project, etc.) still runs.
  */
 export function ChainModeSelector({
@@ -56,7 +56,7 @@ export function ChainModeSelector({
   const [retrieval, setRetrieval] = useRetrievalPolicy();
 
   const trigger = (nextMode: Mode, nextScope: Scope, nextRetrieval: RetrievalPolicy) => {
-    void onSelectChain(deriveChainType(nextMode, nextScope, nextRetrieval));
+    void onSelectChain(deriveChainPresetId(nextMode, nextScope, nextRetrieval));
   };
 
   const handleModeChange = (next: Mode) => {

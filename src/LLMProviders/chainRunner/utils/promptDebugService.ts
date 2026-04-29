@@ -66,7 +66,7 @@ export async function generatePromptDebugReportForAgent(
  * @returns The base system prompt inclusive of memory content.
  */
 export async function resolveBasePrompt(chainManager: ChainManager): Promise<string> {
-  return getSystemPromptWithMemory(chainManager.userMemoryManager);
+  return getSystemPromptWithMemory(chainManager.userMemoryManager, "default", "agent");
 }
 
 interface AgentPromptDebugOptions {

@@ -1,5 +1,4 @@
 import { getSelectedTextContexts } from "@/aiParams";
-import { ChainType } from "@/chainFactory";
 import { processPrompt } from "@/commands/customCommandUtils";
 import { LOADING_MESSAGES } from "@/constants";
 import { PromptContextEngine } from "@/context/PromptContextEngine";
@@ -14,6 +13,7 @@ import {
 import { ContextProcessor } from "@/contextProcessor";
 import { logInfo } from "@/logger";
 import { Mention } from "@/mentions/Mention";
+import type { LegacyChainId } from "@/runtime/ChainPreset";
 import { RuntimeChainPolicy, resolveRuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { getSettings } from "@/settings/model";
 import { FileParserManager } from "@/tools/FileParserManager";
@@ -68,8 +68,8 @@ export class ContextManager {
     message: ChatMessage,
     fileParserManager: FileParserManager,
     vault: Vault,
-    chainType: ChainType,
-    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(chainType),
+    legacyChainId: LegacyChainId,
+    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(legacyChainId),
     includeActiveNote: boolean,
     activeNote: TFile | null,
     messageRepo: MessageRepository,
@@ -111,14 +111,15 @@ export class ContextManager {
       // This is used for compactedPaths to avoid false deduplication of L5 files
       const l3ContextPaths = new Set<string>();
       const contextNotes = message.context?.notes || [];
+      const isProjectProfile = runtimePolicy.promptProfile === "project_agent";
+      const shouldIncludeActiveNote = includeActiveNote && !isProjectProfile;
 
       // Filter out notes already in L2 to avoid duplication
       const notes = contextNotes.filter((note) => !l2Paths.has(note.path));
 
       // Add active note if requested and not already in L2
       if (
-        includeActiveNote &&
-        chainType !== ChainType.PROJECT_CHAIN &&
+        shouldIncludeActiveNote &&
         activeNote &&
         !processedNotePaths.has(activeNote.path) &&
         !notes.some((note) => note.path === activeNote.path)
@@ -131,9 +132,9 @@ export class ContextManager {
         fileParserManager,
         vault,
         notes,
-        includeActiveNote,
+        shouldIncludeActiveNote,
         activeNote,
-        chainType,
+        legacyChainId,
         runtimePolicy
       );
 
@@ -165,7 +166,7 @@ export class ContextManager {
             filteredTaggedNotes,
             false, // Don't include active note again
             null,
-            chainType,
+            legacyChainId,
             runtimePolicy
           );
 
@@ -200,7 +201,7 @@ export class ContextManager {
             filteredFolderNotes,
             false, // Don't include active note again
             null,
-            chainType,
+            legacyChainId,
             runtimePolicy
           );
 
@@ -245,7 +246,7 @@ export class ContextManager {
       // TODO(logan): deprecate this threshold when Projects mode is out of alpha
       const PROJECT_COMPACT_THRESHOLD = 1000000;
       const tokenThreshold =
-        chainType === ChainType.PROJECT_CHAIN
+        runtimePolicy.promptProfile === "project_agent"
           ? PROJECT_COMPACT_THRESHOLD
           : getSettings().autoCompactThreshold;
       const charThreshold = tokenThreshold * 4;
@@ -274,7 +275,7 @@ export class ContextManager {
       // Build envelope - if compacted, use compacted context directly (no slicing needed)
       const contextEnvelope = wasCompacted
         ? this.buildCompactedEnvelope({
-            chainType,
+            legacyChainId,
             message,
             systemPrompt: systemPrompt || "",
             processedUserMessage,
@@ -283,7 +284,7 @@ export class ContextManager {
             compactedPaths: Array.from(l3ContextPaths),
           })
         : this.buildPromptContextEnvelope({
-            chainType,
+            legacyChainId,
             message,
             systemPrompt: systemPrompt || "",
             processedUserMessage,
@@ -321,8 +322,8 @@ export class ContextManager {
     messageRepo: MessageRepository,
     fileParserManager: FileParserManager,
     vault: Vault,
-    chainType: ChainType,
-    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(chainType),
+    legacyChainId: LegacyChainId,
+    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(legacyChainId),
     includeActiveNote: boolean,
     activeNote: TFile | null,
     systemPrompt?: string,
@@ -340,7 +341,7 @@ export class ContextManager {
       message,
       fileParserManager,
       vault,
-      chainType,
+      legacyChainId,
       runtimePolicy,
       includeActiveNote,
       activeNote,
@@ -548,7 +549,7 @@ export class ContextManager {
       layerSegments,
       metadata: {
         debugLabel: `message:${messageId}`,
-        chainType: params.chainType,
+        legacyChainId: params.legacyChainId,
       },
     });
   }
@@ -559,7 +560,7 @@ export class ContextManager {
    * Stores paths for deduplication in multi-turn context.
    */
   private buildCompactedEnvelope(params: {
-    chainType: ChainType;
+    legacyChainId: LegacyChainId;
     message: ChatMessage;
     systemPrompt: string;
     processedUserMessage: string;
@@ -618,7 +619,7 @@ export class ContextManager {
       layerSegments,
       metadata: {
         debugLabel: `message:${messageId}:compacted`,
-        chainType: params.chainType,
+        legacyChainId: params.legacyChainId,
       },
     });
   }
@@ -778,7 +779,7 @@ export interface ContextProcessingResult {
 }
 
 interface BuildPromptContextEnvelopeParams {
-  chainType: ChainType;
+  legacyChainId: LegacyChainId;
   message: ChatMessage;
   systemPrompt: string;
   processedUserMessage: string;

@@ -232,7 +232,7 @@ export default class CortexPlugin extends Plugin {
 
     registerCommands(this, undefined, getSettings());
 
-    // Tool initialization is now handled automatically in ToolChainRunner and AutonomousAgentChainRunner
+    // Tool initialization is now handled automatically in unified agent runner and AutonomousAgentChainRunner
 
     this.registerEvent(
       this.app.workspace.on("editor-menu", (menu: Menu) => {

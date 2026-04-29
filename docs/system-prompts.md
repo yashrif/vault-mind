@@ -28,7 +28,7 @@ The built-in prompt is always active and cannot be edited. It tells the AI:
 
 This prompt ensures Cortex's output is correctly formatted for Obsidian and aware of its context.
 
-> **Warning**: Disabling the built-in prompt can break features like Vault QA, memory, and agent tools. Avoid disabling it unless you have a specific reason.
+> **Warning**: Disabling the built-in prompt can break features like Chat + RAG, memory, and agent tools. Avoid disabling it unless you have a specific reason.
 
 ---
 

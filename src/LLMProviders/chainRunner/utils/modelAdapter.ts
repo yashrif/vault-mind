@@ -166,7 +166,7 @@ class BaseModelAdapter implements ModelAdapter {
     const sections: PromptSection[] = [
       {
         id: "base-system-prompt",
-        label: "System prompt with memory",
+        label: "System prompt with memory and prompt profile",
         source: "src/system-prompts/systemPromptBuilder.ts#getSystemPromptWithMemory",
         content: normalizedBasePrompt,
       },

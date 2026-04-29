@@ -5,14 +5,13 @@ import {
   ProjectConfig,
   removeSelectedTextContext,
   setCurrentProject,
-  useChainType,
+  useChainPresetId,
   updateIndexingProgressState,
   useIndexingProgress,
   useModelKey,
   useSelectedTextContexts,
 } from "@/aiParams";
 import { resetSessionSystemPromptSettings } from "@/system-prompts";
-import { ChainType } from "@/chainFactory";
 import { useProjectContextStatus } from "@/hooks/useProjectContextStatus";
 import { logInfo, logError } from "@/logger";
 import type { WebTabContext } from "@/types/message";
@@ -37,10 +36,11 @@ import { clearRecordedPromptPayload } from "@/LLMProviders/chainRunner/utils/pro
 import { logFileManager } from "@/logFileManager";
 import CortexPlugin from "@/main";
 import { updateSetting, useSettingsValue } from "@/settings/model";
+import { isRichContextPresetId, type ChainPresetId } from "@/runtime/ChainPreset";
 import { ChatUIState } from "@/state/ChatUIState";
 import { FileParserManager } from "@/tools/FileParserManager";
 import { ChatMessage } from "@/types/message";
-import { err2String, isAgentChain } from "@/utils";
+import { err2String } from "@/utils";
 import { arrayBufferToBase64 } from "@/utils/base64";
 import { extractFileContent, isImageFile } from "@/utils/fileContentExtractor";
 import { Notice, TFile } from "obsidian";
@@ -73,7 +73,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
   const { messages: chatHistory, addMessage: rawAddMessage } = useChatManager(chatUIState);
   const [currentModelKey] = useModelKey();
-  const [currentChain] = useChainType();
+  const [currentPresetId] = useChainPresetId();
   const [currentAiMessage, setCurrentAiMessage] = useState("");
   const [inputMessage, setInputMessage] = useState("");
   const [latestTokenCount, setLatestTokenCount] = useState<number | null>(null);
@@ -219,7 +219,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     }
   }, [chatHistory]);
 
-  const [selectedChain, setSelectedChain] = useChainType();
+  const [selectedPresetId, setSelectedPresetId] = useChainPresetId();
   const [channelsActive, setChannelsActive] = useState(false);
   const telegramStore = (plugin as any).telegramChannelService?.store as TelegramStore | undefined;
   const [telegramMessages, setTelegramMessages] = useState<TelegramStoredMessage[]>([]);
@@ -346,7 +346,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
       // Create message context - filter out URLs for non-Plus chains
       const context = {
         notes,
-        urls: isAgentChain(currentChain) ? urls || [] : [],
+        urls: isRichContextPresetId(currentPresetId) ? urls || [] : [],
         tags: contextTags || [],
         folders: contextFolders || [],
         selectedTextContexts,
@@ -365,7 +365,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
       const messageId = await chatUIState.sendMessage(
         displayText,
         context,
-        currentChain,
+        currentPresetId,
         effectiveIncludeActiveNote,
         effectiveIncludeActiveWebTab,
         content.length > 0 ? content : undefined,
@@ -428,14 +428,14 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
    * Shared chain transition handler used by both top controls and composer-level selector.
    */
   const handleChainModeChange = useCallback(
-    async (newMode: ChainType) => {
-      if (newMode === selectedChain) {
+    async (presetId: ChainPresetId) => {
+      if (presetId === selectedPresetId) {
         return;
       }
 
-      setSelectedChain(newMode);
+      setSelectedPresetId(presetId);
     },
-    [selectedChain, setSelectedChain]
+    [selectedPresetId, setSelectedPresetId]
   );
 
   const handleStopGenerating = useCallback(
@@ -528,7 +528,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
         const success = await chatUIState.editMessage(
           messageToEdit.id!,
           newMessage,
-          currentChain,
+          currentPresetId,
           effectiveIncludeActiveNote
         );
 
@@ -583,7 +583,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     [
       chatHistory,
       chatUIState,
-      currentChain,
+      currentPresetId,
       effectiveIncludeActiveNote,
       addMessage,
       chainManager,

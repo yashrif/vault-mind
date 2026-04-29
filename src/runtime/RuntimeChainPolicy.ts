@@ -1,4 +1,11 @@
-import { ChainType } from "@/chainFactory";
+import {
+  legacyChainIdForPresetId,
+  normalizeChainPresetId,
+  type ChainPresetInput,
+  type ChainPresetId,
+  type LegacyChainId,
+  type PromptProfile,
+} from "@/runtime/ChainPreset";
 
 export type PromptResolutionTarget = "default" | "telegram";
 export type RichContextPolicy = "standard" | "plus";
@@ -7,7 +14,9 @@ export type AutonomousToolPolicy = "settings_filtered" | "full_builtin";
 export type HistoryScope = "shared_repo" | "telegram_visible_thread";
 
 export interface RuntimeChainPolicy {
-  chainType: ChainType;
+  presetId: ChainPresetId;
+  promptProfile: PromptProfile;
+  legacyChainId?: LegacyChainId;
   promptTarget: PromptResolutionTarget;
   richContextPolicy: RichContextPolicy;
   manualToolPolicy: ManualToolPolicy;
@@ -18,34 +27,64 @@ export interface RuntimeChainPolicy {
 export const TELEGRAM_FORCED_MANUAL_TOOL_MARKERS = ["@vault", "@websearch", "@composer"] as const;
 
 /**
- * Resolve the runtime behavior policy for a chain.
- * UI helpers such as isAgentChain() remain presentation-only and should not be
+ * Resolve the runtime behavior policy for a preset.
+ * UI helpers remain presentation-only and should not be
  * used to drive runtime context, prompt, or tool behavior.
  */
-export function resolveRuntimeChainPolicy(chainType: ChainType): RuntimeChainPolicy {
-  switch (chainType) {
-    case ChainType.TELEGRAM_CHAIN:
+export function resolveRuntimeChainPolicy(presetId: ChainPresetInput): RuntimeChainPolicy {
+  const normalizedPresetId = normalizeChainPresetId(presetId);
+  const legacyChainId = legacyChainIdForPresetId(normalizedPresetId);
+
+  switch (normalizedPresetId) {
+    case "telegram":
       return {
-        chainType,
+        presetId: normalizedPresetId,
+        promptProfile: "telegram",
+        legacyChainId,
         promptTarget: "telegram",
         richContextPolicy: "plus",
         manualToolPolicy: "forced_virtual_markers",
         autonomousToolPolicy: "full_builtin",
         historyScope: "telegram_visible_thread",
       };
-    case ChainType.TOOL_CHAIN:
-    case ChainType.PROJECT_CHAIN:
+    case "agent":
       return {
-        chainType,
+        presetId: normalizedPresetId,
+        promptProfile: "agent",
+        legacyChainId,
         promptTarget: "default",
         richContextPolicy: "plus",
         manualToolPolicy: "ui_markers",
         autonomousToolPolicy: "settings_filtered",
         historyScope: "shared_repo",
       };
-    default:
+    case "project_agent":
       return {
-        chainType,
+        presetId: normalizedPresetId,
+        promptProfile: "project_agent",
+        legacyChainId,
+        promptTarget: "default",
+        richContextPolicy: "plus",
+        manualToolPolicy: "ui_markers",
+        autonomousToolPolicy: "settings_filtered",
+        historyScope: "shared_repo",
+      };
+    case "chat_rag":
+      return {
+        presetId: normalizedPresetId,
+        promptProfile: "chat_rag",
+        legacyChainId,
+        promptTarget: "default",
+        richContextPolicy: "plus",
+        manualToolPolicy: "ui_markers",
+        autonomousToolPolicy: "settings_filtered",
+        historyScope: "shared_repo",
+      };
+    case "chat":
+      return {
+        presetId: normalizedPresetId,
+        promptProfile: "chat",
+        legacyChainId,
         promptTarget: "default",
         richContextPolicy: "standard",
         manualToolPolicy: "ui_markers",

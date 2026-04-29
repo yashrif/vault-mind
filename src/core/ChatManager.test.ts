@@ -12,14 +12,6 @@ jest.mock("@/chatUtils", () => ({
   updateChatMemory: jest.fn(),
 }));
 
-jest.mock("@/chainFactory", () => ({
-  ChainType: {
-    LLM_CHAIN: "llm_chain",
-    TOOL_CHAIN: "Cortex_plus_chain",
-    PROJECT_CHAIN: "project_chain",
-  },
-}));
-
 jest.mock("./ChatPersistenceManager", () => ({
   ChatPersistenceManager: jest.fn().mockImplementation(() => ({
     saveChat: jest.fn().mockResolvedValue({ success: true, path: "/test/path.md" }),
@@ -28,7 +20,7 @@ jest.mock("./ChatPersistenceManager", () => ({
 
 jest.mock("@/aiParams", () => ({
   getCurrentProject: jest.fn().mockReturnValue(null),
-  getChainType: jest.fn().mockReturnValue("Cortex_plus_chain"),
+  getChainPresetId: jest.fn().mockReturnValue("agent"),
 }));
 
 jest.mock("@/LLMProviders/projectManager", () => {
@@ -67,7 +59,7 @@ jest.mock("@/services/webViewerService/webViewerServiceSingleton", () => ({
 import { ChatManager } from "./ChatManager";
 import { MessageRepository } from "./MessageRepository";
 import { ContextManager } from "./ContextManager";
-import { ChainType } from "@/chainFactory";
+import { LEGACY_CHAIN_IDS } from "@/runtime/ChainPreset";
 import { getWebViewerService } from "@/services/webViewerService/webViewerServiceSingleton";
 import { ChatMessage, MessageContext } from "@/types/message";
 import { TFile } from "obsidian";
@@ -175,7 +167,7 @@ describe("ChatManager", () => {
       mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
       mockMessageRepo.updateProcessedText.mockReturnValue(true);
 
-      const result = await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+      const result = await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
       expect(result).toBe("msg-1");
       expect(mockMessageRepo.addMessage).toHaveBeenCalledWith(
@@ -192,9 +184,9 @@ describe("ChatManager", () => {
         mockMessage,
         mockFileParserManager,
         mockPlugin.app.vault,
-        ChainType.LLM_CHAIN,
+        LEGACY_CHAIN_IDS.CHAT,
         expect.objectContaining({
-          chainType: ChainType.LLM_CHAIN,
+          legacyChainId: LEGACY_CHAIN_IDS.CHAT,
           promptTarget: "default",
         }),
         false,
@@ -207,6 +199,76 @@ describe("ChatManager", () => {
       expect(mockMessageRepo.updateProcessedText).toHaveBeenCalledWith(
         "msg-1",
         "Hello with context",
+        undefined
+      );
+    });
+
+    it("should prepare plain chat by preset ID", async () => {
+      const mockActiveFile = { path: "active.md", basename: "active" } as TFile;
+      const mockMessage = createMockMessage("msg-1", "Hello", USER_SENDER);
+      const context: MessageContext = {
+        notes: [],
+        urls: [],
+        selectedTextContexts: [],
+      };
+
+      mockPlugin.app.workspace.getActiveFile.mockReturnValue(mockActiveFile);
+      mockMessageRepo.addMessage.mockReturnValue("msg-1");
+      mockMessageRepo.getMessage.mockReturnValue(mockMessage);
+      mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
+      mockMessageRepo.updateProcessedText.mockReturnValue(true);
+
+      await chatManager.sendMessage("Hello", context, "chat");
+
+      expect(mockContextManager.processMessageContext).toHaveBeenCalledWith(
+        mockMessage,
+        mockFileParserManager,
+        mockPlugin.app.vault,
+        LEGACY_CHAIN_IDS.CHAT,
+        expect.objectContaining({
+          promptProfile: "chat",
+          promptTarget: "default",
+        }),
+        false,
+        mockActiveFile,
+        expect.anything(),
+        expect.any(String),
+        expect.any(Array),
+        undefined
+      );
+    });
+
+    it("should prepare chat RAG by preset ID", async () => {
+      const mockActiveFile = { path: "active.md", basename: "active" } as TFile;
+      const mockMessage = createMockMessage("msg-1", "Search my notes", USER_SENDER);
+      const context: MessageContext = {
+        notes: [],
+        urls: [],
+        selectedTextContexts: [],
+      };
+
+      mockPlugin.app.workspace.getActiveFile.mockReturnValue(mockActiveFile);
+      mockMessageRepo.addMessage.mockReturnValue("msg-1");
+      mockMessageRepo.getMessage.mockReturnValue(mockMessage);
+      mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
+      mockMessageRepo.updateProcessedText.mockReturnValue(true);
+
+      await chatManager.sendMessage("Search my notes", context, "chat_rag");
+
+      expect(mockContextManager.processMessageContext).toHaveBeenCalledWith(
+        mockMessage,
+        mockFileParserManager,
+        mockPlugin.app.vault,
+        LEGACY_CHAIN_IDS.CHAT_RAG,
+        expect.objectContaining({
+          promptProfile: "chat_rag",
+          richContextPolicy: "plus",
+        }),
+        false,
+        mockActiveFile,
+        expect.anything(),
+        expect.any(String),
+        expect.any(Array),
         undefined
       );
     });
@@ -226,7 +288,7 @@ describe("ChatManager", () => {
       mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
       mockMessageRepo.updateProcessedText.mockReturnValue(true);
 
-      await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN, true);
+      await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT, true);
 
       // Should have called addMessage with updated context that includes active note
       expect(mockMessageRepo.addMessage).toHaveBeenCalledWith(
@@ -257,7 +319,7 @@ describe("ChatManager", () => {
       mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
       mockMessageRepo.updateProcessedText.mockReturnValue(true);
 
-      const result = await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN, true);
+      const result = await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT, true);
 
       expect(result).toBe("msg-1");
       // Should not include active note in context
@@ -285,7 +347,7 @@ describe("ChatManager", () => {
       mockMessageRepo.getMessage.mockReturnValue(undefined); // Simulate failure
 
       await expect(
-        chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN)
+        chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT)
       ).rejects.toThrow();
     });
   });
@@ -300,7 +362,11 @@ describe("ChatManager", () => {
       mockMessageRepo.getMessage.mockReturnValue(mockMessage);
       mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-      const result = await chatManager.editMessage("msg-1", "Edited message", ChainType.LLM_CHAIN);
+      const result = await chatManager.editMessage(
+        "msg-1",
+        "Edited message",
+        LEGACY_CHAIN_IDS.CHAT
+      );
 
       expect(result).toBe(true);
       expect(mockMessageRepo.editMessage).toHaveBeenCalledWith("msg-1", "Edited message");
@@ -310,7 +376,11 @@ describe("ChatManager", () => {
     it("should return false when message edit fails", async () => {
       mockMessageRepo.editMessage.mockReturnValue(false);
 
-      const result = await chatManager.editMessage("msg-1", "Edited message", ChainType.LLM_CHAIN);
+      const result = await chatManager.editMessage(
+        "msg-1",
+        "Edited message",
+        LEGACY_CHAIN_IDS.CHAT
+      );
 
       expect(result).toBe(false);
       expect(mockContextManager.reprocessMessageContext).not.toHaveBeenCalled();
@@ -321,7 +391,11 @@ describe("ChatManager", () => {
         throw new Error("Edit failed");
       });
 
-      const result = await chatManager.editMessage("msg-1", "Edited message", ChainType.LLM_CHAIN);
+      const result = await chatManager.editMessage(
+        "msg-1",
+        "Edited message",
+        LEGACY_CHAIN_IDS.CHAT
+      );
 
       expect(result).toBe(false);
     });
@@ -598,7 +672,7 @@ describe("ChatManager", () => {
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
         mockMessageRepo.updateProcessedText.mockReturnValue(true);
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN, true);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT, true);
 
         // Verify that active note was added to context
         expect(mockMessageRepo.addMessage).toHaveBeenCalledWith(
@@ -646,7 +720,7 @@ describe("ChatManager", () => {
         const result = await chatManager.editMessage(
           "msg-1",
           "Edited message",
-          ChainType.LLM_CHAIN
+          LEGACY_CHAIN_IDS.CHAT
         );
 
         expect(result).toBe(true);
@@ -719,7 +793,7 @@ describe("ChatManager", () => {
       await chatManager.sendMessage(
         "Hello",
         context,
-        ChainType.LLM_CHAIN,
+        LEGACY_CHAIN_IDS.CHAT,
         false, // includeActiveNote
         true // includeActiveWebTab
       );
@@ -768,7 +842,7 @@ describe("ChatManager", () => {
 
       // includeActiveWebTab=false but marker in text should still trigger inclusion
       // Note: Raw URL is preserved (no normalization applied to stored URL)
-      await chatManager.sendMessage("Check {activeWebTab}", context, ChainType.LLM_CHAIN);
+      await chatManager.sendMessage("Check {activeWebTab}", context, LEGACY_CHAIN_IDS.CHAT);
 
       expect(mockMessageRepo.addMessage).toHaveBeenCalledWith(
         "Check {activeWebTab}",
@@ -816,7 +890,7 @@ describe("ChatManager", () => {
       mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
       mockMessageRepo.updateProcessedText.mockReturnValue(true);
 
-      await chatManager.sendMessage("Hello {activeWebTab}", context, ChainType.LLM_CHAIN);
+      await chatManager.sendMessage("Hello {activeWebTab}", context, LEGACY_CHAIN_IDS.CHAT);
 
       // Should merge and not duplicate
       const addMessageCall = mockMessageRepo.addMessage.mock.calls[0];
@@ -864,7 +938,7 @@ describe("ChatManager", () => {
       mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
       mockMessageRepo.updateProcessedText.mockReturnValue(true);
 
-      await chatManager.sendMessage("Hello {activeWebTab}", context, ChainType.LLM_CHAIN);
+      await chatManager.sendMessage("Hello {activeWebTab}", context, LEGACY_CHAIN_IDS.CHAT);
 
       const addMessageCall = mockMessageRepo.addMessage.mock.calls[0];
       const webTabs = addMessageCall[3]?.webTabs ?? [];
@@ -909,7 +983,7 @@ describe("ChatManager", () => {
       mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
       mockMessageRepo.updateProcessedText.mockReturnValue(true);
 
-      await chatManager.sendMessage("Hello {activeWebTab}", context, ChainType.LLM_CHAIN);
+      await chatManager.sendMessage("Hello {activeWebTab}", context, LEGACY_CHAIN_IDS.CHAT);
 
       const addMessageCall = mockMessageRepo.addMessage.mock.calls[0];
       const webTabs = addMessageCall[3]?.webTabs ?? [];
@@ -942,7 +1016,7 @@ describe("ChatManager", () => {
       mockMessageRepo.updateProcessedText.mockReturnValue(true);
 
       // Should not throw, should return sanitized tabs unchanged
-      await chatManager.sendMessage("Hello {activeWebTab}", context, ChainType.LLM_CHAIN);
+      await chatManager.sendMessage("Hello {activeWebTab}", context, LEGACY_CHAIN_IDS.CHAT);
 
       const addMessageCall = mockMessageRepo.addMessage.mock.calls[0];
       const webTabs = addMessageCall[3]?.webTabs ?? [];
@@ -973,7 +1047,7 @@ describe("ChatManager", () => {
       mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
       mockMessageRepo.updateProcessedText.mockReturnValue(true);
 
-      await chatManager.sendMessage("Hello {activeWebTab}", context, ChainType.LLM_CHAIN);
+      await chatManager.sendMessage("Hello {activeWebTab}", context, LEGACY_CHAIN_IDS.CHAT);
 
       const addMessageCall = mockMessageRepo.addMessage.mock.calls[0];
       const webTabs = addMessageCall[3]?.webTabs ?? [];
@@ -1007,7 +1081,7 @@ describe("ChatManager", () => {
       mockMessageRepo.updateProcessedText.mockReturnValue(true);
 
       // No marker in text, includeActiveWebTab defaults to false
-      await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+      await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
       const addMessageCall = mockMessageRepo.addMessage.mock.calls[0];
       const webTabs = addMessageCall[3]?.webTabs ?? [];
@@ -1051,7 +1125,7 @@ describe("ChatManager", () => {
       await chatManager.sendMessage(
         "Check {activeWebTab}",
         context,
-        ChainType.LLM_CHAIN,
+        LEGACY_CHAIN_IDS.CHAT,
         false,
         true // includeActiveWebTab=true
       );
@@ -1099,7 +1173,7 @@ describe("ChatManager", () => {
       mockMessageRepo.updateProcessedText.mockReturnValue(true);
 
       // Any selection (including note selection) should suppress active web tab
-      await chatManager.sendMessage("Check {activeWebTab}", context, ChainType.LLM_CHAIN);
+      await chatManager.sendMessage("Check {activeWebTab}", context, LEGACY_CHAIN_IDS.CHAT);
 
       const addMessageCall = mockMessageRepo.addMessage.mock.calls[0];
       const webTabs = addMessageCall[3]?.webTabs ?? [];
@@ -1144,7 +1218,7 @@ describe("ChatManager", () => {
       await chatManager.sendMessage(
         "Check {activeWebTab}",
         context,
-        ChainType.LLM_CHAIN,
+        LEGACY_CHAIN_IDS.CHAT,
         false,
         true
       );
@@ -1195,7 +1269,7 @@ describe("ChatManager", () => {
       await chatManager.sendMessage(
         "Check {activeWebTab}",
         context,
-        ChainType.LLM_CHAIN,
+        LEGACY_CHAIN_IDS.CHAT,
         false,
         true
       );
@@ -1245,7 +1319,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // processPrompt should NOT be called because no template tokens in user custom prompt
         expect(processPrompt).not.toHaveBeenCalled();
@@ -1283,7 +1357,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // processPrompt IS called (because prompt contains { and })
         expect(processPrompt).toHaveBeenCalled();
@@ -1319,7 +1393,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // Verify processPrompt was called with skipEmptyBraces: true
         expect(processPrompt).toHaveBeenCalledWith(
@@ -1362,7 +1436,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // Since processPrompt doesn't modify the JSON, trailing whitespace is trimmed by trimEnd()
         const systemPromptArg = mockContextManager.processMessageContext.mock.calls[0][8];
@@ -1389,7 +1463,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // processPrompt should NOT be called because templating is disabled
         expect(processPrompt).not.toHaveBeenCalled();
@@ -1408,7 +1482,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // processPrompt should NOT be called because no user custom prompt
         expect(processPrompt).not.toHaveBeenCalled();
@@ -1441,7 +1515,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // Verify processPrompt was called with correct arguments
         expect(processPrompt).toHaveBeenCalledWith(
@@ -1478,16 +1552,16 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // Verify contextManager received includedFiles
         expect(mockContextManager.processMessageContext).toHaveBeenCalledWith(
           mockMessage,
           mockFileParserManager,
           mockPlugin.app.vault,
-          ChainType.LLM_CHAIN,
+          LEGACY_CHAIN_IDS.CHAT,
           expect.objectContaining({
-            chainType: ChainType.LLM_CHAIN,
+            legacyChainId: LEGACY_CHAIN_IDS.CHAT,
             promptTarget: "default",
           }),
           false,
@@ -1528,7 +1602,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // Verify the system prompt passed to contextManager has injected content
         const systemPromptArg = mockContextManager.processMessageContext.mock.calls[0][8];
@@ -1562,7 +1636,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // Verify the $ characters are preserved exactly as-is
         const systemPromptArg = mockContextManager.processMessageContext.mock.calls[0][8];
@@ -1616,7 +1690,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // Verify $ characters from processed content are preserved
         const systemPromptArg = mockContextManager.processMessageContext.mock.calls[0][8];
@@ -1665,7 +1739,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // Verify processPrompt was only called with user custom prompt, not memory
         expect(processPrompt).toHaveBeenCalledTimes(1);
@@ -1708,9 +1782,9 @@ describe("ChatManager", () => {
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
         // Should not throw, should continue with original prompt
-        await expect(chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN)).resolves.toBe(
-          "msg-1"
-        );
+        await expect(
+          chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT)
+        ).resolves.toBe("msg-1");
 
         // Verify contextManager was still called (chat continues)
         expect(mockContextManager.processMessageContext).toHaveBeenCalled();
@@ -1742,7 +1816,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         // Verify the system prompt is the processed content (not wrapped in block)
         const systemPromptArg = mockContextManager.processMessageContext.mock.calls[0][8];
@@ -1775,7 +1849,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT);
 
         const systemPromptArg = mockContextManager.processMessageContext.mock.calls[0][8];
         // Should contain memory prefix
@@ -1813,9 +1887,9 @@ describe("ChatManager", () => {
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
         // Should not throw
-        await expect(chatManager.sendMessage("Hello", context, ChainType.LLM_CHAIN)).resolves.toBe(
-          "msg-1"
-        );
+        await expect(
+          chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.CHAT)
+        ).resolves.toBe("msg-1");
 
         // Verify contextManager was called (chat continues)
         expect(mockContextManager.processMessageContext).toHaveBeenCalled();
@@ -1868,7 +1942,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.PROJECT_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.PROJECT_AGENT);
 
         // Verify processPrompt was called for project system prompt
         expect(processPrompt).toHaveBeenCalledWith(
@@ -1935,7 +2009,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.PROJECT_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.PROJECT_AGENT);
 
         // Verify processPrompt was called twice (user + project)
         expect(processPrompt).toHaveBeenCalledTimes(2);
@@ -1974,7 +2048,7 @@ describe("ChatManager", () => {
         mockMessageRepo.getMessage.mockReturnValue(mockMessage);
         mockContextManager.processMessageContext.mockResolvedValue(createContextResult());
 
-        await chatManager.sendMessage("Hello", context, ChainType.PROJECT_CHAIN);
+        await chatManager.sendMessage("Hello", context, LEGACY_CHAIN_IDS.PROJECT_AGENT);
 
         const systemPromptArg = mockContextManager.processMessageContext.mock.calls[0][8];
         expect(systemPromptArg).toContain("<project_system_prompt>");

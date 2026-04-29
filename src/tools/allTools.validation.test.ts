@@ -1,6 +1,66 @@
 import { z } from "zod";
 import { StructuredTool } from "@langchain/core/tools";
 
+import { BUILTIN_TOOLS } from "@/tools/builtinTools";
+
+jest.mock("@/settings/model", () => ({
+  getSettings: jest.fn(() => ({ enableSavedMemory: true })),
+}));
+
+jest.mock("@/services/obsidianCli/ObsidianCliClient", () => ({
+  isDesktopRuntime: jest.fn(() => true),
+}));
+
+jest.mock("@/tools/ComposerTools", () => ({
+  editFileTool: { name: "editFile" },
+  writeFileTool: { name: "writeFile" },
+}));
+
+jest.mock("@/tools/FileTreeTools", () => ({
+  createGetFileTreeTool: jest.fn(() => ({ name: "getFileTree" })),
+}));
+
+jest.mock("@/tools/memoryTools", () => ({
+  updateMemoryTool: { name: "updateMemory" },
+}));
+
+jest.mock("@/tools/NoteTools", () => ({
+  readNoteTool: { name: "readNote" },
+}));
+
+jest.mock("@/tools/ObsidianCliDailyTools", () => ({
+  obsidianRandomReadTool: { name: "obsidianRandomRead" },
+}));
+
+jest.mock("@/tools/ObsidianCliTools", () => ({
+  obsidianBasesTool: { name: "obsidianBases" },
+  obsidianDailyNoteTool: { name: "obsidianDailyNote" },
+  obsidianLinksTool: { name: "obsidianLinks" },
+  obsidianPropertiesTool: { name: "obsidianProperties" },
+  obsidianTasksTool: { name: "obsidianTasks" },
+  obsidianTemplatesTool: { name: "obsidianTemplates" },
+}));
+
+jest.mock("@/tools/SearchTools", () => ({
+  localSearchTool: { name: "localSearch" },
+  webSearchTool: { name: "webSearch" },
+}));
+
+jest.mock("@/tools/TagTools", () => ({
+  createGetTagListTool: jest.fn(() => ({ name: "getTagList" })),
+}));
+
+jest.mock("@/tools/TimeTools", () => ({
+  convertTimeBetweenTimezonesTool: { name: "convertTimeBetweenTimezones" },
+  getCurrentTimeTool: { name: "getCurrentTime" },
+  getTimeInfoByEpochTool: { name: "getTimeInfoByEpoch" },
+  getTimeRangeMsTool: { name: "getTimeRangeMs" },
+}));
+
+jest.mock("@/tools/YoutubeTools", () => ({
+  youtubeTranscriptionTool: { name: "youtubeTranscription" },
+}));
+
 /**
  * Tool validation tests to ensure all tools follow best practices
  * and have properly typed schemas that match their handlers
@@ -99,6 +159,12 @@ describe("All Tools Validation", () => {
       const issues = validateToolMetadata(badTool);
       expect(issues).toContain("Tool must have a non-empty name");
       expect(issues).toContain("Tool must have a non-empty description");
+    });
+
+    test("Built-in tool metadata declares a valid access level", () => {
+      for (const { metadata } of BUILTIN_TOOLS) {
+        expect(["free", "costly", "write", "mixed"]).toContain(metadata.accessLevel);
+      }
     });
   });
 

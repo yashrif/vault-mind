@@ -51,6 +51,12 @@ export interface LegacyCommandSettings {
   showInContextMenu: boolean;
 }
 
+export type ToolDefaultSettings = {
+  chat: Record<string, boolean>;
+  agent: Record<string, boolean>;
+  telegram?: Record<string, boolean>;
+};
+
 export interface CortexSettings {
   userId: string;
   openAIApiKey: string;
@@ -130,7 +136,6 @@ export interface CortexSettings {
   inlineEditCommands: LegacyCommandSettings[] | undefined;
   projectList: Array<ProjectConfig>;
   passMarkdownImages: boolean;
-  enableAutonomousAgent: boolean;
   enableCustomPromptTemplating: boolean;
   /** Enable semantic search using Orama for meaning-based document retrieval */
   enableSemanticSearchV3: boolean;
@@ -160,7 +165,7 @@ export interface CortexSettings {
   /** Whether we have suggested built-in default commands to the user once. */
   suggestedDefaultCommands: boolean;
   autonomousAgentMaxIterations: number;
-  autonomousAgentEnabledToolIds: string[];
+  toolDefaults: ToolDefaultSettings;
   /** Default reasoning effort for models that support it (GPT-5, O-series, etc.) */
   reasoningEffort: "minimal" | "low" | "medium" | "high";
   /** Default verbosity level for models that support it */
@@ -405,7 +410,14 @@ export function sanitizeSettings(settings: CortexSettings): CortexSettings {
     "stt"
   );
 
-  const sanitizedSettings: CortexSettings = { ...settingsToSanitize };
+  const sanitizedSettings: CortexSettings = { ...DEFAULT_SETTINGS };
+  const sanitizedRecord = sanitizedSettings as unknown as Record<string, unknown>;
+  const settingsRecord = settingsToSanitize as unknown as Record<string, unknown>;
+  Object.keys(DEFAULT_SETTINGS).forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(settingsRecord, key)) {
+      sanitizedRecord[key] = settingsRecord[key];
+    }
+  });
 
   // Migration: Rename self-hosted search settings to self-host mode (v3.2.0+)
   if (
@@ -507,19 +519,34 @@ export function sanitizeSettings(settings: CortexSettings): CortexSettings {
     sanitizedSettings.autonomousAgentMaxIterations = autonomousAgentMaxIterations;
   }
 
-  // Ensure autonomousAgentEnabledToolIds is an array
-  if (!Array.isArray(sanitizedSettings.autonomousAgentEnabledToolIds)) {
-    sanitizedSettings.autonomousAgentEnabledToolIds =
-      DEFAULT_SETTINGS.autonomousAgentEnabledToolIds;
-  }
+  const savedToolDefaults = sanitizedSettings.toolDefaults;
+  const savedChatToolDefaults =
+    savedToolDefaults?.chat && typeof savedToolDefaults.chat === "object"
+      ? savedToolDefaults.chat
+      : {};
+  const savedAgentToolDefaults =
+    savedToolDefaults?.agent && typeof savedToolDefaults.agent === "object"
+      ? savedToolDefaults.agent
+      : {};
+  const savedTelegramToolDefaults =
+    savedToolDefaults?.telegram && typeof savedToolDefaults.telegram === "object"
+      ? savedToolDefaults.telegram
+      : {};
 
-  // Migration: rename legacy tool IDs to their new names
-  const toolIdRenames: Record<string, string> = {
-    writeToFile: "writeFile",
-    replaceInFile: "editFile",
+  sanitizedSettings.toolDefaults = {
+    chat: {
+      ...DEFAULT_SETTINGS.toolDefaults.chat,
+      ...savedChatToolDefaults,
+    },
+    agent: {
+      ...DEFAULT_SETTINGS.toolDefaults.agent,
+      ...savedAgentToolDefaults,
+    },
+    telegram: {
+      ...DEFAULT_SETTINGS.toolDefaults.telegram,
+      ...savedTelegramToolDefaults,
+    },
   };
-  sanitizedSettings.autonomousAgentEnabledToolIds =
-    sanitizedSettings.autonomousAgentEnabledToolIds.map((id) => toolIdRenames[id] ?? id);
 
   // Ensure memoryFolderName has a default value
   if (

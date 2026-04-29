@@ -5,7 +5,7 @@ Cortex for Obsidian is an AI-powered plugin that brings large language models (L
 ## What Can Cortex Do?
 
 - **Chat**: Have a conversation with an AI assistant
-- **Vault Q&A**: Ask questions and get answers grounded in your own notes
+- **Chat + RAG**: Ask questions and get answers grounded in your own notes
 - **Note editing**: Ask the AI to write or update your notes for you
 - **Semantic search**: Find notes by meaning, not just keywords
 - **Custom commands**: Run AI-powered prompts on selected text
@@ -55,9 +55,9 @@ Still on the **Basic** tab, use the **Default Chat Model** dropdown to select th
 Use the **Default Mode** dropdown to set which mode opens by default:
 
 - **Chat** — General conversation, good for most tasks
-- **Vault QA** — Ask questions answered from your notes
-- **Agent Mode** — Advanced mode with autonomous agent and tools
-- **Projects** — Focused workspaces (alpha feature)
+- **Chat + RAG** — Chat with vault retrieval enabled
+- **Agent Mode** — Advanced mode with tool use
+- **Project Agent** — Agent scoped to a focused workspace
 - **Telegram** — Telegram-integrated thread (desktop only; requires bot token and allowlisted chat IDs)
 
 Most users should start with **Chat** mode.
@@ -135,7 +135,7 @@ The amount of text the AI can consider at one time when generating a response. A
 A method of converting text into numbers that capture meaning. Embeddings let the AI find notes that are conceptually related, even if they don't share exact words.
 
 **RAG (Retrieval-Augmented Generation)**
-A technique that enhances AI responses by first searching for relevant notes, then generating an answer based on both your query and the retrieved content. This is how Vault QA works.
+A technique that enhances AI responses by first searching for relevant notes, then generating an answer based on both your query and the retrieved content. This is what the **Ask vault** toggle enables in Chat.
 
 **Vector Store / Index**
 A database that stores your notes as mathematical vectors (embeddings) so they can be searched by meaning. Think of it as a smart index that understands the context of your notes, not just their keywords.

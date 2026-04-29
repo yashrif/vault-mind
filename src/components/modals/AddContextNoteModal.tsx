@@ -1,13 +1,13 @@
 import { App, FuzzyMatch, TFile } from "obsidian";
+import { LEGACY_CHAIN_IDS, type LegacyChainId } from "@/runtime/ChainPreset";
 import { BaseNoteModal } from "./BaseNoteModal";
-import { ChainType } from "@/chainFactory";
 
 interface AddContextNoteModalProps {
   app: App;
   onNoteSelect: (note: TFile) => void;
   excludeNotePaths: string[];
   titleOnly?: boolean;
-  chainType?: ChainType;
+  legacyChainId?: LegacyChainId;
 }
 
 export class AddContextNoteModal extends BaseNoteModal<TFile> {
@@ -19,9 +19,9 @@ export class AddContextNoteModal extends BaseNoteModal<TFile> {
     onNoteSelect,
     excludeNotePaths,
     titleOnly = false,
-    chainType = ChainType.TOOL_CHAIN,
+    legacyChainId = LEGACY_CHAIN_IDS.AGENT,
   }: AddContextNoteModalProps) {
-    super(app, chainType);
+    super(app, legacyChainId);
     this.onNoteSelect = onNoteSelect;
     this.availableNotes = this.getOrderedNotes(excludeNotePaths);
     this.titleOnly = titleOnly;

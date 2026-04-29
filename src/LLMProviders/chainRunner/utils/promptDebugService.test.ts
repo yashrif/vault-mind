@@ -56,6 +56,7 @@ describe("promptDebugService", () => {
           displayName: "Vault Search",
           description: "Search",
           category: "search",
+          accessLevel: "costly",
         },
       ],
       userMessage: {

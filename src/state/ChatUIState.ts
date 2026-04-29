@@ -1,6 +1,6 @@
-import { ChainType } from "@/chainFactory";
 import { logInfo } from "@/logger";
 import { ChatManager } from "@/core/ChatManager";
+import type { ChainPresetInput } from "@/runtime/ChainPreset";
 import { ChatMessage, MessageContext } from "@/types/message";
 import { TFile } from "obsidian";
 
@@ -60,7 +60,7 @@ export class ChatUIState {
   async sendMessage(
     displayText: string,
     context: MessageContext,
-    chainType: ChainType,
+    preset: ChainPresetInput,
     includeActiveNote: boolean = false,
     includeActiveWebTab: boolean = false,
     content?: any[],
@@ -69,7 +69,7 @@ export class ChatUIState {
     const messageId = await this.chatManager.sendMessage(
       displayText,
       context,
-      chainType,
+      preset,
       includeActiveNote,
       includeActiveWebTab,
       content,
@@ -85,13 +85,13 @@ export class ChatUIState {
   async editMessage(
     messageId: string,
     newText: string,
-    chainType: ChainType,
+    preset: ChainPresetInput,
     includeActiveNote: boolean = false
   ): Promise<boolean> {
     const success = await this.chatManager.editMessage(
       messageId,
       newText,
-      chainType,
+      preset,
       includeActiveNote
     );
     if (success) {

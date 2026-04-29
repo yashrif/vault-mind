@@ -1,16 +1,16 @@
 import { App, FuzzySuggestModal, TFile } from "obsidian";
+import { LEGACY_CHAIN_IDS, type LegacyChainId } from "@/runtime/ChainPreset";
 import { isAllowedFileForChainContext } from "@/utils";
-import { ChainType } from "@/chainFactory";
 
 export abstract class BaseNoteModal<T> extends FuzzySuggestModal<T> {
   protected activeNote: TFile | null;
   protected availableNotes: T[];
-  protected chainType: ChainType;
+  protected legacyChainId: LegacyChainId;
 
-  constructor(app: App, chainType: ChainType = ChainType.TOOL_CHAIN) {
+  constructor(app: App, legacyChainId: LegacyChainId = LEGACY_CHAIN_IDS.AGENT) {
     super(app);
     this.activeNote = app.workspace.getActiveFile();
-    this.chainType = chainType;
+    this.legacyChainId = legacyChainId;
   }
 
   protected getOrderedNotes(excludeNotePaths: string[] = []): TFile[] {
@@ -21,7 +21,7 @@ export abstract class BaseNoteModal<T> extends FuzzySuggestModal<T> {
       .filter(
         (file): file is TFile =>
           file instanceof TFile &&
-          isAllowedFileForChainContext(file, this.chainType) &&
+          isAllowedFileForChainContext(file, this.legacyChainId) &&
           !excludeNotePaths.includes(file.path) &&
           file.path !== this.activeNote?.path
       );
@@ -29,7 +29,7 @@ export abstract class BaseNoteModal<T> extends FuzzySuggestModal<T> {
     // Get all other files that weren't recently opened
     const allFiles = this.app.vault
       .getFiles()
-      .filter((file) => isAllowedFileForChainContext(file, this.chainType));
+      .filter((file) => isAllowedFileForChainContext(file, this.legacyChainId));
 
     const otherFiles = allFiles.filter(
       (file) =>
@@ -40,7 +40,7 @@ export abstract class BaseNoteModal<T> extends FuzzySuggestModal<T> {
 
     // Combine active note (if exists and is allowed type) with recent files and other files
     const activeNoteArray =
-      this.activeNote && isAllowedFileForChainContext(this.activeNote, this.chainType)
+      this.activeNote && isAllowedFileForChainContext(this.activeNote, this.legacyChainId)
         ? [this.activeNote]
         : [];
     return [...activeNoteArray, ...recentFiles, ...otherFiles];

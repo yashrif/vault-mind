@@ -1,15 +1,14 @@
 import {
   FailedItem,
-  getChainType,
+  getChainPresetId,
   isProjectMode,
   ProjectConfig,
   setProjectLoading,
-  subscribeToChainTypeChange,
+  subscribeToChainPresetIdChange,
   subscribeToModelKeyChange,
   subscribeToProjectChange,
 } from "@/aiParams";
 import { ContextCache, ProjectContextCache } from "@/cache/projectContextCache";
-import { ChainType } from "@/chainFactory";
 import CortexView from "@/components/CortexView";
 import { CHAT_VIEWTYPE, VAULT_VECTOR_STORE_STRATEGY } from "@/constants";
 import { logError, logInfo, logWarn } from "@/logger";
@@ -51,16 +50,17 @@ export default class ProjectManager {
       await this.getCurrentChainManager().createChainWithNewModel();
     });
 
-    subscribeToChainTypeChange(async () => {
+    subscribeToChainPresetIdChange(async () => {
       // When switching from other modes to project mode, no need to update the chain.
       if (isProjectMode()) {
         return;
       }
       const settings = getSettings();
+      const presetId = getChainPresetId();
       const shouldAutoIndex =
         settings.enableSemanticSearchV3 &&
         settings.indexVaultToVectorStore === VAULT_VECTOR_STORE_STRATEGY.ON_MODE_SWITCH &&
-        (getChainType() === ChainType.VAULT_QA_CHAIN || getChainType() === ChainType.TOOL_CHAIN);
+        (presetId === "chat_rag" || presetId === "agent");
       await this.getCurrentChainManager().createChainWithNewModel({
         refreshIndex: shouldAutoIndex,
       });

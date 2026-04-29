@@ -1,5 +1,4 @@
-import { ChainType } from "@/chainFactory";
-import { useChainType, useProjectLoading, useProjectContextLoad } from "@/aiParams";
+import { useChainPresetId, useProjectLoading, useProjectContextLoad } from "@/aiParams";
 
 /**
  * Hook to calculate the project context status based on project loading state and context load state.
@@ -15,13 +14,13 @@ import { useChainType, useProjectLoading, useProjectContextLoad } from "@/aiPara
 export type ProjectContextStatus = "initial" | "loading" | "success" | "error";
 
 export function useProjectContextStatus(): ProjectContextStatus {
-  const [currentChain] = useChainType();
+  const [presetId] = useChainPresetId();
   const [isProjectLoading] = useProjectLoading();
   const [contextLoadState] = useProjectContextLoad();
 
   const contextStatus = (() => {
     // Only calculate status for project mode
-    if (currentChain !== ChainType.PROJECT_CHAIN) {
+    if (presetId !== "project_agent") {
       return "initial";
     }
 

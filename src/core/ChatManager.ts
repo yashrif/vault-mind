@@ -1,8 +1,13 @@
 import { getSettings } from "@/settings/model";
-import { ChainType } from "@/chainFactory";
-import { getChainType } from "@/aiParams";
+import { getChainPresetId } from "@/aiParams";
 import { logInfo, logWarn } from "@/logger";
 import { resolveRuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
+import {
+  legacyChainIdForPresetId,
+  normalizeChainPresetId,
+  type ChainPresetInput,
+  type LegacyChainId,
+} from "@/runtime/ChainPreset";
 import { ChatMessage, MessageContext, WebTabContext } from "@/types/message";
 import { FileParserManager } from "@/tools/FileParserManager";
 import ChainManager from "@/LLMProviders/chainManager";
@@ -34,6 +39,13 @@ export class ChatManager {
   private persistenceManager: ChatPersistenceManager;
   private onMessageCreatedCallback?: (messageId: string) => void;
   private messagePreparationService: MessagePreparationService;
+
+  /**
+   * Converts current preset IDs or older persisted values to the context-prep bridge ID.
+   */
+  private getLegacyChainId(presetId: ChainPresetInput): LegacyChainId {
+    return legacyChainIdForPresetId(normalizeChainPresetId(presetId));
+  }
 
   constructor(
     private messageRepo: MessageRepository,
@@ -184,7 +196,7 @@ export class ChatManager {
   async sendMessage(
     displayText: string,
     context: MessageContext,
-    chainType: ChainType,
+    preset: ChainPresetInput,
     includeActiveNote: boolean = false,
     includeActiveWebTab: boolean = false,
     content?: any[],
@@ -192,6 +204,8 @@ export class ChatManager {
   ): Promise<string> {
     try {
       logInfo(`[ChatManager] Sending message: "${displayText}"`);
+      const presetId = normalizeChainPresetId(preset);
+      const legacyChainId = this.getLegacyChainId(presetId);
 
       // Get active note
       const activeNote = this.plugin.app.workspace.getActiveFile();
@@ -238,12 +252,12 @@ export class ChatManager {
         throw new Error(`Failed to retrieve message ${messageId}`);
       }
 
-      const runtimePolicy = resolveRuntimeChainPolicy(chainType);
+      const runtimePolicy = resolveRuntimeChainPolicy(presetId);
       const { processedContent, contextEnvelope } =
         await this.messagePreparationService.prepareMessage({
           message,
           messageRepo: currentRepo,
-          chainType,
+          legacyChainId,
           vault: this.plugin.app.vault,
           runtimePolicy,
           includeActiveNote,
@@ -275,11 +289,13 @@ export class ChatManager {
   async editMessage(
     messageId: string,
     newText: string,
-    chainType: ChainType,
+    preset: ChainPresetInput,
     includeActiveNote: boolean = false
   ): Promise<boolean> {
     try {
       logInfo(`[ChatManager] Editing message ${messageId}: "${newText}"`);
+      const presetId = normalizeChainPresetId(preset);
+      const legacyChainId = this.getLegacyChainId(presetId);
 
       // Edit the message text only - context remains unchanged (see design note above)
       const currentRepo = this.getCurrentMessageRepo();
@@ -290,7 +306,7 @@ export class ChatManager {
 
       // Reprocess context for the edited message
       const activeNote = this.plugin.app.workspace.getActiveFile();
-      const runtimePolicy = resolveRuntimeChainPolicy(chainType);
+      const runtimePolicy = resolveRuntimeChainPolicy(presetId);
       const message = currentRepo.getMessage(messageId);
       if (!message) {
         return false;
@@ -299,7 +315,7 @@ export class ChatManager {
         await this.messagePreparationService.prepareMessage({
           message,
           messageRepo: currentRepo,
-          chainType,
+          legacyChainId,
           vault: this.plugin.app.vault,
           runtimePolicy,
           includeActiveNote,
@@ -380,7 +396,8 @@ export class ChatManager {
       // reprocess context before running the chain
       if (!llmMessage.contextEnvelope) {
         logInfo(`[ChatManager] Context envelope missing, reprocessing context for regeneration`);
-        const chainType = getChainType();
+        const presetId = getChainPresetId();
+        const legacyChainId = this.getLegacyChainId(presetId);
         const activeNote = this.plugin.app.workspace.getActiveFile();
         const messageToPrepare = currentRepo.getMessage(userMessage.id);
         if (!messageToPrepare) {
@@ -390,9 +407,9 @@ export class ChatManager {
           await this.messagePreparationService.prepareMessage({
             message: messageToPrepare,
             messageRepo: currentRepo,
-            chainType,
+            legacyChainId,
             vault: this.plugin.app.vault,
-            runtimePolicy: resolveRuntimeChainPolicy(chainType),
+            runtimePolicy: resolveRuntimeChainPolicy(presetId),
             includeActiveNote: false,
             activeNote,
           });
@@ -403,12 +420,17 @@ export class ChatManager {
 
       // Run the chain to regenerate the response
       const abortController = new AbortController();
+      const activePresetId = getChainPresetId();
       await this.chainManager.runChain(
         llmMessage,
         abortController,
         onUpdateCurrentMessage,
         onAddMessage,
-        { debug: getSettings().debug }
+        {
+          debug: getSettings().debug,
+          presetId: activePresetId,
+          runtimePolicy: resolveRuntimeChainPolicy(activePresetId),
+        }
       );
 
       logInfo(`[ChatManager] Successfully regenerated message ${messageId}`);

@@ -20,7 +20,7 @@ The header runs across the top of the chat panel and contains two groups of cont
 
 ### Left side: Mode selector
 
-The **mode/chain selector** on the left shows the current chat mode. Click it to switch between Chat, Agent, and Channels. See [Modes and Channels](#modes-and-channels) below for details.
+The **mode selector** on the left shows the current chat mode. Click it to switch between Chat, Agent, and Channels. See [Modes and Channels](#modes-and-channels) below for details.
 
 ### Right side: Toolbar icons
 
@@ -49,6 +49,12 @@ From left to right:
 
 The mode selector controls how Cortex responds and what tools it has access to.
 
+- **Chat**: conversational mode for general questions and note-aware context.
+- **Chat + RAG**: Chat with vault retrieval enabled. Cortex prefers searching your notes when your request needs vault context.
+- **Agent**: tool-using mode that can use read and write tools according to your settings.
+- **Project Agent**: Agent scoped to the selected project context.
+- **Telegram**: channel-specific behavior with isolated Telegram history and Telegram-safe formatting.
+
 ### Chat
 
 General-purpose conversation. Good for writing, brainstorming, summarizing, or any task where you want to talk to an AI. Your currently open note and selected text are automatically included as context.
@@ -60,7 +66,7 @@ The secondary control in Chat mode is a retrieval toggle:
 
 ### Agent
 
-The most powerful mode. Combines conversational chat with an autonomous agent that can search your vault and the web, read and edit notes, remember things across conversations, and use a growing set of tools automatically.
+The most powerful mode. Combines conversational chat with a tool-using agent that can search your vault and the web, read and edit notes, remember things across conversations, and use a growing set of tools automatically.
 
 The secondary control in Agent mode is a scope selector:
 
@@ -213,16 +219,15 @@ You can drag image or document files directly onto the chat panel. A full-panel 
 
 ## Tool Toggles
 
-When in Agent or Chat mode, tool toggle buttons appear to the left of the send button. On wider panels they show as individual icons; on narrow panels they collapse into a **⋯** dropdown menu.
+Chat uses the **General / Ask vault** retrieval toggle next to the mode selector. Agent and Project Agent show tool toggles to the left of the send button. On wider panels they show as individual icons; on narrow panels they collapse into a **⋯** dropdown menu.
 
-| Toggle           | Icon           | Description                                                                                                                                    |
-| ---------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Autonomous Agent | Brain          | Lets the agent decide which tools to use automatically. When on, the individual tool toggles below are disabled. Only available in Agent mode. |
-| Vault Search     | Database       | Searches your vault for relevant notes when responding.                                                                                        |
-| Web Search       | Globe          | Searches the web for up-to-date information.                                                                                                   |
-| Composer         | Sparkles + Pen | Enables the agent to propose and apply edits to your notes.                                                                                    |
+| Toggle       | Icon           | Description                                                 |
+| ------------ | -------------- | ----------------------------------------------------------- |
+| Vault Search | Database       | Searches your vault for relevant notes when responding.     |
+| Web Search   | Globe          | Searches the web for up-to-date information.                |
+| Composer     | Sparkles + Pen | Enables the agent to propose and apply edits to your notes. |
 
-Active toggles are highlighted. Vault Search, Web Search, and Composer are disabled when Autonomous Agent is on.
+Active toggles are highlighted. Project Agent follows the selected project's tool settings and overrides.
 
 ---
 

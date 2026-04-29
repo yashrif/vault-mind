@@ -8,7 +8,11 @@ import {
 } from "@/constants";
 import { getModelKeyFromModel } from "@/settings/model";
 import { sanitizeQaExclusions, sanitizeSettings } from "@/settings/model";
-import { getEffectiveUserPrompt, getSystemPrompt } from "@/system-prompts/systemPromptBuilder";
+import {
+  getEffectiveUserPrompt,
+  getPromptProfileInstructions,
+  getSystemPrompt,
+} from "@/system-prompts/systemPromptBuilder";
 import * as systemPromptsState from "@/system-prompts/state";
 import * as settingsModel from "@/settings/model";
 
@@ -191,18 +195,59 @@ describe("sanitizeSettings - telegramSystemPromptTitle", () => {
   });
 });
 
+describe("sanitizeSettings - toolDefaults", () => {
+  it("sanitizes toolDefaults when missing", () => {
+    const result = sanitizeSettings({} as any);
+
+    expect(result.toolDefaults.chat.webSearch).toBe(false);
+    expect(result.toolDefaults.chat.youtubeTranscription).toBe(false);
+    expect(result.toolDefaults.agent.localSearch).toBe(true);
+    expect(result.toolDefaults.agent.writeFile).toBe(true);
+  });
+
+  it("drops legacy autonomous-agent settings", () => {
+    const legacyEnableKey = ["enable", "Autonomous", "Agent"].join("");
+    const legacyToolIdsKey = ["autonomous", "Agent", "Enabled", "Tool", "Ids"].join("");
+
+    const result = sanitizeSettings({
+      [legacyEnableKey]: false,
+      [legacyToolIdsKey]: ["localSearch"],
+    } as any);
+
+    expect(legacyEnableKey in result).toBe(false);
+    expect(legacyToolIdsKey in result).toBe(false);
+  });
+});
+
 describe("getSystemPrompt", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("returns only builtin prompt when no user prompt and builtin not disabled", () => {
+  it("returns builtin prompt with chat profile instructions when no user prompt exists", () => {
     (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue("");
     (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(false);
 
     const result = getSystemPrompt();
 
-    expect(result).toBe(DEFAULT_SYSTEM_PROMPT);
+    expect(result).toBe(`${DEFAULT_SYSTEM_PROMPT}\n\n${getPromptProfileInstructions("chat")}`);
+  });
+
+  it("adds prompt profile instructions before user custom instructions", () => {
+    const userPrompt = "Always be concise and helpful.";
+    (systemPromptsState.getEffectiveSystemPromptContent as jest.Mock).mockReturnValue(userPrompt);
+    (systemPromptsState.getDisableBuiltinSystemPromptForTarget as jest.Mock).mockReturnValue(false);
+
+    const result = getSystemPrompt("default", "chat_rag");
+    const profileInstructions = getPromptProfileInstructions("chat_rag");
+
+    expect(result).toContain(profileInstructions);
+    expect(result.indexOf(profileInstructions)).toBeGreaterThan(
+      result.indexOf(DEFAULT_SYSTEM_PROMPT)
+    );
+    expect(result.indexOf(profileInstructions)).toBeLessThan(
+      result.indexOf("<user_custom_instructions>")
+    );
   });
 
   it("returns builtin prompt with user custom instructions when user prompt exists", () => {
@@ -212,7 +257,7 @@ describe("getSystemPrompt", () => {
 
     const result = getSystemPrompt();
 
-    expect(result).toBe(`${DEFAULT_SYSTEM_PROMPT}
+    expect(result).toBe(`${DEFAULT_SYSTEM_PROMPT}\n\n${getPromptProfileInstructions("chat")}
 <user_custom_instructions>
 ${userPrompt}
 </user_custom_instructions>`);

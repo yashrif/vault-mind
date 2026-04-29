@@ -1,9 +1,9 @@
 import { getSelectedTextContexts } from "@/aiParams";
-import { ChainType } from "@/chainFactory";
 import { logWarn, logInfo, logError } from "@/logger";
 import { escapeXml } from "@/LLMProviders/chainRunner/utils/xmlParsing";
 import { getWebViewerService } from "@/services/webViewerService/webViewerServiceSingleton";
 import { WebViewerTimeoutError } from "@/services/webViewerService/webViewerServiceTypes";
+import type { LegacyChainId } from "@/runtime/ChainPreset";
 import { RuntimeChainPolicy, resolveRuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { FileParserManager } from "@/tools/FileParserManager";
 import { normalizeUrlString } from "@/utils/urlNormalization";
@@ -243,8 +243,8 @@ export class ContextProcessor {
     note: TFile,
     vault: Vault,
     fileParserManager: FileParserManager,
-    chainType: ChainType,
-    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(chainType)
+    legacyChainId: LegacyChainId,
+    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(legacyChainId)
   ): Promise<string> {
     let content = await fileParserManager.parseFile(note, vault);
 
@@ -253,7 +253,7 @@ export class ContextProcessor {
       note,
       vault,
       fileParserManager,
-      chainType,
+      legacyChainId,
       runtimePolicy
     );
 
@@ -275,7 +275,7 @@ export class ContextProcessor {
    * @param sourceNote - The note containing this content (for relative link resolution)
    * @param vault - Obsidian vault instance
    * @param fileParserManager - Manager for parsing different file types
-   * @param chainType - Current chain type (affects feature availability)
+   * @param legacyChainId - Current legacy context bridge ID
    * @returns Content with top-level embeds replaced by structured blocks
    */
   private async processEmbeddedNotes(
@@ -283,8 +283,8 @@ export class ContextProcessor {
     sourceNote: TFile,
     vault: Vault,
     fileParserManager: FileParserManager,
-    chainType: ChainType,
-    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(chainType)
+    legacyChainId: LegacyChainId,
+    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(legacyChainId)
   ): Promise<string> {
     const embedRegex = /!\[\[([^\]]+)\]\]/g;
     let match: RegExpExecArray | null;
@@ -300,7 +300,7 @@ export class ContextProcessor {
         sourceNote,
         vault,
         fileParserManager,
-        chainType,
+        legacyChainId,
         runtimePolicy
       );
       result += replacement;
@@ -320,8 +320,8 @@ export class ContextProcessor {
     sourceNote: TFile,
     vault: Vault,
     fileParserManager: FileParserManager,
-    chainType: ChainType,
-    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(chainType)
+    legacyChainId: LegacyChainId,
+    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(legacyChainId)
   ): Promise<string> {
     const target = this.parseEmbeddedLinkTarget(rawTarget);
     if (!target) {
@@ -535,7 +535,7 @@ export class ContextProcessor {
    * @param contextNotes
    * @param includeActiveNote
    * @param activeNote
-   * @param currentChain
+   * @param legacyChainId
    * @returns The combined content string of the processed context notes.
    */
   async processContextNotes(
@@ -545,8 +545,8 @@ export class ContextProcessor {
     contextNotes: TFile[],
     includeActiveNote: boolean,
     activeNote: TFile | null,
-    currentChain: ChainType,
-    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(currentChain)
+    legacyChainId: LegacyChainId,
+    runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(legacyChainId)
   ): Promise<string> {
     let additionalContext = "";
 
@@ -570,7 +570,7 @@ export class ContextProcessor {
                 note,
                 vault,
                 fileParserManager,
-                currentChain,
+                legacyChainId,
                 runtimePolicy
               )
             : await fileParserManager.parseFile(note, vault);

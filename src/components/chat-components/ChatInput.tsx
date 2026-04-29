@@ -2,11 +2,10 @@ import {
   getCurrentProject,
   ProjectConfig,
   subscribeToProjectChange,
-  useChainType,
+  useChainPresetId,
   useModelKey,
   useProjectLoading,
 } from "@/aiParams";
-import { ChainType } from "@/chainFactory";
 import { AddFileModal } from "@/components/modals/AddFileModal";
 import { isImageFile } from "@/utils/fileContentExtractor";
 import { Button } from "@/components/ui/button";
@@ -14,14 +13,13 @@ import { ModelSelector } from "@/components/ui/ModelSelector";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChatToolControls } from "./ChatToolControls";
 import { ChainModeSelector } from "./ChainModeSelector";
-import { isAgentChain } from "@/utils";
 import {
   mergeWebTabContexts,
   normalizeUrlString,
   normalizeWebTabContext,
 } from "@/utils/urlNormalization";
 
-import { useSettingsValue } from "@/settings/model";
+import { isAgentPresetId, isRichContextPresetId, type ChainPresetId } from "@/runtime/ChainPreset";
 import { SelectedTextContext, WebTabContext } from "@/types/message";
 import { isAllowedFileForNoteContext } from "@/utils";
 import { CornerDownLeft, FileText, Image, Loader2, StopCircle, X } from "lucide-react";
@@ -67,7 +65,7 @@ interface ChatInputProps {
   showProgressCard: () => void;
   showIndexingCard?: () => void;
   showChainSelector?: boolean;
-  onChainChange?: (chainType: ChainType) => void | Promise<void>;
+  onChainChange?: (presetId: ChainPresetId) => void | Promise<void>;
 
   // Edit mode props
   editMode?: boolean;
@@ -122,9 +120,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const lexicalEditorRef = useRef<any>(null);
   const [currentModelKey, setCurrentModelKey] = useModelKey();
-  const [currentChain] = useChainType();
+  const [currentPresetId] = useChainPresetId();
   const [isProjectLoading] = useProjectLoading();
-  const settings = useSettingsValue();
   const [currentActiveNote, setCurrentActiveNote] = useState<TFile | null>(() => {
     const activeFile = app.workspace.getActiveFile();
     return isAllowedFileForNoteContext(activeFile) ? activeFile : null;
@@ -135,8 +132,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const [foldersFromPills, setFoldersFromPills] = useState<string[]>([]);
   const [toolsFromPills, setToolsFromPills] = useState<string[]>([]);
   const [webTabsFromPills, setWebTabsFromPills] = useState<WebTabContext[]>([]);
-  const isAgentMode = isAgentChain(currentChain);
-  const supportsRichContext = isAgentMode;
+  const isAgentMode = isAgentPresetId(currentPresetId);
+  const supportsRichContext = isRichContextPresetId(currentPresetId);
 
   // Merge badge-only contextWebTabs with pills-derived webTabsFromPills for display
   // Uses shared normalization policy from urlNormalization.ts
@@ -164,23 +161,16 @@ const ChatInput: React.FC<ChatInputProps> = ({
     });
   };
 
-  // Toggle states for vault, web search, composer, and autonomous agent
+  // Toggle states for explicit agent tool hints.
   const [vaultToggle, setVaultToggle] = useState(false);
   const [webToggle, setWebToggle] = useState(false);
   const [composerToggle, setComposerToggle] = useState(false);
-  const [autonomousAgentToggle, setAutonomousAgentToggle] = useState(
-    settings.enableAutonomousAgent
-  );
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const loadingMessages = [
     "Loading the project context...",
     "Processing context files...",
     "If you have many files in context, this can take a while...",
   ];
-
-  useEffect(() => {
-    setAutonomousAgentToggle(settings.enableAutonomousAgent);
-  }, [settings.enableAutonomousAgent]);
 
   useEffect(() => {
     setSelectedProject(getCurrentProject());
@@ -239,12 +229,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
       return;
     }
 
-    // Build tool calls based on toggle states
+    // Build explicit tool hints based on toggle states.
     const toolCalls: string[] = [];
     const canInjectToolCalls = supportsRichContext;
-    // Only add tool calls when autonomous agent is off
-    // When autonomous agent is on, it handles all tools internally
-    if (canInjectToolCalls && !autonomousAgentToggle) {
+    if (canInjectToolCalls) {
       const messageLower = inputMessage.toLowerCase();
 
       // Only add tools from buttons if they're not already in the message
@@ -296,7 +284,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   // Handle when tools are removed from pills (when pills are deleted in editor)
   const handleToolPillsRemoved = (removedTools: string[]) => {
-    if (!isAgentMode || autonomousAgentToggle) return;
+    if (!isAgentMode) return;
 
     // Update tool button states based on removed pills
     removedTools.forEach((tool) => {
@@ -317,7 +305,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   // Sync tool button states with tool pills
   useEffect(() => {
-    if (!isAgentMode || autonomousAgentToggle) return;
+    if (!isAgentMode) return;
 
     // Update button states based on current tool pills
     const hasVault = toolsFromPills.includes("@vault");
@@ -327,7 +315,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
     setVaultToggle(hasVault);
     setWebToggle(hasWeb);
     setComposerToggle(hasComposer);
-  }, [toolsFromPills, isAgentMode, autonomousAgentToggle]);
+  }, [toolsFromPills, isAgentMode]);
 
   // Handle when context notes are removed from the context menu
   // This should remove all corresponding pills from the editor
@@ -698,11 +686,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   // Handle tag selection from typeahead - auto-enable vault search
   const handleTagSelected = useCallback(() => {
-    if (isAgentMode && !autonomousAgentToggle && !vaultToggle) {
+    if (isAgentMode && !vaultToggle) {
       setVaultToggle(true);
       new Notice("Vault search enabled for tag query");
     }
-  }, [isAgentMode, autonomousAgentToggle, vaultToggle]);
+  }, [isAgentMode, vaultToggle]);
 
   return (
     <div
@@ -794,7 +782,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           disabled={isProjectLoading}
           isAgentMode={isAgentMode}
           currentActiveFile={currentActiveNote}
-          currentChain={currentChain}
+          presetId={currentPresetId}
         />
       </div>
 
@@ -846,9 +834,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 setWebToggle={setWebToggle}
                 composerToggle={composerToggle}
                 setComposerToggle={setComposerToggle}
-                autonomousAgentToggle={autonomousAgentToggle}
-                setAutonomousAgentToggle={setAutonomousAgentToggle}
-                currentChain={currentChain}
+                presetId={currentPresetId}
                 onVaultToggleOff={handleVaultToggleOff}
                 onWebToggleOff={handleWebToggleOff}
                 onComposerToggleOff={handleComposerToggleOff}

@@ -96,17 +96,6 @@ Array.prototype.contains = Array.prototype.includes;
 jest.setTimeout(120000);
 
 // Mock only the essential dependencies
-jest.mock("@/chainFactory", () => ({
-  ChainType: {
-    LLM_CHAIN: "llm_chain",
-    VAULT_QA_CHAIN: "vault_qa",
-    TOOL_CHAIN: "Cortex_plus",
-    PROJECT_CHAIN: "project",
-  },
-  default: jest.fn().mockImplementation(() => ({
-    instances: new Map(),
-  })),
-}));
 
 // Mock Obsidian - essential for tool initialization
 jest.mock("obsidian", () => ({
@@ -250,11 +239,13 @@ describe("Agent Prompt Integration Test - Direct Model Testing", () => {
       registry.clear(); // Clear any existing tools
       initializeBuiltinTools(mockApp.vault as any);
 
-      // Get available tools and filter to enabled ones
-      const { getSettings } = await import("@/settings/model");
-      const settings = getSettings();
-      const enabledToolIds = new Set(settings.autonomousAgentEnabledToolIds || []) as Set<string>;
-      availableTools = registry.getEnabledTools(enabledToolIds, !!mockApp.vault);
+      // Resolve available agent tools through the unified preset permissions.
+      const { resolveToolPermissions } = await import("@/core/ToolPermissions");
+      availableTools = resolveToolPermissions({
+        surface: "agent",
+        vault: mockApp.vault as any,
+        vaultAvailable: !!mockApp.vault,
+      });
     } catch (error) {
       console.error("❌ Error during Agent Prompt test setup:", error);
       throw error;

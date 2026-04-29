@@ -1,4 +1,4 @@
-import { ChainType, Document } from "@/chainFactory";
+import type { Document } from "@langchain/core/documents";
 import {
   ALLOWED_NOTE_CONTEXT_EXTENSIONS,
   ChatModelProviders,
@@ -15,11 +15,10 @@ import { CortexSettings } from "@/settings/model";
 import { ChatMessage } from "@/types/message";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { MemoryVariables } from "@langchain/core/memory";
-import { RunnableSequence } from "@langchain/core/runnables";
-import { BaseChain, RetrievalQAChain } from "@langchain/classic/chains";
 import moment from "moment";
 import { MarkdownView, Notice, TFile, Vault, normalizePath, requestUrl } from "obsidian";
 import { CustomModel } from "./aiParams";
+import { isAgentPresetId, type ChainPresetId, type LegacyChainId } from "@/runtime/ChainPreset";
 import { getApiKeyForProvider } from "@/utils/modelUtils";
 export { err2String } from "@/errorFormat";
 
@@ -249,37 +248,6 @@ export function getNotesFromTags(vault: Vault, tags: string[], noteFiles?: TFile
   return filesWithTag;
 }
 
-// TODO: Chain type conversion still needed for chain runner selection
-// This function is still used but the underlying chain infrastructure is deprecated
-export const stringToChainType = (chain: string): ChainType => {
-  switch (chain) {
-    case "llm_chain":
-      return ChainType.LLM_CHAIN;
-    case "vault_qa":
-      return ChainType.VAULT_QA_CHAIN;
-    case "Cortex_plus":
-      return ChainType.TOOL_CHAIN;
-    default:
-      throw new Error(`Unknown chain type: ${chain}`);
-  }
-};
-
-// TODO: These chain validation functions are deprecated
-// Remove after confirming chainManager no longer uses them
-export const isLLMChain = (chain: RunnableSequence): chain is RunnableSequence => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (chain as any).last?.modelName || (chain as any).last?.model;
-};
-
-export const isRetrievalQAChain = (chain: BaseChain): chain is RetrievalQAChain => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (chain as any).last?.retriever !== undefined;
-};
-
-export const isSupportedChain = (chain: RunnableSequence): chain is RunnableSequence => {
-  return isLLMChain(chain) || isRetrievalQAChain(chain);
-};
-
 // Returns the last N messages from the chat history,
 // last one being the newest ai message
 export const getChatContext = (chatHistory: ChatMessage[], contextSize: number) => {
@@ -402,12 +370,12 @@ export function isAllowedFileForNoteContext(file: TFile | null): boolean {
 }
 
 /**
- * Checks if a chain type supports agent features (tools, rich context, PDF/URL processing).
- * @param chainType The chain type to check
- * @returns true if this chain type supports agent features, false otherwise
+ * Checks if a preset supports agent-specific features.
+ * @param presetId The preset ID to check
+ * @returns true if this preset supports agent features, false otherwise
  */
-export function isAgentChain(chainType: ChainType): boolean {
-  return chainType === ChainType.TOOL_CHAIN || chainType === ChainType.PROJECT_CHAIN;
+export function isAgentPreset(presetId: ChainPresetId): boolean {
+  return isAgentPresetId(presetId);
 }
 
 /**
@@ -418,7 +386,10 @@ export function isAgentChain(chainType: ChainType): boolean {
  * @param file The file to check
  * @returns true if the file is a valid TFile, false otherwise
  */
-export function isAllowedFileForChainContext(file: TFile | null, _chainType: ChainType): boolean {
+export function isAllowedFileForChainContext(
+  file: TFile | null,
+  _legacyChainId: LegacyChainId
+): boolean {
   return !!file;
 }
 

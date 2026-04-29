@@ -5,13 +5,6 @@
  */
 
 // Minimal mocks to avoid deep dependency chains
-jest.mock("@/chainFactory", () => ({
-  ChainType: {
-    LLM_CHAIN: "llm_chain",
-    TOOL_CHAIN: "Cortex_plus_chain",
-    PROJECT_CHAIN: "project_chain",
-  },
-}));
 
 jest.mock("@/aiParams", () => ({
   getSelectedTextContexts: jest.fn().mockReturnValue([]),
@@ -72,7 +65,7 @@ jest.mock("@/commands/customCommandUtils", () => ({
 
 jest.mock("./ContextCompactor", () => ({}));
 
-import { ChainType } from "@/chainFactory";
+import { LEGACY_CHAIN_IDS } from "@/runtime/ChainPreset";
 import { ContextManager } from "./ContextManager";
 
 // ----- helpers -----
@@ -90,7 +83,7 @@ function makeChatMessage(overrides: Record<string, unknown> = {}) {
 
 function buildMinimalEnvelopeParams(attachedFilesContext: string) {
   return {
-    chainType: ChainType.LLM_CHAIN,
+    legacyChainId: LEGACY_CHAIN_IDS.CHAT,
     message: makeChatMessage(),
     systemPrompt: "",
     processedUserMessage: "Hello",

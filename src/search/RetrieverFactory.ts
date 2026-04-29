@@ -81,8 +81,8 @@ export interface DocumentRetriever {
 /**
  * Factory for creating retrievers based on current settings.
  * Centralizes the retriever selection logic to avoid duplication across:
- * - VaultQAChainRunner
- * - ToolChainRunner (via SearchTools)
+ * - chat RAG preset path
+ * - unified agent runner (via SearchTools)
  * - Any other components that need search
  *
  * Priority order:

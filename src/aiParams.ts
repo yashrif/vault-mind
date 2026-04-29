@@ -1,8 +1,13 @@
-import { ChainType } from "@/chainFactory";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 
 import { ModelCapability, ReasoningEffort, Verbosity } from "@/constants";
+import {
+  type ChainPresetId,
+  type InteractionMode,
+  type InteractionScope,
+  type RetrievalPolicy as ChainRetrievalPolicy,
+} from "@/runtime/ChainPreset";
 import { settingsAtom, settingsStore } from "@/settings/model";
 import { SelectedTextContext } from "@/types/message";
 import { atom, useAtom } from "jotai";
@@ -21,9 +26,9 @@ const modelKeyAtom = atom(
   }
 );
 
-export type Mode = "chat" | "agent";
-export type Scope = "global" | "project";
-export type RetrievalPolicy = "none" | "vault_auto";
+export type Mode = InteractionMode;
+export type Scope = InteractionScope;
+export type RetrievalPolicy = ChainRetrievalPolicy;
 
 const userModeAtom = atom<Mode | null>(null);
 const modeAtom = atom(
@@ -68,49 +73,44 @@ const retrievalPolicyAtom = atom(
 );
 
 /**
- * Maps the new (mode, scope, retrievalPolicy) axes to the internal ChainType
- * dispatch enum. TELEGRAM_CHAIN is not represented here — it is set as an
- * override by the Telegram pipeline via runChain options.
+ * Maps the visible interaction axes to the internal chain preset ID.
  */
-export function deriveChainType(
+export function deriveChainPresetId(
   mode: Mode,
   scope: Scope,
   retrievalPolicy: RetrievalPolicy
-): ChainType {
+): ChainPresetId {
   if (mode === "agent") {
-    return scope === "project" ? ChainType.PROJECT_CHAIN : ChainType.TOOL_CHAIN;
+    return scope === "project" ? "project_agent" : "agent";
   }
-  return retrievalPolicy === "vault_auto" ? ChainType.VAULT_QA_CHAIN : ChainType.LLM_CHAIN;
+  return retrievalPolicy === "vault_auto" ? "chat_rag" : "chat";
 }
 
 /**
- * Derived ChainType used for internal chain runner dispatch. Reads from the
- * three axis atoms; writes are decomposed back into axis updates so legacy
- * call sites (setChainType / useChainType) continue to function.
+ * Derived preset ID used by the unified chat and agent runner. Reads from the
+ * three axis atoms; writes are decomposed back into axis updates.
  */
-const chainTypeAtom = atom(
-  (get) => deriveChainType(get(modeAtom), get(scopeAtom), get(retrievalPolicyAtom)),
-  (get, set, newValue: ChainType) => {
+const chainPresetIdAtom = atom(
+  (get) => deriveChainPresetId(get(modeAtom), get(scopeAtom), get(retrievalPolicyAtom)),
+  (get, set, newValue: ChainPresetId) => {
     switch (newValue) {
-      case ChainType.LLM_CHAIN:
+      case "chat":
         set(userModeAtom, "chat");
         set(userRetrievalPolicyAtom, "none");
         return;
-      case ChainType.VAULT_QA_CHAIN:
+      case "chat_rag":
         set(userModeAtom, "chat");
         set(userRetrievalPolicyAtom, "vault_auto");
         return;
-      case ChainType.TOOL_CHAIN:
+      case "agent":
         set(userModeAtom, "agent");
         set(userScopeAtom, "global");
         return;
-      case ChainType.PROJECT_CHAIN:
+      case "project_agent":
         set(userModeAtom, "agent");
         set(userScopeAtom, "project");
         return;
-      case ChainType.TELEGRAM_CHAIN:
-        // TELEGRAM_CHAIN is an internal-only dispatch key set by the Telegram
-        // pipeline as a per-call override; it is never mapped to a UI axis.
+      case "telegram":
         return;
     }
   }
@@ -162,6 +162,12 @@ export const indexingProgressAtom = atom<IndexingProgressState>({
 
 const selectedTextContextsAtom = atom<SelectedTextContext[]>([]);
 
+export type ToolOverrideValue = "inherit" | boolean;
+
+export interface ProjectToolOverrides {
+  agent?: Record<string, ToolOverrideValue>;
+}
+
 export interface ProjectConfig {
   id: string;
   name: string;
@@ -178,6 +184,7 @@ export interface ProjectConfig {
     webUrls?: string;
     youtubeUrls?: string;
   };
+  toolOverrides?: ProjectToolOverrides;
   created: number;
   UsageTimestamps: number;
 }
@@ -288,20 +295,32 @@ export function useModelKey() {
   });
 }
 
-export function getChainType(): ChainType {
-  return settingsStore.get(chainTypeAtom);
+/**
+ * Gets the current chain preset ID derived from the visible interaction axes.
+ */
+export function getChainPresetId(): ChainPresetId {
+  return settingsStore.get(chainPresetIdAtom);
 }
 
-export function setChainType(chainType: ChainType) {
-  settingsStore.set(chainTypeAtom, chainType);
+/**
+ * Sets the current chain preset ID by decomposing it into visible axes.
+ */
+export function setChainPresetId(presetId: ChainPresetId) {
+  settingsStore.set(chainPresetIdAtom, presetId);
 }
 
-export function subscribeToChainTypeChange(callback: () => void): () => void {
-  return settingsStore.sub(chainTypeAtom, callback);
+/**
+ * Subscribes to chain preset ID changes.
+ */
+export function subscribeToChainPresetIdChange(callback: () => void): () => void {
+  return settingsStore.sub(chainPresetIdAtom, callback);
 }
 
-export function useChainType() {
-  return useAtom(chainTypeAtom, {
+/**
+ * Hook to get and set the chain preset ID from React components.
+ */
+export function useChainPresetId() {
+  return useAtom(chainPresetIdAtom, {
     store: settingsStore,
   });
 }

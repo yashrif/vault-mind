@@ -10,7 +10,7 @@ Cortex can search your vault to find relevant notes and answer questions grounde
 
 Lexical search finds notes that contain the exact words you used. It's fast, requires no setup, and works out of the box.
 
-- **Used in**: Vault QA (Basic) mode
+- **Used in**: Chat + RAG and Agent modes
 - **How it works**: Looks for your exact keywords in note titles and content
 - **Strengths**: Fast, precise, no embedding API calls needed
 - **Limitations**: Won't find notes that use different words to express the same idea
@@ -23,7 +23,7 @@ Lexical search finds notes that contain the exact words you used. It's fast, req
 
 Semantic search finds notes that are conceptually related, even if they don't share exact words.
 
-- **Used in**: Vault QA and Agent modes — but **disabled by default**. You must explicitly enable it.
+- **Used in**: Chat + RAG and Agent modes — but **disabled by default**. You must explicitly enable it.
 - **How it works**: Converts your notes into numerical vectors (using an embedding model), then finds notes whose vectors are closest to your query
 - **Strengths**: Finds notes by concept and meaning, great for "fuzzy" recall
 - **Cost**: Requires embedding API calls (costs money for paid embedding models)
@@ -41,11 +41,11 @@ The semantic search index stores the vector embeddings of your notes. Manage it 
 
 Controls when Cortex automatically updates the index:
 
-| Strategy           | When the index updates                                          |
-| ------------------ | --------------------------------------------------------------- |
-| **NEVER**          | Manual only — you must trigger indexing yourself                |
-| **ON STARTUP**     | Updates when Obsidian starts or the plugin reloads              |
-| **ON MODE SWITCH** | Updates when you switch to Vault QA or Agent mode (Recommended) |
+| Strategy           | When the index updates                                            |
+| ------------------ | ----------------------------------------------------------------- |
+| **NEVER**          | Manual only — you must trigger indexing yourself                  |
+| **ON STARTUP**     | Updates when Obsidian starts or the plugin reloads                |
+| **ON MODE SWITCH** | Updates when you switch to Chat + RAG or Agent mode (Recommended) |
 
 The default is **ON MODE SWITCH**.
 
@@ -154,7 +154,7 @@ The index is split into partitions to handle large vaults. You can control the n
 
 ## Inline Citations (Experimental)
 
-When enabled, AI responses in Vault QA include footnote-style citations pointing to the source notes used in the answer.
+When enabled, AI responses that use vault retrieval include footnote-style citations pointing to the source notes used in the answer.
 
 **Enable**: **Settings → Cortex → QA → Enable Inline Citations**
 
@@ -174,7 +174,7 @@ If you use Obsidian Sync, the vector index can be synced across devices. Enable 
 
 By default, Cortex **disables indexing on mobile** to save battery and data. The setting is in **Settings → Cortex → QA → Disable index on mobile** (on by default).
 
-On mobile, you can still use Vault QA with lexical search, but semantic search won't update automatically.
+On mobile, you can still use Chat + RAG with lexical search, but semantic search won't update automatically.
 
 ---
 

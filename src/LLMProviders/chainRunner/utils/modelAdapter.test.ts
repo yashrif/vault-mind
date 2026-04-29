@@ -11,6 +11,7 @@ describe("ModelAdapter", () => {
       displayName: `${id} Display`,
       description: `${id} description`,
       category: "custom",
+      accessLevel: "costly",
       customPromptInstructions: instructions,
     });
 

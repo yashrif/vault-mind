@@ -5,97 +5,80 @@ import { updateSetting, useSettingsValue } from "@/settings/model";
 import { ToolDefinition } from "@/tools/ToolRegistry";
 import { ToolRegistry } from "@/tools/ToolRegistry";
 
+/**
+ * Returns whether the tool should be configurable for Chat.
+ */
+function isChatConfigurableTool({ metadata }: ToolDefinition): boolean {
+  return metadata.accessLevel === "costly" && metadata.id !== "localSearch";
+}
+
 export const ToolSettingsSection: React.FC = () => {
   const settings = useSettingsValue();
   const registry = ToolRegistry.getInstance();
+  const toolDefaults = settings.toolDefaults;
 
-  const enabledToolIds = new Set(settings.autonomousAgentEnabledToolIds || []);
-
-  // Get configurable tools grouped by category
+  // Get configurable tools grouped by category.
   const toolsByCategory = registry.getToolsByCategory();
   const configurableTools = registry.getConfigurableTools();
+  const configurableToolIds = new Set(configurableTools.map((tool) => tool.metadata.id));
 
-  const handleToolToggle = (toolId: string, enabled: boolean) => {
-    const newEnabledIds = new Set(enabledToolIds);
-    if (enabled) {
-      newEnabledIds.add(toolId);
-    } else {
-      newEnabledIds.delete(toolId);
-    }
-
-    updateSetting("autonomousAgentEnabledToolIds", Array.from(newEnabledIds));
+  /**
+   * Updates the default state for a tool on the selected surface.
+   */
+  const handleToolToggle = (surface: "chat" | "agent", toolId: string, enabled: boolean) => {
+    updateSetting("toolDefaults", {
+      ...toolDefaults,
+      [surface]: {
+        ...toolDefaults[surface],
+        [toolId]: enabled,
+      },
+    });
   };
 
   /**
-   * Toggle all CLI tools on or off at once.
+   * Renders a switch row bound to one surface-specific tool default.
    */
-  const handleCliMasterToggle = (enabled: boolean, cliTools: ToolDefinition[]) => {
-    const newEnabledIds = new Set(enabledToolIds);
-    for (const { metadata } of cliTools) {
-      if (enabled) {
-        newEnabledIds.add(metadata.id);
-      } else {
-        newEnabledIds.delete(metadata.id);
-      }
-    }
-    updateSetting("autonomousAgentEnabledToolIds", Array.from(newEnabledIds));
+  const renderToolSwitch = (definition: ToolDefinition, surface: "chat" | "agent") => {
+    const { metadata } = definition;
+    return (
+      <SettingItem
+        key={`${surface}-${metadata.id}`}
+        type="switch"
+        title={metadata.displayName}
+        description={metadata.description}
+        checked={toolDefaults[surface]?.[metadata.id] === true}
+        onCheckedChange={(checked) => handleToolToggle(surface, metadata.id, checked)}
+      />
+    );
   };
 
-  const renderToolsByCategory = () => {
-    const categories = Array.from(toolsByCategory.entries()).filter(([_, tools]) =>
-      tools.some((t) => configurableTools.includes(t))
-    );
+  /**
+   * Renders costly read-only tools that Chat may use when enabled.
+   */
+  const renderChatCostlyTools = () => {
+    return configurableTools.filter(isChatConfigurableTool).map((tool) => {
+      return renderToolSwitch(tool, "chat");
+    });
+  };
 
+  /**
+   * Renders all configurable tools available to Agent surfaces.
+   */
+  const renderAgentTools = () => {
+    const categories = Array.from(toolsByCategory.entries()).filter(([_, tools]) =>
+      tools.some((tool) => configurableToolIds.has(tool.metadata.id))
+    );
     return categories.map(([category, tools]) => {
-      const configurableInCategory = tools.filter((t) => configurableTools.includes(t));
+      const configurableInCategory = tools.filter((tool) =>
+        configurableToolIds.has(tool.metadata.id)
+      );
 
       if (configurableInCategory.length === 0) return null;
 
-      // CLI tools get a special grouped section with a single master toggle
-      if (category === "cli") {
-        const allEnabled = configurableInCategory.every(({ metadata }) =>
-          enabledToolIds.has(metadata.id)
-        );
-
-        return (
-          <div
-            key="cli"
-            className="tw-flex tw-flex-col tw-gap-2 tw-rounded-md tw-border tw-border-border tw-pb-3"
-          >
-            <SettingItem
-              type="switch"
-              title="Obsidian CLI (Experimental)"
-              description="Enable direct vault operations via the Obsidian desktop CLI"
-              checked={allEnabled}
-              onCheckedChange={(checked) => handleCliMasterToggle(checked, configurableInCategory)}
-            />
-            <div className="tw-ml-4 tw-flex tw-flex-col tw-gap-1 tw-border-l tw-border-border tw-px-3">
-              {configurableInCategory.map(({ metadata }) => (
-                <div key={metadata.id} className="tw-flex tw-flex-col">
-                  <span className="tw-text-xs tw-font-medium tw-text-normal">
-                    {metadata.displayName}
-                  </span>
-                  <span className="tw-text-xs tw-text-muted">{metadata.description}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      }
-
       return (
-        <React.Fragment key={category}>
-          {configurableInCategory.map(({ metadata }) => (
-            <SettingItem
-              key={metadata.id}
-              type="switch"
-              title={metadata.displayName}
-              description={metadata.description}
-              checked={enabledToolIds.has(metadata.id)}
-              onCheckedChange={(checked) => handleToolToggle(metadata.id, checked)}
-            />
-          ))}
-        </React.Fragment>
+        <div key={category} className="tw-flex tw-flex-col tw-gap-2">
+          {configurableInCategory.map((definition) => renderToolSwitch(definition, "agent"))}
+        </div>
       );
     });
   };
@@ -116,12 +99,21 @@ export const ToolSettingsSection: React.FC = () => {
       />
 
       <div className="tw-mt-4 tw-rounded-lg tw-bg-secondary tw-p-4">
-        <div className="tw-mb-2 tw-text-sm tw-font-medium">Agent Accessible Tools</div>
+        <div className="tw-mb-2 tw-text-sm tw-font-medium">Chat Tools</div>
         <div className="tw-mb-4 tw-text-xs tw-text-muted">
-          Toggle which tools the autonomous agent can use
+          Optional read-only tools available to Chat. Vault Search is controlled by the RAG toggle.
         </div>
 
-        <div className="tw-flex tw-flex-col tw-gap-2">{renderToolsByCategory()}</div>
+        <div className="tw-flex tw-flex-col tw-gap-2">{renderChatCostlyTools()}</div>
+      </div>
+
+      <div className="tw-mt-4 tw-rounded-lg tw-bg-secondary tw-p-4">
+        <div className="tw-mb-2 tw-text-sm tw-font-medium">Agent Tools</div>
+        <div className="tw-mb-4 tw-text-xs tw-text-muted">
+          Tools available to Agent and Project Agent.
+        </div>
+
+        <div className="tw-flex tw-flex-col tw-gap-2">{renderAgentTools()}</div>
       </div>
     </>
   );

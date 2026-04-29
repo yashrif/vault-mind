@@ -103,6 +103,24 @@ const MAX_FALLBACK_SOURCES = 20;
 // ===== CENTRALIZED CITATION CONTROL =====
 
 /**
+ * Merges per-search citation sources into a turn-scoped accumulator, deduplicating by path or title.
+ * Preserves first-seen order; callers own the acc array and seen set.
+ */
+export function mergeIntoCitationSources(
+  acc: { title?: string; path?: string }[],
+  seen: Set<string>,
+  incoming: { title?: string; path?: string }[]
+): void {
+  for (const src of incoming) {
+    const key = src.path || src.title;
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      acc.push(src);
+    }
+  }
+}
+
+/**
  * Adds fallback sources to response if citations are missing.
  */
 export function addFallbackSources(
