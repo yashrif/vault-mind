@@ -9,13 +9,6 @@
 import { PromptContextEnvelope, PromptLayerSegment } from "@/context/PromptContextTypes";
 
 // Minimal mocks to avoid deep dependency chains
-jest.mock("@/chainFactory", () => ({
-  ChainType: {
-    LLM_CHAIN: "llm_chain",
-    TOOL_CHAIN: "Cortex_plus_chain",
-    PROJECT_CHAIN: "project_chain",
-  },
-}));
 
 jest.mock("@/aiParams", () => ({
   getSelectedTextContexts: jest.fn().mockReturnValue([]),

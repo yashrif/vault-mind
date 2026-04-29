@@ -1,7 +1,8 @@
 import { ABORT_REASON, AI_SENDER } from "@/constants";
 import { logError, logInfo } from "@/logger";
 import MemoryManager from "@/LLMProviders/memoryManager";
-import { RuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
+import type { ChainPreset } from "@/runtime/ChainPreset";
+import type { RuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { ChatMessage, ResponseMetadata } from "@/types/message";
 import { err2String, formatDateTime } from "@/utils";
 import ChainManager from "../chainManager";
@@ -18,6 +19,7 @@ export interface ChainRunner {
       updateLoading?: (loading: boolean) => void;
       memoryManager?: MemoryManager;
       runtimePolicy?: RuntimeChainPolicy;
+      preset?: ChainPreset;
     }
   ): Promise<string>;
 }
@@ -40,6 +42,7 @@ export abstract class BaseChainRunner implements ChainRunner {
       updateLoading?: (loading: boolean) => void;
       memoryManager?: MemoryManager;
       runtimePolicy?: RuntimeChainPolicy;
+      preset?: ChainPreset;
     }
   ): Promise<string>;
 

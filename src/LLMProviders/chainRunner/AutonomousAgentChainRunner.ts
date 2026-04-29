@@ -1,20 +1,25 @@
-import { AGENT_LOOP_TIMEOUT_MS } from "@/constants";
+import { AGENT_LOOP_TIMEOUT_MS, ModelCapability } from "@/constants";
 import { MessageContent } from "@/imageProcessing/imageProcessor";
 import { logError, logInfo, logWarn } from "@/logger";
 import { UserMemoryManager } from "@/memory/UserMemoryManager";
-import { getChainType } from "@/aiParams";
+import { getChainPresetId } from "@/aiParams";
 
 import { getSettings } from "@/settings/model";
 import { resolveRuntimeChainPolicy, RuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
-import { getSystemPromptWithMemory } from "@/system-prompts/systemPromptBuilder";
+import { ChainPreset, isAgentPresetId, TOOL_CAPABILITY_ERROR } from "@/runtime/ChainPreset";
+import {
+  getPromptProfileInstructions,
+  getSystemPromptWithMemory,
+} from "@/system-prompts/systemPromptBuilder";
+import { resolveToolPermissions } from "@/core/ToolPermissions";
 import { initializeBuiltinTools } from "@/tools/builtinTools";
 import { ToolRegistry } from "@/tools/ToolRegistry";
 import { StructuredTool } from "@langchain/core/tools";
 import { Runnable } from "@langchain/core/runnables";
 import { ChatMessage, ResponseMetadata, StreamingResult } from "@/types/message";
-import { err2String, withSuppressedTokenWarnings } from "@/utils";
+import { withSuppressedTokenWarnings } from "@/utils";
 import { AIMessage, BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { ToolChainRunner } from "./ToolChainRunner";
+import { BaseChainRunner } from "./BaseChainRunner";
 import { loadAndAddChatHistory } from "./utils/chatHistoryUtils";
 import { ModelAdapter, ModelAdapterFactory } from "./utils/modelAdapter";
 import { ThinkBlockStreamer } from "./utils/ThinkBlockStreamer";
@@ -47,6 +52,9 @@ import {
   summarizeToolResult,
 } from "./utils/AgentReasoningState";
 import { findDuplicateQuery, stripLeakedRoleLines } from "./utils/queryDeduplication";
+import { buildEnvelopeMultimodalContent, buildRunnerMessages } from "./utils/runnerMessages";
+import { streamRawModelResponse } from "./utils/rawStreaming";
+import { LocalSearchResultFormatter } from "./utils/localSearchResultFormatting";
 
 const AGENT_LOOP_GUIDANCE = `## Agent Behavior
 - You have a limited number of tool calls. Use them wisely.
@@ -116,7 +124,8 @@ interface ReActLoopResult {
   responseMetadata?: ResponseMetadata;
 }
 
-export class AutonomousAgentChainRunner extends ToolChainRunner {
+export class AutonomousAgentChainRunner extends BaseChainRunner {
+  private readonly localSearchResultFormatter = new LocalSearchResultFormatter();
   private llmFormattedMessages: string[] = []; // Track LLM-formatted messages for memory
   private lastDisplayedContent = ""; // Track the last content displayed to user for error recovery
 
@@ -128,7 +137,6 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
   private abortHandledByTimer = false; // Flag to prevent duplicate interrupted messages
 
   private getAvailableTools(runtimePolicy?: RuntimeChainPolicy): StructuredTool[] {
-    const settings = getSettings();
     const registry = ToolRegistry.getInstance();
 
     // Initialize tools if not already done
@@ -136,18 +144,21 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
       initializeBuiltinTools(this.chainManager.app?.vault);
     }
 
-    const effectivePolicy = runtimePolicy ?? resolveRuntimeChainPolicy(getChainType());
+    const effectivePolicy = runtimePolicy ?? resolveRuntimeChainPolicy(getChainPresetId());
     const vaultAvailable = !!this.chainManager.app?.vault;
+    const surface =
+      effectivePolicy.presetId === "telegram"
+        ? "telegram"
+        : isAgentPresetId(effectivePolicy.presetId)
+          ? "agent"
+          : "chat";
 
-    if (effectivePolicy.autonomousToolPolicy === "full_builtin") {
-      return registry
-        .getAllTools()
-        .filter((definition) => !definition.metadata.requiresVault || vaultAvailable)
-        .map((definition) => definition.tool);
-    }
-
-    const enabledToolIds = new Set(settings.autonomousAgentEnabledToolIds || []);
-    return registry.getEnabledTools(enabledToolIds, vaultAvailable);
+    return resolveToolPermissions({
+      surface,
+      ragEnabled: effectivePolicy.presetId === "chat_rag",
+      vault: this.chainManager.app?.vault,
+      vaultAvailable,
+    });
   }
 
   /**
@@ -314,7 +325,7 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
     _adapter?: ModelAdapter, // Unused, kept for backwards compatibility with tests
     userMemoryManager?: UserMemoryManager
   ): Promise<string> {
-    const basePrompt = await getSystemPromptWithMemory(userMemoryManager);
+    const basePrompt = await getSystemPromptWithMemory(userMemoryManager, "default", "agent");
 
     // Get tool metadata for custom instructions (semantic guidance only)
     const registry = ToolRegistry.getInstance();
@@ -375,6 +386,36 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
   }
 
   /**
+   * Processes localSearch results through the shared formatter.
+   */
+  protected processLocalSearchResult(
+    toolResult: { result: string; success: boolean },
+    timeExpression?: string
+  ): {
+    formattedForLLM: string;
+    formattedForDisplay: string;
+    sources: AgentSource[];
+  } {
+    return this.localSearchResultFormatter.process(toolResult, timeExpression);
+  }
+
+  /**
+   * Checks whether the active model declares a given capability.
+   */
+  protected hasCapability(chatModel: any, capability: ModelCapability): boolean {
+    const modelName = chatModel?.modelName || chatModel?.model || "";
+    const customModel = this.chainManager.chatModelManager.findModelByName?.(modelName);
+    return customModel?.capabilities?.includes(capability) ?? false;
+  }
+
+  /**
+   * Checks whether the active model can receive multimodal content.
+   */
+  protected isMultimodalModel(chatModel: any): boolean {
+    return this.hasCapability(chatModel, ModelCapability.VISION);
+  }
+
+  /**
    * Execute the autonomous agent workflow end-to-end using native tool calling.
    * Follows the ReAct pattern: Reasoning → Acting → Observation → Iteration
    */
@@ -390,10 +431,16 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
       updateLoadingMessage?: (message: string) => void;
       memoryManager?: import("@/LLMProviders/memoryManager").default;
       runtimePolicy?: import("@/runtime/RuntimeChainPolicy").RuntimeChainPolicy;
+      preset?: ChainPreset;
     }
   ): Promise<string> {
     this.llmFormattedMessages = [];
     this.lastDisplayedContent = "";
+
+    const preset = options.preset;
+    if (!preset) {
+      throw new Error("[Agent] Chain preset is required.");
+    }
 
     const chatModel = this.chainManager.chatModelManager.getChatModel();
     const adapter = ModelAdapterFactory.createAdapter(chatModel);
@@ -411,9 +458,35 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
 
     logInfo("[Agent] Using native tool calling with ReAct pattern");
 
+    if (preset.tools.length === 0) {
+      return this.runRawChatPreset(
+        userMessage,
+        abortController,
+        updateCurrentAiMessage,
+        addMessage,
+        options
+      );
+    }
+
+    if (typeof (chatModel as any).bindTools !== "function") {
+      updateCurrentAiMessage(TOOL_CAPABILITY_ERROR);
+      return this.handleResponse(
+        TOOL_CAPABILITY_ERROR,
+        userMessage,
+        abortController,
+        addMessage,
+        updateCurrentAiMessage,
+        undefined,
+        undefined,
+        undefined,
+        options.memoryManager
+      );
+    }
+
     const context = await this.prepareAgentConversation(
       userMessage,
       chatModel,
+      preset.tools,
       options.updateLoadingMessage,
       options.memoryManager,
       options.runtimePolicy
@@ -479,46 +552,72 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
         return "";
       }
 
-      logError("Autonomous agent failed, falling back to regular Plus mode:", error);
-      try {
-        const fallbackRunner = new ToolChainRunner(this.chainManager);
-        return await fallbackRunner.run(
-          userMessage,
-          abortController,
-          updateCurrentAiMessage,
-          addMessage,
-          options
-        );
-      } catch (fallbackError) {
-        logError("Fallback to regular Plus mode also failed:", fallbackError);
+      logError("Autonomous agent failed:", error);
 
-        if (this.lastDisplayedContent) {
-          thinkStreamer.processChunk({ content: this.lastDisplayedContent });
-        }
-
-        const autonomousAgentErrorMsg = err2String(error);
-        const fallbackErrorMsg =
-          `\n\nFallback to regular Plus mode also failed: ` + err2String(fallbackError);
-
-        await this.handleError(
-          new Error(autonomousAgentErrorMsg + fallbackErrorMsg),
-          thinkStreamer.processErrorChunk.bind(thinkStreamer)
-        );
-
-        const fullAIResponse = thinkStreamer.close().content;
-        return this.handleResponse(
-          fullAIResponse,
-          userMessage,
-          abortController,
-          addMessage,
-          updateCurrentAiMessage,
-          undefined,
-          fullAIResponse,
-          undefined,
-          options.memoryManager
-        );
+      if (this.lastDisplayedContent) {
+        thinkStreamer.processChunk({ content: this.lastDisplayedContent });
       }
+
+      await this.handleError(error, thinkStreamer.processErrorChunk.bind(thinkStreamer));
+
+      const fullAIResponse = thinkStreamer.close().content;
+      return this.handleResponse(
+        fullAIResponse,
+        userMessage,
+        abortController,
+        addMessage,
+        updateCurrentAiMessage,
+        undefined,
+        fullAIResponse,
+        undefined,
+        options.memoryManager
+      );
     }
+  }
+
+  /**
+   * Runs a zero-tool preset through direct model streaming without reasoning markers.
+   */
+  private async runRawChatPreset(
+    userMessage: ChatMessage,
+    abortController: AbortController,
+    updateCurrentAiMessage: (message: string) => void,
+    addMessage: (message: ChatMessage) => void,
+    options: {
+      memoryManager?: import("@/LLMProviders/memoryManager").default;
+    }
+  ): Promise<string> {
+    const chatModel = this.chainManager.chatModelManager.getChatModel();
+    const messages = await buildRunnerMessages({
+      userMessage,
+      memory: this.resolveMemory(options),
+      includeSystemMessage: true,
+      buildMultimodalContent: buildEnvelopeMultimodalContent,
+    });
+
+    const result = await streamRawModelResponse({
+      chatModel,
+      messages,
+      abortController,
+      updateCurrentAiMessage,
+      excludeThinking: !this.hasCapability(chatModel, ModelCapability.REASONING),
+      handleError: this.handleError.bind(this),
+    });
+
+    return this.handleResponse(
+      result.content,
+      userMessage,
+      abortController,
+      addMessage,
+      updateCurrentAiMessage,
+      undefined,
+      undefined,
+      {
+        wasTruncated: result.wasTruncated,
+        tokenUsage: result.tokenUsage ?? undefined,
+      },
+      this.resolveMemory(options)
+    );
   }
 
   /**
@@ -533,12 +632,12 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
   private async prepareAgentConversation(
     userMessage: ChatMessage,
     chatModel: any,
+    availableTools: StructuredTool[],
     _updateLoadingMessage?: (message: string) => void, // Unused, kept for potential future use
     memoryOverride?: import("@/LLMProviders/memoryManager").default,
     runtimePolicy?: RuntimeChainPolicy
   ): Promise<AgentRunContext> {
     const messages: BaseMessage[] = [];
-    const availableTools = this.getAvailableTools(runtimePolicy);
 
     // Bind tools to the model for native function calling
     const modelName = (chatModel as any).modelName || (chatModel as any).model || "unknown";
@@ -572,6 +671,7 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
 
     // Build system message: L1+L2 from envelope + tool guidelines from metadata
     const systemMessage = baseMessages.find((m) => m.role === "system");
+    const effectivePolicy = runtimePolicy ?? resolveRuntimeChainPolicy("agent");
 
     // Get tool metadata for semantic guidance (no XML format instructions needed)
     const registry = ToolRegistry.getInstance();
@@ -588,6 +688,7 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
     // Combine system message with tool guidelines and agent loop guidance
     const systemContent = [
       systemMessage?.content || "",
+      getPromptProfileInstructions(effectivePolicy.promptProfile),
       toolInstructions ? `\n## Tool Guidelines\n${toolInstructions}` : "",
       AGENT_LOOP_GUIDANCE,
     ]
@@ -620,7 +721,10 @@ export class AutonomousAgentChainRunner extends ToolChainRunner {
     if (userMessageContent) {
       const isMultimodal = this.isMultimodalModel(chatModel);
       const content: string | MessageContent[] = isMultimodal
-        ? await this.buildMessageContent(userMessageContent.content, userMessage)
+        ? (buildEnvelopeMultimodalContent(
+            userMessageContent.content,
+            userMessage
+          ) as MessageContent[])
         : userMessageContent.content;
       messages.push(new HumanMessage(content));
     }

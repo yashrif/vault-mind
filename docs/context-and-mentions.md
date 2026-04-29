@@ -141,16 +141,16 @@ When context items are added to your message, Cortex shows small pills or badges
 
 ## Context Behavior by Mode
 
-| Context Type    | Chat           | Vault QA     | Agent Mode   |
-| --------------- | -------------- | ------------ | ------------ |
-| Active note     | Yes (auto)     | Yes (auto)   | Yes (auto)   |
-| Selected text   | Yes (auto)     | Yes (auto)   | Yes (auto)   |
-| @note / @folder | Yes            | Yes          | Yes          |
-| @URL processing | Yes            | Yes          | Yes          |
-| @vault search   | Yes (explicit) | Auto         | Auto         |
-| @websearch      | No             | No           | Yes          |
-| Images (vision) | Yes            | Yes          | Yes          |
-| Active web tab  | Desktop only   | Desktop only | Desktop only |
+| Context Type    | Chat                     | Chat + RAG               | Agent / Project Agent |
+| --------------- | ------------------------ | ------------------------ | --------------------- |
+| Active note     | Yes (auto)               | Yes (auto)               | Yes (auto)            |
+| Selected text   | Yes (auto)               | Yes (auto)               | Yes (auto)            |
+| @note / @folder | Yes                      | Yes                      | Yes                   |
+| @URL processing | Yes                      | Yes                      | Yes                   |
+| @vault search   | Explicit only            | Automatic when helpful   | Auto or explicit      |
+| @websearch      | If enabled in Chat tools | If enabled in Chat tools | Yes                   |
+| Images (vision) | Yes                      | Yes                      | Yes                   |
+| Active web tab  | Desktop only             | Desktop only             | Desktop only          |
 
 ---
 

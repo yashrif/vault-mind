@@ -44,6 +44,7 @@ describe("toolExecution", () => {
           displayName: "Test Tool",
           description: "Test tool",
           category: "custom",
+          accessLevel: "costly",
         },
       });
 
@@ -98,7 +99,13 @@ describe("toolExecution", () => {
 
       ToolRegistry.getInstance().register({
         tool: writeFile,
-        metadata: { id: "writeFile", displayName: "Write", description: "", category: "file" },
+        metadata: {
+          id: "writeFile",
+          displayName: "Write",
+          description: "",
+          category: "file",
+          accessLevel: "write",
+        },
       });
 
       mockCallTool.mockResolvedValueOnce("File written");

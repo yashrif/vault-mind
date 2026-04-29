@@ -1,11 +1,9 @@
 // Main exports for chain runners
 export type { ChainRunner } from "./BaseChainRunner";
 export { BaseChainRunner } from "./BaseChainRunner";
-export { LLMChainRunner } from "./LLMChainRunner";
-export { VaultQAChainRunner } from "./VaultQAChainRunner";
-export { ToolChainRunner } from "./ToolChainRunner";
-export { ProjectChainRunner } from "./ProjectChainRunner";
 export { AutonomousAgentChainRunner } from "./AutonomousAgentChainRunner";
+export { buildChainPreset } from "./presets/ChainPresetResolver";
+export type { BuildChainPresetOptions } from "./presets/ChainPresetResolver";
 
 // Utility exports (for internal use or testing)
 export { ThinkBlockStreamer } from "./utils/ThinkBlockStreamer";

@@ -50,7 +50,7 @@ Before diving into specific fixes, try these steps first:
 
 ### "Cortex index does not exist"
 
-**Cause**: You're trying to use Vault QA or semantic search but the vault hasn't been indexed yet.
+**Cause**: You're trying to use Chat + RAG, Agent vault search, or semantic search but the vault hasn't been indexed yet.
 
 **Fix**:
 
@@ -259,12 +259,12 @@ With local models (Ollama or LM Studio), yes — once a model is downloaded, it 
 
 Lexical vault search works offline. Semantic search requires an embedding model, which may also need an internet connection unless you're using a local embedding provider.
 
-### What's the difference between Chat mode and Vault QA mode?
+### What does the RAG toggle do in Chat?
 
-- **Chat** — General conversation. The AI only has access to your current note and anything you explicitly mention.
-- **Vault QA** — Specifically designed for asking questions about your vault. Cortex automatically searches your notes for relevant content and includes it as context.
+- **General** — Regular Chat. The AI has access to your current note and anything you explicitly mention.
+- **Ask vault** — Chat with vault retrieval enabled. Cortex prefers searching your notes when your question needs vault context, but it can still answer simple greetings or generic questions without searching.
 
-For most question-and-answer tasks over your vault, use **Vault QA** or **Agent** mode.
+For most question-and-answer tasks over your vault, use **Ask vault** in Chat. Use **Agent** when the request also needs tools such as web search or note editing.
 
 ### Can I use multiple providers at the same time?
 
@@ -294,7 +294,7 @@ This folder is automatically excluded from vault search to avoid cluttering resu
 Click the mode selector at the top of the chat panel. Available modes:
 
 - Chat
-- Vault QA (Basic)
+- Chat + RAG
 - Agent Mode
 - Projects (alpha)
 - Telegram (alpha)

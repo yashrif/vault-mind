@@ -1,10 +1,10 @@
 import { AI_SENDER, LOADING_MESSAGES, USER_SENDER } from "@/constants";
 import type ChainManager from "@/LLMProviders/chainManager";
 import MemoryManager from "@/LLMProviders/memoryManager";
-import { ChainType } from "@/chainFactory";
 import { MessagePreparationService } from "@/core/MessagePreparationService";
 import { MessageRepository } from "@/core/MessageRepository";
 import { logError, logInfo, logWarn } from "@/logger";
+import { LEGACY_CHAIN_IDS, type ChainPresetId } from "@/runtime/ChainPreset";
 import { resolveRuntimeChainPolicy, RuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { FileParserManager } from "@/tools/FileParserManager";
 import { updateChatMemory } from "@/chatUtils";
@@ -31,13 +31,14 @@ interface PreparedTelegramPromptState {
 }
 
 const TELEGRAM_TYPING_HEARTBEAT_MS = 4000;
+const TELEGRAM_PRESET_ID: ChainPresetId = "telegram";
 
 /**
  * Orchestrates AI auto-replies for the Telegram channel.
  *
  * For every non-bot message (telegram or obsidian source), TelegramAgent:
  *   1. Rehydrates its own isolated MemoryManager from the visible Telegram thread.
- *   2. Runs the message through ChainManager.runChain, pinned to TELEGRAM_CHAIN.
+ *   2. Runs the message through ChainManager.runChain, pinned to the telegram preset.
  *   3. Routes delivery by message source:
  *      - telegram source: send to Telegram API and persist in TelegramStore.
  *      - obsidian source: persist locally only (no Telegram API send).
@@ -50,9 +51,8 @@ export class TelegramAgent {
 
   /** Isolated memory — not the shared UI singleton, preventing context bleed. */
   private readonly telegramMemory: MemoryManager = MemoryManager.createIsolated();
-  private readonly runtimePolicy: RuntimeChainPolicy = resolveRuntimeChainPolicy(
-    ChainType.TELEGRAM_CHAIN
-  );
+  private readonly runtimePolicy: RuntimeChainPolicy =
+    resolveRuntimeChainPolicy(TELEGRAM_PRESET_ID);
   private readonly fileParserManager: FileParserManager;
   private readonly messagePreparationService: MessagePreparationService;
   private readonly messageRepositoryAdapter = new TelegramMessageRepositoryAdapter();
@@ -117,7 +117,7 @@ export class TelegramAgent {
         await this.messagePreparationService.prepareMessage({
           message: currentMessage,
           messageRepo: repo,
-          chainType: ChainType.TELEGRAM_CHAIN,
+          legacyChainId: LEGACY_CHAIN_IDS.TELEGRAM,
           vault: this.chainManager.app?.vault ?? app.vault,
           runtimePolicy: this.runtimePolicy,
           includeActiveNote: false,
@@ -132,7 +132,7 @@ export class TelegramAgent {
         contextEnvelope,
       });
 
-      // Run chain pinned to TELEGRAM_CHAIN so UI chain-type changes don't affect it.
+      // Run chain pinned to the telegram preset so UI chain changes don't affect it.
       // Pass telegramMemory via options — no global mutation of chainManager.memoryManager.
       const abortController = new AbortController();
       let finalText = "";
@@ -190,7 +190,7 @@ export class TelegramAgent {
         },
         {
           debug: false,
-          chainType: ChainType.TELEGRAM_CHAIN,
+          presetId: TELEGRAM_PRESET_ID,
           memoryManager: this.telegramMemory,
           runtimePolicy: this.runtimePolicy,
         }

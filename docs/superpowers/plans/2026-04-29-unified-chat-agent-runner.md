@@ -62,7 +62,7 @@ Delete after callers are migrated:
 - Create: `src/aiParams.test.ts`
 - Modify: `src/aiParams.ts`
 
-- [ ] **Step 1: Write preset derivation tests**
+- [x] **Step 1: Write preset derivation tests**
 
 Add `src/aiParams.test.ts`:
 
@@ -88,7 +88,7 @@ describe("deriveChainPresetId", () => {
 });
 ```
 
-- [ ] **Step 2: Run the failing test**
+- [x] **Step 2: Run the failing test**
 
 Run:
 
@@ -98,7 +98,7 @@ npm test -- --runTestsByPath src/aiParams.test.ts --runInBand
 
 Expected: FAIL because `deriveChainPresetId` does not exist.
 
-- [ ] **Step 3: Add shared preset types**
+- [x] **Step 3: Add shared preset types**
 
 Add `src/runtime/ChainPreset.ts`:
 
@@ -126,7 +126,7 @@ export const TOOL_CAPABILITY_ERROR =
   "This model cannot use tools, so RAG or Agent mode will not work with it. Choose a model with tool-calling support or turn RAG off.";
 ```
 
-- [ ] **Step 4: Update `aiParams.ts` derivation**
+- [x] **Step 4: Update `aiParams.ts` derivation**
 
 In `src/aiParams.ts`, remove `ChainType` imports and replace the derivation section with:
 
@@ -201,7 +201,7 @@ export function useChainPresetId() {
 }
 ```
 
-- [ ] **Step 5: Run the focused test**
+- [x] **Step 5: Run the focused test**
 
 Run:
 
@@ -212,6 +212,8 @@ npm test -- --runTestsByPath src/aiParams.test.ts --runInBand
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
+
+Execution note: deferred in inline workspace execution; no commit created for this slice.
 
 Run:
 
@@ -228,7 +230,7 @@ git commit -m "refactor: add chain preset state"
 - Modify: `src/runtime/RuntimeChainPolicy.test.ts`
 - Modify later callers that compile against `RuntimeChainPolicy`
 
-- [ ] **Step 1: Update runtime policy tests**
+- [x] **Step 1: Update runtime policy tests**
 
 Replace the first two tests in `src/runtime/RuntimeChainPolicy.test.ts` with:
 
@@ -266,7 +268,7 @@ describe("RuntimeChainPolicy", () => {
 
 Keep the existing virtual-marker injection test.
 
-- [ ] **Step 2: Run the failing policy test**
+- [x] **Step 2: Run the failing policy test**
 
 Run:
 
@@ -276,7 +278,7 @@ npm test -- --runTestsByPath src/runtime/RuntimeChainPolicy.test.ts --runInBand
 
 Expected: FAIL because the resolver still accepts `ChainType` and does not return `promptProfile`.
 
-- [ ] **Step 3: Update `RuntimeChainPolicy.ts`**
+- [x] **Step 3: Update `RuntimeChainPolicy.ts`**
 
 Replace the `ChainType` import and policy interface with:
 
@@ -359,7 +361,7 @@ export function resolveRuntimeChainPolicy(presetId: ChainPresetId): RuntimeChain
 }
 ```
 
-- [ ] **Step 4: Run the focused policy test**
+- [x] **Step 4: Run the focused policy test**
 
 Run:
 
@@ -370,6 +372,8 @@ npm test -- --runTestsByPath src/runtime/RuntimeChainPolicy.test.ts --runInBand
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
+
+Execution note: deferred in inline workspace execution; no commit created for this slice.
 
 Run:
 
@@ -388,7 +392,7 @@ git commit -m "refactor: resolve runtime policy by preset"
 - Modify: `src/constants.ts`
 - Modify: `src/settings/model.test.ts`
 
-- [ ] **Step 1: Write settings and metadata tests**
+- [x] **Step 1: Write settings and metadata tests**
 
 Add tests to `src/settings/model.test.ts`:
 
@@ -409,7 +413,7 @@ Add a metadata validation check to `src/tools/allTools.validation.test.ts`:
 expect(["free", "costly", "write", "mixed"]).toContain(metadata.accessLevel);
 ```
 
-- [ ] **Step 2: Run failing tests**
+- [x] **Step 2: Run failing tests**
 
 Run:
 
@@ -419,7 +423,7 @@ npm test -- --runTestsByPath src/settings/model.test.ts src/tools/allTools.valid
 
 Expected: FAIL because `toolDefaults` and `metadata.accessLevel` do not exist.
 
-- [ ] **Step 3: Extend `ToolMetadata`**
+- [x] **Step 3: Extend `ToolMetadata`**
 
 In `src/tools/ToolRegistry.ts`, add:
 
@@ -467,7 +471,7 @@ getConfigurableTools(): ToolDefinition[] {
 }
 ```
 
-- [ ] **Step 4: Add access metadata to built-in tools**
+- [x] **Step 4: Add access metadata to built-in tools**
 
 In `src/tools/builtinTools.ts`, set:
 
@@ -510,7 +514,7 @@ metadata: {
 }
 ```
 
-- [ ] **Step 5: Add settings defaults**
+- [x] **Step 5: Add settings defaults**
 
 In `src/settings/model.ts`, add types near `CortexSettings`:
 
@@ -581,7 +585,7 @@ sanitizedSettings.toolDefaults = {
 
 Remove the legacy `autonomousAgentEnabledToolIds` rename block.
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run:
 
@@ -592,6 +596,8 @@ npm test -- --runTestsByPath src/settings/model.test.ts src/tools/allTools.valid
 Expected: PASS.
 
 - [ ] **Step 7: Commit**
+
+Execution note: deferred in inline workspace execution; no commit created for this slice.
 
 Run:
 
@@ -608,7 +614,7 @@ git commit -m "refactor: add tool access metadata"
 - Create: `src/core/ToolPermissions.test.ts`
 - Modify: `src/aiParams.ts` project config type
 
-- [ ] **Step 1: Write permission tests**
+- [x] **Step 1: Write permission tests**
 
 Add `src/core/ToolPermissions.test.ts`:
 
@@ -728,7 +734,7 @@ describe("resolveToolPermissions", () => {
 });
 ```
 
-- [ ] **Step 2: Run the failing permission test**
+- [x] **Step 2: Run the failing permission test**
 
 Run:
 
@@ -738,7 +744,7 @@ npm test -- --runTestsByPath src/core/ToolPermissions.test.ts --runInBand
 
 Expected: FAIL because `ToolPermissions.ts` does not exist.
 
-- [ ] **Step 3: Add project override type**
+- [x] **Step 3: Add project override type**
 
 In `src/aiParams.ts`, add:
 
@@ -756,7 +762,7 @@ Add to `ProjectConfig`:
 toolOverrides?: ProjectToolOverrides;
 ```
 
-- [ ] **Step 4: Implement `ToolPermissions.ts`**
+- [x] **Step 4: Implement `ToolPermissions.ts`**
 
 Add:
 
@@ -850,7 +856,7 @@ export function resolveToolPermissions(context: ToolPermissionContext): Structur
 }
 ```
 
-- [ ] **Step 5: Run focused permission tests**
+- [x] **Step 5: Run focused permission tests**
 
 Run:
 
@@ -861,6 +867,8 @@ npm test -- --runTestsByPath src/core/ToolPermissions.test.ts --runInBand
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
+
+Execution note: deferred in inline workspace execution; no commit created for this slice.
 
 Run:
 
@@ -877,7 +885,7 @@ git commit -m "feat: resolve tools by preset permissions"
 - Create: `src/LLMProviders/chainRunner/presets/ChainPresetResolver.test.ts`
 - Modify: `src/LLMProviders/chainRunner/index.ts`
 
-- [ ] **Step 1: Write preset resolver tests**
+- [x] **Step 1: Write preset resolver tests**
 
 Add `src/LLMProviders/chainRunner/presets/ChainPresetResolver.test.ts`:
 
@@ -923,7 +931,7 @@ describe("buildChainPreset", () => {
 });
 ```
 
-- [ ] **Step 2: Run the failing preset test**
+- [x] **Step 2: Run the failing preset test**
 
 Run:
 
@@ -933,7 +941,7 @@ npm test -- --runTestsByPath src/LLMProviders/chainRunner/presets/ChainPresetRes
 
 Expected: FAIL because the resolver does not exist.
 
-- [ ] **Step 3: Implement preset resolver**
+- [x] **Step 3: Implement preset resolver**
 
 Add:
 
@@ -981,7 +989,7 @@ export function buildChainPreset(options: BuildChainPresetOptions): ChainPreset 
 }
 ```
 
-- [ ] **Step 4: Export the resolver**
+- [x] **Step 4: Export the resolver**
 
 In `src/LLMProviders/chainRunner/index.ts`, add:
 
@@ -990,7 +998,7 @@ export { buildChainPreset } from "./presets/ChainPresetResolver";
 export type { BuildChainPresetOptions } from "./presets/ChainPresetResolver";
 ```
 
-- [ ] **Step 5: Run focused preset tests**
+- [x] **Step 5: Run focused preset tests**
 
 Run:
 
@@ -1001,6 +1009,8 @@ npm test -- --runTestsByPath src/LLMProviders/chainRunner/presets/ChainPresetRes
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
+
+Execution note: deferred in inline workspace execution; no commit created for this slice.
 
 Run:
 
@@ -1021,7 +1031,7 @@ git commit -m "feat: build chain presets"
 - Modify: `src/LLMProviders/chainRunner/ToolChainRunner.ts`
 - Modify: existing runner tests
 
-- [ ] **Step 1: Add utility tests by moving existing behavior assertions**
+- [x] **Step 1: Add utility tests by moving existing behavior assertions**
 
 Move or add focused tests that verify:
 
@@ -1040,7 +1050,7 @@ expect(result.sources[0].path).toBe("note.md");
 
 Use exact fixtures from existing `LLMChainRunner.test.ts` and `AutonomousAgentChainRunner.test.ts` where available so behavior is preserved before refactoring.
 
-- [ ] **Step 2: Run the utility tests and confirm they fail**
+- [x] **Step 2: Run the utility tests and confirm they fail**
 
 Run:
 
@@ -1050,7 +1060,7 @@ npm test -- --runTestsByPath src/LLMProviders/chainRunner/LLMChainRunner.test.ts
 
 Expected: existing tests still pass before extraction. New utility test paths fail until files are created.
 
-- [ ] **Step 3: Extract envelope message assembly**
+- [x] **Step 3: Extract envelope message assembly**
 
 Create `runnerMessages.ts` with functions copied from `LLMChainRunner.constructMessages()` and the multimodal helpers in `ToolChainRunner`:
 
@@ -1108,7 +1118,7 @@ export async function buildRunnerMessages(
 }
 ```
 
-- [ ] **Step 4: Extract raw streaming**
+- [x] **Step 4: Extract raw streaming**
 
 Create `rawStreaming.ts`:
 
@@ -1149,7 +1159,7 @@ export async function streamRawModelResponse(
 }
 ```
 
-- [ ] **Step 5: Extract local-search formatting**
+- [x] **Step 5: Extract local-search formatting**
 
 Move `prepareLocalSearchResult`, `processLocalSearchResult`, `getTimeExpression`, and `lastCitationSources` support from `ToolChainRunner.ts` into `localSearchResultFormatting.ts` as a small class:
 
@@ -1167,11 +1177,11 @@ export class LocalSearchResultFormatter {
 }
 ```
 
-- [ ] **Step 6: Use extracted utilities without changing behavior**
+- [x] **Step 6: Use extracted utilities without changing behavior**
 
 Update `LLMChainRunner.ts` and `ToolChainRunner.ts` to call the new utilities while keeping their public behavior intact. This keeps extraction verifiable before deleting those files.
 
-- [ ] **Step 7: Run focused runner tests**
+- [x] **Step 7: Run focused runner tests**
 
 Run:
 
@@ -1182,6 +1192,8 @@ npm test -- --runTestsByPath src/LLMProviders/chainRunner/LLMChainRunner.test.ts
 Expected: PASS.
 
 - [ ] **Step 8: Commit**
+
+Execution note: deferred in inline workspace execution; no commit created for this slice.
 
 Run:
 
@@ -1198,7 +1210,7 @@ git commit -m "refactor: extract shared runner utilities"
 - Modify: `src/LLMProviders/chainRunner/AutonomousAgentChainRunner.ts`
 - Modify: `src/LLMProviders/chainRunner/AutonomousAgentChainRunner.test.ts`
 
-- [ ] **Step 1: Update runner contract**
+- [x] **Step 1: Update runner contract**
 
 In `BaseChainRunner.ts`, add `preset?: ChainPreset` to `ChainRunner.run()` options:
 
@@ -1215,7 +1227,7 @@ options: {
 }
 ```
 
-- [ ] **Step 2: Add single-runner tests**
+- [x] **Step 2: Add single-runner tests**
 
 In `AutonomousAgentChainRunner.test.ts`, add tests:
 
@@ -1262,7 +1274,7 @@ it("returns the friendly tool capability error when tools are required but bindT
 });
 ```
 
-- [ ] **Step 3: Run failing single-runner tests**
+- [x] **Step 3: Run failing single-runner tests**
 
 Run:
 
@@ -1272,7 +1284,7 @@ npm test -- --runTestsByPath src/LLMProviders/chainRunner/AutonomousAgentChainRu
 
 Expected: FAIL because the runner still computes tools internally and extends `ToolChainRunner`.
 
-- [ ] **Step 4: Change inheritance and remove internal tool selection**
+- [x] **Step 4: Change inheritance and remove internal tool selection**
 
 In `AutonomousAgentChainRunner.ts`:
 
@@ -1285,7 +1297,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
 
 Remove `getAvailableTools()` and replace every call with `options.preset.tools`.
 
-- [ ] **Step 5: Add raw-stream branch**
+- [x] **Step 5: Add raw-stream branch**
 
 At the start of `run()` after validating the envelope:
 
@@ -1350,7 +1362,7 @@ private async runRawChatPreset(
 }
 ```
 
-- [ ] **Step 6: Add friendly tool capability branch**
+- [x] **Step 6: Add friendly tool capability branch**
 
 In `prepareAgentConversation`, replace the current thrown `bindTools` error with:
 
@@ -1382,11 +1394,11 @@ if (typeof (chatModel as any).bindTools !== "function") {
 }
 ```
 
-- [ ] **Step 7: Preserve reasoning behavior only for tool-using presets**
+- [x] **Step 7: Preserve reasoning behavior only for tool-using presets**
 
 Keep `startReasoningTimer()` inside the tool path only. Plain `chat` with zero tools must not write a `CORTEX_REASONING` marker. `chat_rag`, `agent`, `project_agent`, and `telegram` should render the shared reasoning panel only when the model actually enters the tool path.
 
-- [ ] **Step 8: Remove fallback to `ToolChainRunner`**
+- [x] **Step 8: Remove fallback to `ToolChainRunner`**
 
 Delete the catch-block fallback:
 
@@ -1397,7 +1409,7 @@ return await fallbackRunner.run(...);
 
 Replace it with normal `handleError()` behavior so tool-capability failures are explicit and no old runner path remains.
 
-- [ ] **Step 9: Run focused runner tests**
+- [x] **Step 9: Run focused runner tests**
 
 Run:
 
@@ -1408,6 +1420,8 @@ npm test -- --runTestsByPath src/LLMProviders/chainRunner/AutonomousAgentChainRu
 Expected: PASS.
 
 - [ ] **Step 10: Commit**
+
+Execution note: deferred in inline workspace execution; no commit created for this slice.
 
 Run:
 
@@ -1426,7 +1440,7 @@ git commit -m "refactor: make autonomous runner handle all presets"
 - Modify: `src/channels/telegram/TelegramAgent.ts`
 - Modify: `src/core/ChatManager.test.ts`
 
-- [ ] **Step 1: Update manager tests**
+- [x] **Step 1: Update manager tests**
 
 In `src/core/ChatManager.test.ts`, replace `ChainType.LLM_CHAIN` expectations with preset IDs:
 
@@ -1458,7 +1472,7 @@ expect(mockChainManager.runChain).toHaveBeenCalledWith(
 );
 ```
 
-- [ ] **Step 2: Run failing ChatManager test**
+- [x] **Step 2: Run failing ChatManager test**
 
 Run:
 
@@ -1468,7 +1482,9 @@ npm test -- --runTestsByPath src/core/ChatManager.test.ts --runInBand
 
 Expected: FAIL because `ChatManager` still accepts `ChainType`.
 
-- [ ] **Step 3: Update `chainManager.runChain()` options**
+- [x] **Step 3: Update `chainManager.runChain()` options**
+
+Execution note: implemented with a transitional `chainType` to `presetId` mapper so existing UI and ChatManager callers continue to work until the later UI/signature migration steps are completed.
 
 In `src/LLMProviders/chainManager.ts`, remove `ChainFactory` and legacy runner imports. Import:
 
@@ -1516,13 +1532,15 @@ return await chainRunner.run(userMessage, abortController, updateCurrentAiMessag
 });
 ```
 
-- [ ] **Step 4: Remove chain initialization dispatch**
+- [x] **Step 4: Remove chain initialization dispatch**
 
 Delete `validateChainInitialization()`, `setChain()`, `initializeQAChain()`, `getChainRunner()`, and `ChainFactory` use from `chainManager.ts`. Keep model setup and project-model selection in `createChainWithNewModel()`.
 
 For index refresh on RAG/Agent switches, move the existing refresh logic into the subscriber in `projectManager.ts` after Task 10 updates preset subscriptions.
 
-- [ ] **Step 5: Update `ChatManager` signatures**
+- [x] **Step 5: Update `ChatManager` signatures**
+
+Execution note: `ChatManager`, `ChatUIState`, and `useChatManager` now accept normalized preset inputs while retaining a local legacy mapping for `MessagePreparationService` until Task 9 removes the remaining context-prep `ChainType` dependency.
 
 Change parameters named `chainType` to `presetId: ChainPresetId`. When resolving policy:
 
@@ -1539,7 +1557,7 @@ Pass:
 }
 ```
 
-- [ ] **Step 6: Update TelegramAgent**
+- [x] **Step 6: Update TelegramAgent**
 
 In `src/channels/telegram/TelegramAgent.ts`, replace `ChainType.TELEGRAM_CHAIN` with `"telegram"`:
 
@@ -1556,7 +1574,9 @@ runtimePolicy: this.runtimePolicy,
 
 Keep `formatTelegramOutboundMessage(finalText)` in `TelegramAgent`. This preserves the existing split where Telegram transport/history get clean canonical text while local display can retain richer display text.
 
-- [ ] **Step 7: Run focused manager tests**
+- [x] **Step 7: Run focused manager tests**
+
+Execution note: verified `npx tsc -noEmit -skipLibCheck`, `src/core/ChatManager.test.ts`, and `src/channels/telegram/__tests__/TelegramAgent.test.ts`.
 
 Run:
 
@@ -1567,6 +1587,8 @@ npm test -- --runTestsByPath src/core/ChatManager.test.ts src/channels/telegram/
 Expected: PASS after mocks are updated to preset IDs.
 
 - [ ] **Step 8: Commit**
+
+Execution note: deferred in inline workspace execution; no commit created for this slice.
 
 Run:
 
@@ -1584,7 +1606,7 @@ git commit -m "refactor: route chain execution through presets"
 - Modify: `src/contextProcessor.ts`
 - Modify: related tests in `src/core/ChatManager.test.ts`, `src/contextProcessor.*.test.ts`, and `src/core/ContextManager.*.test.ts`
 
-- [ ] **Step 1: Replace project checks**
+- [x] **Step 1: Replace project checks**
 
 Replace checks like:
 
@@ -1598,7 +1620,9 @@ with:
 runtimePolicy.promptProfile === "project_agent";
 ```
 
-- [ ] **Step 2: Replace rich-context checks**
+- [x] **Step 2: Replace rich-context checks**
+
+Execution note: rich-context processing was already policy-backed in `ContextManager` and `ContextProcessor`; Task 9 kept that path and added policy regression coverage around project active-note suppression.
 
 Keep current behavior by using:
 
@@ -1608,7 +1632,7 @@ runtimePolicy.richContextPolicy === "plus";
 
 This preserves PDF/embed rich context for Chat + RAG, Agent, Project Agent, and Telegram, while plain Chat remains standard.
 
-- [ ] **Step 3: Replace manual Telegram marker condition**
+- [x] **Step 3: Replace manual Telegram marker condition**
 
 In `MessagePreparationService.buildPreparedMessage`, remove the `enableAutonomousAgent` guard:
 
@@ -1619,7 +1643,9 @@ const shouldInjectVirtualMarkers =
 
 Then verify the injected markers only mutate the runtime envelope and do not mutate stored Telegram text.
 
-- [ ] **Step 4: Update tests**
+- [x] **Step 4: Update tests**
+
+Execution note: added focused runtime-policy tests for `MessagePreparationService` and `ContextManager`.
 
 Update mocks to use:
 
@@ -1631,7 +1657,9 @@ resolveRuntimeChainPolicy("project_agent");
 resolveRuntimeChainPolicy("telegram");
 ```
 
-- [ ] **Step 5: Run focused preparation/context tests**
+- [x] **Step 5: Run focused preparation/context tests**
+
+Execution note: verified `npx tsc -noEmit -skipLibCheck`; `src/core/ChatManager.test.ts`, `src/core/MessagePreparationService.test.ts`, `src/core/ContextManager.runtimePolicy.test.ts`; and `src/contextProcessor.embeds.test.ts`, `src/contextProcessor.dataview.test.ts`, `src/contextProcessor.selectedText.test.ts`.
 
 Run:
 
@@ -1642,6 +1670,8 @@ npm test -- --runTestsByPath src/core/ChatManager.test.ts src/contextProcessor.e
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
+
+Execution note: deferred in inline workspace execution; no commit created for this slice.
 
 Run:
 
@@ -1664,7 +1694,7 @@ git commit -m "refactor: drive context preparation from runtime policy"
 - Modify: `src/components/chat-components/ChatControls.test.tsx`
 - Add or modify tests for `SuggestedPrompts`
 
-- [ ] **Step 1: Update UI prop types**
+- [x] **Step 1: Update UI prop types**
 
 Replace `ChainType` props with `ChainPresetId`:
 
@@ -1676,7 +1706,7 @@ interface ChatControlsProps {
 }
 ```
 
-- [ ] **Step 2: Update `ChainModeSelector`**
+- [x] **Step 2: Update `ChainModeSelector`**
 
 Replace:
 
@@ -1692,7 +1722,7 @@ deriveChainPresetId(nextMode, nextScope, nextRetrieval);
 
 Use `useChainPresetId()` where a preset ID is needed. Keep visible modes as Chat and Agent, and keep the existing Chat RAG toggle visible as the first-class retrieval control.
 
-- [ ] **Step 3: Update `SuggestedPrompts` mapping**
+- [x] **Step 3: Update `SuggestedPrompts` mapping**
 
 Replace the prompt key map with:
 
@@ -1719,7 +1749,7 @@ Replace the Vault QA warning condition with:
 }
 ```
 
-- [ ] **Step 4: Update editor/tool-control checks**
+- [x] **Step 4: Update editor/tool-control checks**
 
 Replace checks such as:
 
@@ -1736,7 +1766,7 @@ presetId === "chat_rag" ||
   presetId === "telegram";
 ```
 
-- [ ] **Step 5: Run UI tests**
+- [x] **Step 5: Run UI tests**
 
 Run:
 
@@ -1745,6 +1775,11 @@ npm test -- --runTestsByPath src/components/chat-components/ChatControls.test.ts
 ```
 
 Expected: PASS.
+
+Execution note:
+
+- `node --max-old-space-size=6144 ./node_modules/jest/bin/jest.js --runTestsByPath src/components/chat-components/ChainModeSelector.test.tsx src/components/chat-components/SuggestedPrompts.test.tsx src/components/chat-components/ChatControls.test.tsx src/components/chat-components/ChatInput.test.ts src/components/chat-components/ChatToolControls.test.tsx --runInBand --testPathIgnorePatterns=src/integration_tests/ --detectOpenHandles` — PASS (20 tests)
+- `npx tsc -noEmit -skipLibCheck` — PASS
 
 - [ ] **Step 6: Commit**
 
@@ -1755,6 +1790,8 @@ git add src/components/chat-components src/hooks/useProjectContextStatus.ts
 git commit -m "refactor: update chat UI to preset ids"
 ```
 
+Deferred in inline workspace execution.
+
 ### Task 11: Update Settings UI for Tool Defaults
 
 **Files:**
@@ -1764,7 +1801,7 @@ git commit -m "refactor: update chat UI to preset ids"
 - Modify: `src/settings/v2/components/BasicSettings.tsx` if default mode labels mention Vault QA
 - Modify: project modal files that edit `ProjectConfig`
 
-- [ ] **Step 1: Remove autonomous-agent enable switch**
+- [x] **Step 1: Remove autonomous-agent enable switch**
 
 In `CortexPlusSettings.tsx`, delete the switch that writes:
 
@@ -1774,7 +1811,7 @@ updateSetting("enableAutonomousAgent", checked);
 
 Render the tool settings section unconditionally because Agent is now always backed by the unified runner.
 
-- [ ] **Step 2: Update tool settings labels**
+- [x] **Step 2: Update tool settings labels**
 
 In `ToolSettingsSection.tsx`, read:
 
@@ -1826,7 +1863,7 @@ Render two sections:
 </div>
 ```
 
-- [ ] **Step 3: Add project override editing**
+- [x] **Step 3: Add project override editing**
 
 In the project modal that edits `ProjectConfig`, add tri-state values for Agent-only overrides:
 
@@ -1859,7 +1896,7 @@ Use a three-option segmented control per configurable Agent tool:
 </button>
 ```
 
-- [ ] **Step 4: Run settings tests and typecheck**
+- [x] **Step 4: Run settings tests and typecheck**
 
 Run:
 
@@ -1870,6 +1907,11 @@ npx tsc --noEmit --skipLibCheck
 
 Expected: PASS.
 
+Execution note:
+
+- `node --max-old-space-size=6144 ./node_modules/jest/bin/jest.js --runTestsByPath src/settings/model.test.ts src/settings/v2/components/CortexPlusSettings.test.tsx src/settings/v2/components/ToolSettingsSection.test.tsx src/components/modals/project/projectToolOverrides.test.ts --runInBand --testPathIgnorePatterns=src/integration_tests/ --detectOpenHandles` — PASS (40 tests)
+- `npx tsc -noEmit -skipLibCheck` — PASS
+
 - [ ] **Step 5: Commit**
 
 Run:
@@ -1878,6 +1920,8 @@ Run:
 git add src/settings src/components/modals/project
 git commit -m "feat: configure tool defaults by surface"
 ```
+
+Deferred in inline workspace execution.
 
 ### Task 12: Delete Legacy Runners and ChainFactory
 
@@ -1893,7 +1937,7 @@ git commit -m "feat: configure tool defaults by surface"
 - Modify: `src/utils.ts`
 - Modify all remaining imports found by search
 
-- [ ] **Step 1: Search for legacy imports**
+- [x] **Step 1: Search for legacy imports**
 
 Run:
 
@@ -1903,7 +1947,7 @@ rg -n "chainFactory|ChainType|LLMChainRunner|ToolChainRunner|VaultQAChainRunner|
 
 Expected: hits remain before cleanup.
 
-- [ ] **Step 2: Replace remaining helpers**
+- [x] **Step 2: Replace remaining helpers**
 
 In `src/utils.ts`, replace:
 
@@ -1921,7 +1965,7 @@ export function isAgentPreset(presetId: ChainPresetId): boolean {
 
 Remove `stringToChainType`, `isLLMChain`, `isRetrievalQAChain`, and `isSupportedChain` if no callers remain.
 
-- [ ] **Step 3: Update chain runner index**
+- [x] **Step 3: Update chain runner index**
 
 In `src/LLMProviders/chainRunner/index.ts`, remove exports for deleted runner classes:
 
@@ -1934,7 +1978,7 @@ export { ThinkBlockStreamer } from "./utils/ThinkBlockStreamer";
 
 Keep native tool-calling and tool-execution utility exports used by tests.
 
-- [ ] **Step 4: Delete files**
+- [x] **Step 4: Delete files**
 
 Run:
 
@@ -1947,7 +1991,7 @@ git rm src/LLMProviders/chainRunner/ProjectChainRunner.ts
 git rm src/chainFactory.ts
 ```
 
-- [ ] **Step 5: Verify zero legacy hits**
+- [x] **Step 5: Verify zero legacy hits**
 
 Run:
 
@@ -1957,7 +2001,7 @@ rg -n "chainFactory|ChainType|LLMChainRunner|ToolChainRunner|VaultQAChainRunner|
 
 Expected: no output.
 
-- [ ] **Step 6: Typecheck**
+- [x] **Step 6: Typecheck**
 
 Run:
 
@@ -1968,6 +2012,8 @@ npx tsc --noEmit --skipLibCheck
 Expected: PASS.
 
 - [ ] **Step 7: Commit**
+
+Deferred in inline workspace execution.
 
 Run:
 
@@ -1985,7 +2031,7 @@ git commit -m "refactor: remove legacy chain runners"
 - Modify: `src/LLMProviders/chainRunner/utils/modelAdapter.ts`
 - Modify tests for prompt construction
 
-- [ ] **Step 1: Add profile suffix builder**
+- [x] **Step 1: Add profile suffix builder**
 
 In `systemPromptBuilder.ts`, add:
 
@@ -2019,7 +2065,7 @@ export function getSystemPrompt(
 
 Append profile instructions after the builtin prompt and before user custom instructions.
 
-- [ ] **Step 2: Thread prompt profile through message preparation**
+- [x] **Step 2: Thread prompt profile through message preparation**
 
 When `MessagePreparationService` calls:
 
@@ -2037,7 +2083,7 @@ getSystemPromptWithMemory(
 );
 ```
 
-- [ ] **Step 3: Use profile in autonomous system prompt**
+- [x] **Step 3: Use profile in autonomous system prompt**
 
 In `AutonomousAgentChainRunner.prepareAgentConversation`, include:
 
@@ -2047,7 +2093,7 @@ getPromptProfileInstructions(runtimePolicy.promptProfile);
 
 in the system content before tool guidelines.
 
-- [ ] **Step 4: Run prompt tests**
+- [x] **Step 4: Run prompt tests**
 
 Run:
 
@@ -2058,6 +2104,8 @@ npm test -- --runTestsByPath src/settings/model.test.ts src/core/ChatManager.tes
 Expected: PASS after expected prompt strings are updated.
 
 - [ ] **Step 5: Commit**
+
+Execution note: deferred in inline workspace execution; no commit created for this slice.
 
 Run:
 
@@ -2080,7 +2128,7 @@ git commit -m "feat: add prompt profiles"
 - Modify: `docs/index.md` if topic descriptions reference Vault QA as a mode
 - Modify: `src/LLMProviders/chainRunner/README.md` or delete sections for removed runner classes
 
-- [ ] **Step 1: Update Chat docs**
+- [x] **Step 1: Update Chat docs**
 
 In `docs/chat-interface.md`, describe:
 
@@ -2092,7 +2140,7 @@ In `docs/chat-interface.md`, describe:
 - **Telegram**: channel-specific behavior with isolated Telegram history and Telegram-safe formatting.
 ```
 
-- [ ] **Step 2: Remove Vault QA as a peer mode**
+- [x] **Step 2: Remove Vault QA as a peer mode**
 
 Search and update:
 
@@ -2102,11 +2150,11 @@ rg -n "Vault QA|VAULT_QA|vault_qa" docs src/LLMProviders/chainRunner/README.md
 
 Replace user-facing mode references with `Chat + RAG` or `vault retrieval` as appropriate.
 
-- [ ] **Step 3: Update troubleshooting**
+- [x] **Step 3: Update troubleshooting**
 
 In `docs/troubleshooting-and-faq.md`, replace "What's the difference between Chat mode and Vault QA mode?" with "What does the RAG toggle do in Chat?" and explain retrieval-biased behavior.
 
-- [ ] **Step 4: Run doc search**
+- [x] **Step 4: Run doc search**
 
 Run:
 
@@ -2117,6 +2165,8 @@ rg -n "Vault QA|VAULT_QA|vault_qa|enableAutonomousAgent|autonomousAgentEnabledTo
 Expected: no user-facing stale references. Technical references should remain only if they are in migration notes describing removed files.
 
 - [ ] **Step 5: Commit**
+
+Execution note: deferred in inline workspace execution; no commit created for this slice. Verified public docs/source stale-reference searches, excluding implementation plan notes, returned no matches.
 
 Run:
 
@@ -2129,7 +2179,7 @@ git commit -m "docs: explain unified chat and agent presets"
 
 **Files:** all touched files
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -2139,7 +2189,9 @@ npm test -- --runTestsByPath src/aiParams.test.ts src/runtime/RuntimeChainPolicy
 
 Expected: PASS.
 
-- [ ] **Step 2: Run typecheck**
+Execution note: `node --max-old-space-size=6144 ./node_modules/jest/bin/jest.js --runTestsByPath src/aiParams.test.ts src/runtime/RuntimeChainPolicy.test.ts src/core/ToolPermissions.test.ts src/LLMProviders/chainRunner/presets/ChainPresetResolver.test.ts src/LLMProviders/chainRunner/AutonomousAgentChainRunner.test.ts src/core/ChatManager.test.ts src/components/chat-components/ChatControls.test.tsx src/components/chat-components/ChatInput.test.ts --runInBand --testPathIgnorePatterns=src/integration_tests/ --detectOpenHandles` passed with 8 suites and 111 tests.
+
+- [x] **Step 2: Run typecheck**
 
 Run:
 
@@ -2149,7 +2201,9 @@ npx tsc --noEmit --skipLibCheck
 
 Expected: PASS.
 
-- [ ] **Step 3: Run stale-reference searches**
+Execution note: `npx tsc --noEmit --skipLibCheck` passed.
+
+- [x] **Step 3: Run stale-reference searches**
 
 Run:
 
@@ -2167,7 +2221,9 @@ rg -n "Vault QA|vault_qa|VAULT_QA" docs src
 
 Expected: no user-facing references to Vault QA as a peer mode.
 
-- [ ] **Step 4: Run format and lint**
+Execution note: source stale-reference search returned no matches. Public docs/source search excluding `docs/superpowers/**` returned no matches; exact `docs src` search only reports implementation spec/plan migration notes.
+
+- [x] **Step 4: Run format and lint**
 
 Run:
 
@@ -2178,7 +2234,9 @@ npm run lint
 
 Expected: PASS.
 
-- [ ] **Step 5: Run production build**
+Execution note: `npm run format` and `npm run lint` passed.
+
+- [x] **Step 5: Run production build**
 
 Run:
 
@@ -2187,6 +2245,8 @@ npm run build
 ```
 
 Expected: PASS.
+
+Execution note: `npm run build` passed. Build emitted the existing Browserslist `caniuse-lite is outdated` warning.
 
 - [ ] **Step 6: Manual runtime checks**
 
@@ -2205,6 +2265,8 @@ Manual scenarios:
 - Agent can use write tools when enabled.
 - Project Agent uses project model/context and project tool overrides.
 - Telegram keeps isolated memory, typing/partial state, Telegram-safe outbound formatting, and no reasoning leakage into Telegram transport text.
+
+Execution note: CLI smoke check passed: `obsidian plugin:reload id=cortex` reported `Reloaded: cortex`, and `obsidian dev:errors` reported `No errors captured`. Interactive chat scenarios were not run in this session.
 
 - [ ] **Step 7: Commit final verification fixes**
 

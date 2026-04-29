@@ -1,12 +1,12 @@
 # Agent Mode and Tools
 
-Cortex includes an **autonomous agent** that can reason step-by-step and decide which tools to use to answer your question. Instead of you specifying every step, the agent figures out what to do on its own.
+Cortex includes an **Agent** mode that can reason step-by-step and decide which tools to use to answer your question. Instead of you specifying every step, the agent figures out what to do on its own.
 
 ---
 
 ## Overview
 
-When the autonomous agent is enabled, Cortex can:
+In Agent mode, Cortex can:
 
 1. Break down your request into sub-tasks
 2. Use tools to gather information (search your vault, search the web, read a note)
@@ -17,12 +17,13 @@ When the autonomous agent is enabled, Cortex can:
 
 ---
 
-## Enabling Agent Mode
+## Using Agent Mode
 
-1. Go to **Settings → Cortex → Agent**
-2. Turn on **Enable Autonomous Agent**
+1. Open the chat panel.
+2. Use the mode selector to choose **Agent**.
+3. Use the scope selector to choose **All notes** or a project.
 
-The agent activates automatically when you're in **Agent** mode. You don't need to do anything special — just ask your question.
+The agent activates automatically when you're in **Agent** or **Project Agent**. You don't need to do anything special — just ask your question.
 
 ### Max Iterations
 
@@ -127,7 +128,8 @@ Fetches the transcript of a YouTube video.
 Go to **Settings → Cortex → Agent → Tool Settings** to:
 
 - See all available tools
-- Enable or disable individual configurable tools
+- Set tool defaults for Chat and Agent
+- Adjust project-specific tool overrides from project settings
 - View what each tool does
 
 ---

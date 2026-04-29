@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChainType } from "@/chainFactory";
+import type { ChainPresetInput } from "@/runtime/ChainPreset";
 import { ChatMessage, MessageContext } from "@/types/message";
 import { ChatUIState } from "@/state/ChatUIState";
 
@@ -36,14 +36,14 @@ export function useChatManager(chatUIState: ChatUIState) {
     async (
       displayText: string,
       context: MessageContext,
-      chainType: ChainType,
+      preset: ChainPresetInput,
       includeActiveNote: boolean = false,
       includeActiveWebTab: boolean = false
     ): Promise<string> => {
       return await chatUIState.sendMessage(
         displayText,
         context,
-        chainType,
+        preset,
         includeActiveNote,
         includeActiveWebTab
       );
@@ -55,10 +55,10 @@ export function useChatManager(chatUIState: ChatUIState) {
     async (
       messageId: string,
       newText: string,
-      chainType: ChainType,
+      preset: ChainPresetInput,
       includeActiveNote: boolean = false
     ): Promise<boolean> => {
-      return await chatUIState.editMessage(messageId, newText, chainType, includeActiveNote);
+      return await chatUIState.editMessage(messageId, newText, preset, includeActiveNote);
     },
     [chatUIState]
   );

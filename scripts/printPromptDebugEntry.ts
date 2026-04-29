@@ -1,11 +1,10 @@
 import MemoryManager from "@/LLMProviders/memoryManager";
 import { ModelAdapterFactory } from "@/LLMProviders/chainRunner/utils/modelAdapter";
 import { buildAgentPromptDebugReport } from "@/LLMProviders/chainRunner/utils/promptDebugService";
-import { ToolRegistry } from "@/tools/ToolRegistry";
 import { ChatMessage } from "@/types/message";
 import { initializeBuiltinTools } from "@/tools/builtinTools";
-import { getSettings } from "@/settings/model";
 import { UserMemoryManager } from "@/memory/UserMemoryManager";
+import { resolveToolPermissions } from "@/core/ToolPermissions";
 
 interface HeadlessApp {
   vault: {
@@ -98,10 +97,10 @@ export async function run(args: string[]): Promise<void> {
 
   initializeBuiltinTools();
 
-  const registry = ToolRegistry.getInstance();
-  const settings = getSettings();
-  const enabledToolIds = new Set(settings.autonomousAgentEnabledToolIds || []);
-  const availableTools = registry.getEnabledTools(enabledToolIds, false);
+  const availableTools = resolveToolPermissions({
+    surface: "agent",
+    vault: app.vault as any,
+  });
 
   // Generate simple tool descriptions (native tool calling handles schema via bindTools)
   const toolDescriptions = availableTools

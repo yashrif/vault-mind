@@ -1,13 +1,3 @@
-// Mock chainFactory before importing anything else to avoid import errors
-jest.mock("@/chainFactory", () => ({
-  ChainType: {
-    LLM_CHAIN: "llm_chain",
-    VAULT_QA_CHAIN: "vault_qa",
-    TOOL_CHAIN: "Cortex_plus",
-    PROJECT_CHAIN: "project",
-  },
-}));
-
 import { ContextProcessor } from "@/contextProcessor";
 import { DATAVIEW_BLOCK_TAG } from "@/constants";
 

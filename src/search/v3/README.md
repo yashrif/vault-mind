@@ -91,7 +91,7 @@ Since `FilterRetriever` runs at the orchestration layer (not inside a retriever)
 
 After merging, docs are tagged with `isFilterResult: boolean` and `matchType`.
 
-Then in `ToolChainRunner.prepareLocalSearchResult()`:
+Then in `unified agent runner.prepareLocalSearchResult()`:
 
 - Docs are split by `isFilterResult` flag
 - Filter docs get `<filterResults>` XML wrapper with `<matchType>` element

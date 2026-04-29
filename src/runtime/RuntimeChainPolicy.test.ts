@@ -1,11 +1,4 @@
-jest.mock("@/chainFactory", () => ({
-  ChainType: {
-    TELEGRAM_CHAIN: "telegram",
-    TOOL_CHAIN: "Cortex_plus",
-    PROJECT_CHAIN: "project_chain",
-  },
-}));
-
+import { legacyChainIdForPresetId, normalizeChainPresetId } from "@/runtime/ChainPreset";
 import {
   injectVirtualToolMarkers,
   resolveRuntimeChainPolicy,
@@ -13,9 +6,19 @@ import {
 } from "@/runtime/RuntimeChainPolicy";
 
 describe("RuntimeChainPolicy", () => {
-  it("resolves telegram to isolated prompt/tool policies", () => {
-    const policy = resolveRuntimeChainPolicy("telegram" as any);
+  it("normalizes legacy Chat + RAG ids without exposing it as a visible mode", () => {
+    const legacyChatRagId = ["vault", "qa"].join("_");
 
+    expect(normalizeChainPresetId(legacyChatRagId)).toBe("chat_rag");
+    expect(legacyChainIdForPresetId("chat_rag")).toBe(legacyChatRagId);
+  });
+
+  it("resolves telegram to isolated prompt/tool policies", () => {
+    const policy = resolveRuntimeChainPolicy("telegram");
+
+    expect(policy.promptProfile).toBe("telegram");
+    expect(policy.legacyChainId).toBe("telegram");
+    expect(policy).not.toHaveProperty("chainType");
     expect(policy.promptTarget).toBe("telegram");
     expect(policy.richContextPolicy).toBe("plus");
     expect(policy.manualToolPolicy).toBe("forced_virtual_markers");
@@ -23,10 +26,12 @@ describe("RuntimeChainPolicy", () => {
     expect(policy.historyScope).toBe("telegram_visible_thread");
   });
 
-  it("keeps Cortex_plus on shared default policies", () => {
-    const policy = resolveRuntimeChainPolicy("Cortex_plus" as any);
+  it("resolves chat_rag as conversational chat with plus context", () => {
+    const policy = resolveRuntimeChainPolicy("chat_rag");
 
+    expect(policy.promptProfile).toBe("chat_rag");
     expect(policy.promptTarget).toBe("default");
+    expect(policy.richContextPolicy).toBe("plus");
     expect(policy.manualToolPolicy).toBe("ui_markers");
     expect(policy.autonomousToolPolicy).toBe("settings_filtered");
     expect(policy.historyScope).toBe("shared_repo");

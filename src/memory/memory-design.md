@@ -145,7 +145,7 @@ The memory system behaves differently depending on which chat mode is active:
   - Uses XML format: `<use_tool><name>updateMemoryTool</name><memoryContent>...</memoryContent></use_tool>`
   - Can reason step-by-step about whether something should be remembered
   - Shows user notifications when memories are saved
-  - Access controlled by tool enablement settings (`autonomousAgentEnabledToolIds`)
+  - Access controlled by Agent tool defaults and project tool overrides
 
 ### Tool-Based Context (Legacy)
 

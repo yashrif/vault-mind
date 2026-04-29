@@ -1,14 +1,6 @@
-jest.mock("@/chainFactory", () => ({
-  ChainType: {
-    LLM_CHAIN: "llm_chain",
-    TOOL_CHAIN: "Cortex_plus",
-    PROJECT_CHAIN: "project_chain",
-  },
-}));
-
 import { ContextProcessor } from "@/contextProcessor";
 import { EMBEDDED_NOTE_TAG } from "@/constants";
-import { ChainType } from "@/chainFactory";
+import { LEGACY_CHAIN_IDS } from "@/runtime/ChainPreset";
 import { TFile, Vault } from "obsidian";
 
 type FileCacheMap = Record<string, any>;
@@ -85,7 +77,7 @@ describe("ContextProcessor - Embedded Notes", () => {
       [source],
       false,
       null,
-      ChainType.LLM_CHAIN
+      LEGACY_CHAIN_IDS.CHAT
     );
 
     expect(result).toContain(`<${EMBEDDED_NOTE_TAG}>`);
@@ -120,7 +112,7 @@ describe("ContextProcessor - Embedded Notes", () => {
       [source],
       false,
       null,
-      ChainType.LLM_CHAIN
+      LEGACY_CHAIN_IDS.CHAT
     );
 
     expect(result).toContain("<heading>Section</heading>");
@@ -154,7 +146,7 @@ describe("ContextProcessor - Embedded Notes", () => {
       [source],
       false,
       null,
-      ChainType.LLM_CHAIN
+      LEGACY_CHAIN_IDS.CHAT
     );
 
     expect(result).toContain("<block_id>block-ref</block_id>");
@@ -176,7 +168,7 @@ describe("ContextProcessor - Embedded Notes", () => {
       [source],
       false,
       null,
-      ChainType.LLM_CHAIN
+      LEGACY_CHAIN_IDS.CHAT
     );
 
     expect(result).toContain("<content>");
@@ -195,7 +187,7 @@ describe("ContextProcessor - Embedded Notes", () => {
       [source],
       false,
       null,
-      ChainType.LLM_CHAIN
+      LEGACY_CHAIN_IDS.CHAT
     );
 
     expect(result).toContain("<error>Embedded note not found</error>");

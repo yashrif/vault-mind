@@ -1,18 +1,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { ChainType } from "@/chainFactory";
 import { ChatControls } from "@/components/chat-components/ChatControls";
 import { useSettingsValue } from "@/settings/model";
-
-jest.mock("@/chainFactory", () => ({
-  ChainType: {
-    LLM_CHAIN: "llm_chain",
-    VAULT_QA_CHAIN: "vault_qa",
-    TOOL_CHAIN: "Cortex_plus",
-    PROJECT_CHAIN: "project",
-    TELEGRAM_CHAIN: "telegram",
-  },
-}));
 
 jest.mock("@/settings/model", () => ({
   useSettingsValue: jest.fn(),
@@ -99,7 +88,6 @@ describe("ChatControls", () => {
     onSaveAsNote: jest.fn(async () => {}),
     onLoadHistory: jest.fn(),
     onModeChange: jest.fn(),
-    selectedChain: ChainType.TOOL_CHAIN,
     chatHistory: [],
     onUpdateChatTitle: jest.fn(async () => {}),
     onDeleteChat: jest.fn(async () => {}),

@@ -3,6 +3,87 @@ import {
   accumulateToolCallChunk,
   ToolCallChunk,
 } from "./utils/nativeToolCalling";
+import { AutonomousAgentChainRunner } from "./AutonomousAgentChainRunner";
+import { resolveRuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
+import { ChatMessage } from "@/types/message";
+import { getPromptProfileInstructions } from "@/system-prompts/systemPromptBuilder";
+
+jest.mock("@/logger", () => ({
+  logError: jest.fn(),
+  logInfo: jest.fn(),
+  logWarn: jest.fn(),
+}));
+
+jest.mock("@/settings/model", () => ({
+  getSettings: jest.fn(() => ({
+    autonomousAgentMaxIterations: 1,
+  })),
+}));
+
+jest.mock("@/aiParams", () => ({}));
+
+jest.mock("@/tools/builtinTools", () => ({
+  initializeBuiltinTools: jest.fn(),
+}));
+
+jest.mock("@/tools/SearchTools", () => ({
+  localSearchTool: { name: "localSearch" },
+  webSearchTool: { name: "webSearch" },
+}));
+
+jest.mock("@/tools/ComposerTools", () => ({
+  writeFileTool: { name: "writeFile" },
+}));
+
+jest.mock("@/tools/memoryTools", () => ({
+  updateMemoryTool: { name: "updateMemory" },
+}));
+
+jest.mock("@/tools/toolManager", () => ({
+  ToolManager: {
+    callTool: jest.fn(),
+  },
+}));
+
+jest.mock("@/LLMProviders/projectManager", () => ({
+  __esModule: true,
+  default: {
+    getInstance: jest.fn(() => ({})),
+  },
+}));
+
+jest.mock("@/tools/ToolRegistry", () => ({
+  ToolRegistry: {
+    getInstance: jest.fn(() => ({
+      getAllTools: jest.fn(() => []),
+      getEnabledTools: jest.fn(() => []),
+      getToolMetadata: jest.fn(() => undefined),
+    })),
+  },
+}));
+
+jest.mock("@/context/LayerToMessagesConverter", () => ({
+  LayerToMessagesConverter: {
+    convert: jest.fn(() => [
+      { role: "system", content: "System prompt" },
+      { role: "user", content: "User prompt" },
+    ]),
+  },
+}));
+
+jest.mock("@/LLMProviders/chainRunner/utils/chatHistoryUtils", () => ({
+  loadAndAddChatHistory: jest.fn(async () => undefined),
+}));
+
+jest.mock("@/LLMProviders/chainRunner/utils/promptPayloadRecorder", () => ({
+  recordPromptPayload: jest.fn(),
+}));
+
+jest.mock("@/utils", () => ({
+  err2String: jest.fn((error) => error?.message ?? String(error)),
+  formatDateTime: jest.fn(() => ({ epoch: 0, display: "", fileName: "" })),
+  withSuppressedTokenWarnings: jest.fn((fn) => fn()),
+}));
 
 /**
  * Test suite for Gemini tool call name extraction fix (Issue #2233)
@@ -258,5 +339,126 @@ describe("End-to-end: Gemini streaming → buildToolCallsFromChunks", () => {
     expect(result).toHaveLength(2);
     expect(result[0].name).toBe("localSearch");
     expect(result[1].name).toBe("readNote");
+  });
+});
+
+describe("AutonomousAgentChainRunner preset routing", () => {
+  let chatModel: any;
+  let runner: AutonomousAgentChainRunner;
+  let userMessage: ChatMessage;
+  let abortController: AbortController;
+  let updateCurrentAiMessage: jest.Mock;
+  let addMessage: jest.Mock;
+
+  beforeEach(() => {
+    chatModel = {
+      modelName: "test-model",
+      bindTools: jest.fn(() => ({
+        stream: jest.fn(async function* () {
+          yield { content: "tool answer" };
+        }),
+      })),
+      stream: jest.fn(async function* () {
+        yield { content: "hello" };
+      }),
+    };
+    const memory = {
+      chatHistory: { messages: [] },
+    };
+    runner = new AutonomousAgentChainRunner({
+      app: { vault: {} },
+      chatModelManager: {
+        getChatModel: jest.fn(() => chatModel),
+        findModelByName: jest.fn(() => ({ capabilities: [] })),
+      },
+      memoryManager: {
+        getMemory: jest.fn(() => memory),
+        saveContext: jest.fn(),
+      },
+      userMemoryManager: {},
+    } as any);
+    userMessage = {
+      id: "msg-test",
+      message: "Hello",
+      originalMessage: "Hello",
+      sender: "user",
+      timestamp: { epoch: 0, display: "", fileName: "" },
+      isVisible: true,
+      contextEnvelope: {
+        version: 1,
+        conversationId: null,
+        messageId: "msg-test",
+        layers: [{ id: "L5_USER", text: "Hello" }],
+        serializedText: "serialized",
+        layerHashes: {},
+        combinedHash: "hash",
+      },
+    } as ChatMessage;
+    abortController = new AbortController();
+    updateCurrentAiMessage = jest.fn();
+    addMessage = jest.fn();
+  });
+
+  it("uses raw streaming when the preset has no tools", async () => {
+    const preset = {
+      id: "chat",
+      promptProfile: "chat",
+      runtimePolicy: resolveRuntimeChainPolicy("chat"),
+      tools: [],
+    } as any;
+
+    await runner.run(userMessage, abortController, updateCurrentAiMessage, addMessage, {
+      preset,
+      runtimePolicy: preset.runtimePolicy,
+    });
+
+    expect(chatModel.bindTools).not.toHaveBeenCalled();
+    expect(chatModel.stream).toHaveBeenCalled();
+  });
+
+  it("returns the friendly tool capability error when tools are required but bindTools is unavailable", async () => {
+    const preset = {
+      id: "chat_rag",
+      promptProfile: "chat_rag",
+      runtimePolicy: resolveRuntimeChainPolicy("chat_rag"),
+      tools: [{ name: "localSearch" }],
+    } as any;
+
+    delete chatModel.bindTools;
+
+    const result = await runner.run(
+      userMessage,
+      abortController,
+      updateCurrentAiMessage,
+      addMessage,
+      {
+        preset,
+        runtimePolicy: preset.runtimePolicy,
+      }
+    );
+
+    expect(result).toContain("This model cannot use tools");
+  });
+
+  it("adds prompt profile instructions to the agent system content", async () => {
+    const preset = {
+      id: "chat_rag",
+      promptProfile: "chat_rag",
+      runtimePolicy: resolveRuntimeChainPolicy("chat_rag"),
+      tools: [{ name: "localSearch" }],
+    } as any;
+
+    await runner.run(userMessage, abortController, updateCurrentAiMessage, addMessage, {
+      preset,
+      runtimePolicy: preset.runtimePolicy,
+    });
+
+    const boundModel = chatModel.bindTools.mock.results[0].value;
+    const messages = boundModel.stream.mock.calls[0][0];
+    const systemMessage = messages.find(
+      (message: any) => message.constructor.name === "SystemMessage"
+    );
+
+    expect(systemMessage.content).toContain(getPromptProfileInstructions("chat_rag"));
   });
 });

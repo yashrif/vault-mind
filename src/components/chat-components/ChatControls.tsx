@@ -1,6 +1,5 @@
 import { getCurrentProject, setProjectLoading } from "@/aiParams";
 import { ProjectContextCache } from "@/cache/projectContextCache";
-import { ChainType } from "@/chainFactory";
 import { ConfirmModal } from "@/components/modals/ConfirmModal";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -32,6 +31,7 @@ import {
 import { TokenCounter } from "./TokenCounter";
 import { ChatSettingsPopover } from "@/components/chat-components/ChatSettingsPopover";
 import { ChainModeSelector } from "@/components/chat-components/ChainModeSelector";
+import type { ChainPresetId } from "@/runtime/ChainPreset";
 
 export async function refreshVaultIndex() {
   try {
@@ -172,7 +172,7 @@ interface ChatControlsProps {
   onNewChat: () => void;
   onSaveAsNote: () => Promise<void>;
   onLoadHistory: () => void;
-  onModeChange: (mode: ChainType) => void | Promise<void>;
+  onModeChange: (presetId: ChainPresetId) => void | Promise<void>;
   showModeSelector?: boolean;
   chatHistory: ChatHistoryItem[];
   onUpdateChatTitle: (id: string, newTitle: string) => Promise<void>;

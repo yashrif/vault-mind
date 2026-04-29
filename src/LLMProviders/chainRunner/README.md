@@ -1,23 +1,23 @@
 # Chain Runner Architecture & Tool Calling System
 
-This directory contains the refactored chain runner system for Obsidian Copilot, providing multiple chain execution strategies with different tool calling approaches.
+This directory contains the unified chain runner system for Cortex, where product behavior is selected through presets instead of separate runner classes.
 
 ## Overview
 
-The chain runner system provides two distinct tool calling approaches:
+The chain runner system resolves one preset per run:
 
-1. **Tool Chain** (ToolChainRunner) - Uses native tool calling for intent analysis
-2. **Autonomous Agent** (AutonomousAgentChainRunner) - Uses native LangChain tool calling with ReAct pattern
+1. **Chat** - conversational streaming with no vault retrieval
+2. **Chat + RAG** - Chat with vault retrieval enabled
+3. **Agent** - tool-using agent with configured read/write tools
+4. **Project Agent** - Agent scoped to a selected project
+5. **Telegram** - channel-specific behavior with isolated history and Telegram-safe output
 
 ## Architecture
 
 ```
 chainRunner/
 ├── BaseChainRunner.ts                 # Abstract base class with shared functionality
-├── LLMChainRunner.ts                  # Basic LLM interaction (no tools)
-├── VaultQAChainRunner.ts              # Vault-only Q&A with retrieval
-├── ToolChainRunner.ts                 # Tool-augmented chain runner
-├── ProjectChainRunner.ts              # Project-aware chain runner extension
+├── presets/                           # Preset resolver and preset metadata
 ├── AutonomousAgentChainRunner.ts   # Native tool calling with ReAct agent loop
 ├── index.ts                           # Main exports
 └── utils/
@@ -29,7 +29,7 @@ chainRunner/
 
 ## Tool Calling Systems Comparison
 
-### 1. Model-Based Tool Planning (ToolChainRunner)
+### Unified Preset Runner
 
 **How it works:**
 
@@ -220,16 +220,15 @@ AIMessage: {
 4. **Conversation history grows** - each iteration sees all previous messages
 5. **Max 4 iterations** to prevent infinite loops
 
-## Key Differences
+## Preset Differences
 
-| Aspect             | Tool Chain                      | Autonomous Agent                      |
-| ------------------ | ------------------------------- | ------------------------------------- |
-| **Tool Decision**  | Model-based intent planning     | AI decides autonomously (ReAct)       |
-| **Tool Execution** | Pre-LLM, synchronous            | During conversation, iterative        |
-| **Tool Format**    | Native tool calling (bindTools) | Native tool calling (bindTools)       |
-| **Reasoning**      | Intent analysis → tools         | AI reasoning → tools → more reasoning |
-| **Iterations**     | Single pass                     | Up to 4 iterations                    |
-| **Tool Chaining**  | Limited                         | Full chaining support                 |
+| Aspect           | Chat            | Chat + RAG               | Agent / Project Agent                 |
+| ---------------- | --------------- | ------------------------ | ------------------------------------- |
+| **Tool Access**  | Free tools only | Free tools + localSearch | Configured read/write tools           |
+| **Retrieval**    | Off             | Retrieval-biased         | Agent decides when tools are needed   |
+| **Tool Format**  | Native messages | Native tool calling      | Native tool calling via `bindTools()` |
+| **Reasoning UI** | No agent panel  | Shows when tools run     | Shows tool reasoning and progress     |
+| **Iterations**   | Single response | Bounded by tool use      | Up to configured max iterations       |
 
 ## LangChain Tool Interface
 
@@ -565,14 +564,18 @@ Use getTimeRangeMs before localSearch for time-based queries.
 
 ## Usage
 
-### Enable Autonomous Agent
+### Select a Preset
 
 ```typescript
-// In settings
-settings.enableAutonomousAgent = true;
+const preset = buildChainPreset({
+  presetId: "agent",
+  vault: app.vault,
+});
 
-// ChainManager automatically selects the appropriate runner
-const runner = chainManager.getChainRunner(); // Returns AutonomousAgentChainRunner
+await runner.run(userMessage, abortController, updateCurrentAiMessage, addMessage, {
+  preset,
+  runtimePolicy: preset.runtimePolicy,
+});
 ```
 
 ### Example Query Flow
@@ -585,25 +588,7 @@ const runner = chainManager.getChainRunner(); // Returns AutonomousAgentChainRun
 2. **Iteration 2**: Analyzes vault results → calls `webSearch` for current practices
 3. **Iteration 3**: Synthesizes both sources → provides comprehensive response
 
-**Legacy Process:**
-
-1. Intent analysis determines both tools needed
-2. Executes both tools
-3. Single LLM call with all context
-
 ## Error Handling & Fallbacks
-
-### Autonomous Agent Fallbacks
-
-```typescript
-try {
-  // Sequential thinking execution
-} catch (error) {
-  // Automatic fallback to ToolChainRunner
-  const fallbackRunner = new ToolChainRunner(this.chainManager);
-  return await fallbackRunner.run(/* same parameters */);
-}
-```
 
 ### Tool Execution Safeguards
 

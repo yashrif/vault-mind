@@ -70,7 +70,7 @@ You can automatically import the full list of available models from a provider:
 
 ## Embedding Models
 
-Embedding models convert text into numerical vectors, which powers semantic (meaning-based) search in Vault QA and the "Relevant Notes" feature.
+Embedding models convert text into numerical vectors, which powers semantic (meaning-based) vault retrieval in Chat + RAG, Agent, and the "Relevant Notes" feature.
 
 ### Built-In Embedding Models
 
@@ -92,7 +92,8 @@ If you change embedding models, you must rebuild the vault index because the old
 
 ### What Embeddings Affect
 
-- **Vault QA mode** — Uses embeddings to find relevant notes by meaning
+- **Chat + RAG** — Uses embeddings to find relevant notes by meaning when vault retrieval is enabled
+- **Agent and Project Agent** — Can use embeddings when searching your vault
 - **Semantic Search** — The "Enable Semantic Search" toggle in QA settings
 - **Relevant Notes** — Shows semantically similar notes in the sidebar
 

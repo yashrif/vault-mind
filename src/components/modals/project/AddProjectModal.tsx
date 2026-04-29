@@ -1,5 +1,6 @@
-import { ProjectConfig, getCurrentProject } from "@/aiParams";
+import { ProjectConfig, getCurrentProject, type ToolOverrideValue } from "@/aiParams";
 import { ContextManageModal } from "@/components/modals/project/context-manage-modal";
+import { withProjectToolOverride } from "@/components/modals/project/projectToolOverrides";
 import { TruncatedText } from "@/components/TruncatedText";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
@@ -12,6 +13,7 @@ import { DEFAULT_MODEL_SETTING } from "@/constants";
 import { SystemPromptSyntaxInstruction } from "@/components/SystemPromptSyntaxInstruction";
 import { getDecodedPatterns } from "@/search/searchUtils";
 import { getModelKeyFromModel, useSettingsValue } from "@/settings/model";
+import { ToolRegistry } from "@/tools/ToolRegistry";
 import { checkModelApiKey, err2String, randomUUID } from "@/utils";
 import { App, Modal, Notice } from "obsidian";
 import React, { useState } from "react";
@@ -61,6 +63,7 @@ function AddProjectModalContent({ initialProject, onSave, onCancel }: AddProject
   )
     .reverse()
     .join(",");
+  const configurableAgentTools = ToolRegistry.getInstance().getConfigurableTools();
 
   const handleEditProjectContext = (originP: ProjectConfig) => {
     // attempt to retrieve the latest project configuration.
@@ -125,6 +128,13 @@ function AddProjectModalContent({ initialProject, onSave, onCancel }: AddProject
         [field]: value,
       };
     });
+  };
+
+  /**
+   * Updates the tri-state project override for an Agent tool.
+   */
+  const updateProjectToolOverride = (toolId: string, value: ToolOverrideValue) => {
+    setFormData((prev) => withProjectToolOverride(prev, toolId, value));
   };
 
   const handleSave = async () => {
@@ -264,6 +274,51 @@ function AddProjectModalContent({ initialProject, onSave, onCancel }: AddProject
             </FormField>
           </div>
         </div>
+
+        {configurableAgentTools.length > 0 && (
+          <div className="tw-space-y-3">
+            <div>
+              <div className="tw-text-base tw-font-medium">Agent Tool Overrides</div>
+              <div className="tw-text-xs tw-text-muted">
+                Override Agent tool availability for this project. Inherit uses the global Agent
+                Tools setting.
+              </div>
+            </div>
+            <div className="tw-flex tw-flex-col tw-gap-2">
+              {configurableAgentTools.map(({ metadata }) => {
+                const selectedValue = formData.toolOverrides?.agent?.[metadata.id] ?? "inherit";
+
+                return (
+                  <div
+                    key={metadata.id}
+                    className="tw-flex tw-flex-col tw-gap-2 tw-rounded-md tw-border tw-border-solid tw-border-border tw-p-2 sm:tw-flex-row sm:tw-items-center sm:tw-justify-between"
+                  >
+                    <div className="tw-min-w-0">
+                      <div className="tw-text-sm tw-font-medium">{metadata.displayName}</div>
+                      <div className="tw-text-xs tw-text-muted">{metadata.description}</div>
+                    </div>
+                    <div className="tw-flex tw-items-center tw-gap-1">
+                      {(["inherit", true, false] as const).map((value) => {
+                        const label =
+                          value === "inherit" ? "Inherit" : value === true ? "On" : "Off";
+                        return (
+                          <Button
+                            key={`${metadata.id}-${label}`}
+                            type="button"
+                            variant={selectedValue === value ? "secondary" : "ghost"}
+                            onClick={() => updateProjectToolOverride(metadata.id, value)}
+                          >
+                            {label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="tw-space-y-4">
           <div className="tw-text-base tw-font-medium">Context Sources</div>

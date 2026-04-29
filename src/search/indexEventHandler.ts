@@ -1,5 +1,4 @@
-import { getChainType } from "@/aiParams";
-import { ChainType } from "@/chainFactory";
+import { getChainPresetId } from "@/aiParams";
 import { logInfo } from "@/logger";
 import { getSettings, subscribeToSettingsChange } from "@/settings/model";
 import { App, MarkdownView, Platform, TAbstractFile, TFile } from "obsidian";
@@ -84,8 +83,8 @@ export class IndexEventHandler {
       return;
     }
 
-    const currentChainType = getChainType();
-    if (currentChainType !== ChainType.TOOL_CHAIN) {
+    const currentPresetId = getChainPresetId();
+    if (currentPresetId !== "agent") {
       return;
     }
 

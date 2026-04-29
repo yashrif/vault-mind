@@ -35,7 +35,7 @@ import { useChatInput } from "@/context/ChatInputContext";
 import { cn } from "@/lib/utils";
 import { logError } from "@/logger";
 import { ActiveFileProvider } from "./context/ActiveFileContext";
-import { ChainType } from "@/chainFactory";
+import { isRichContextPresetId, type ChainPresetId } from "@/runtime/ChainPreset";
 import { useSettingsValue } from "@/settings/model";
 
 interface LexicalEditorProps {
@@ -64,7 +64,7 @@ interface LexicalEditorProps {
   onTagSelected?: () => void;
   isAgentMode?: boolean;
   currentActiveFile?: TFile | null;
-  currentChain?: ChainType;
+  presetId?: ChainPresetId;
 }
 
 const LexicalEditor: React.FC<LexicalEditorProps> = ({
@@ -93,7 +93,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
   onTagSelected,
   isAgentMode = false,
   currentActiveFile = null,
-  currentChain,
+  presetId,
 }) => {
   const [focusFn, setFocusFn] = React.useState<(() => void) | null>(null);
   const [editorInstance, setEditorInstance] = React.useState<LexicalEditorType | null>(null);
@@ -207,7 +207,7 @@ const LexicalEditor: React.FC<LexicalEditorProps> = ({
           <PastePlugin enableURLPills={!!onURLsChange} onImagePaste={onImagePaste} />
           <SlashCommandPlugin />
           <NoteCommandPlugin isAgentMode={isAgentMode} currentActiveFile={currentActiveFile} />
-          {currentChain && currentChain !== ChainType.LLM_CHAIN && (
+          {presetId && isRichContextPresetId(presetId) && (
             <TagCommandPlugin onTagSelected={onTagSelected} />
           )}
           <AtMentionCommandPlugin isAgentMode={isAgentMode} currentActiveFile={currentActiveFile} />
