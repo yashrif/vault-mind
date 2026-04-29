@@ -871,6 +871,7 @@ export const DEFAULT_SETTINGS: CortexSettings = {
       obsidianTemplates: false,
       obsidianBases: false,
     },
+    telegram: {},
   },
   memoryFolderName: DEFAULT_MEMORY_FOLDER,
   enableRecentConversations: true,

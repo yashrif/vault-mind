@@ -45,15 +45,19 @@ function applyProjectOverride(defaultValue: boolean, toolId: string): boolean {
 export function resolveToolPermissions(context: ToolPermissionContext): StructuredTool[] {
   const registry = ToolRegistry.getInstance();
   const vaultAvailable = context.vaultAvailable ?? !!context.vault;
+  const defaults = context.toolDefaults ?? getSettings().toolDefaults;
 
   if (context.surface === "telegram") {
+    const telegramDefaults = defaults.telegram ?? {};
     return registry
       .getAllTools()
-      .filter((definition) => isAvailableForVault(definition, vaultAvailable))
+      .filter(
+        (definition) =>
+          isAvailableForVault(definition, vaultAvailable) &&
+          telegramDefaults[definition.metadata.id] !== false
+      )
       .map((definition) => definition.tool);
   }
-
-  const defaults = context.toolDefaults ?? getSettings().toolDefaults;
   const resolved: StructuredTool[] = [];
 
   for (const definition of registry.getAllTools()) {

@@ -54,6 +54,7 @@ export interface LegacyCommandSettings {
 export type ToolDefaultSettings = {
   chat: Record<string, boolean>;
   agent: Record<string, boolean>;
+  telegram?: Record<string, boolean>;
 };
 
 export interface CortexSettings {
@@ -527,6 +528,10 @@ export function sanitizeSettings(settings: CortexSettings): CortexSettings {
     savedToolDefaults?.agent && typeof savedToolDefaults.agent === "object"
       ? savedToolDefaults.agent
       : {};
+  const savedTelegramToolDefaults =
+    savedToolDefaults?.telegram && typeof savedToolDefaults.telegram === "object"
+      ? savedToolDefaults.telegram
+      : {};
 
   sanitizedSettings.toolDefaults = {
     chat: {
@@ -536,6 +541,10 @@ export function sanitizeSettings(settings: CortexSettings): CortexSettings {
     agent: {
       ...DEFAULT_SETTINGS.toolDefaults.agent,
       ...savedAgentToolDefaults,
+    },
+    telegram: {
+      ...DEFAULT_SETTINGS.toolDefaults.telegram,
+      ...savedTelegramToolDefaults,
     },
   };
 

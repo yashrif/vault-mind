@@ -111,4 +111,47 @@ describe("resolveToolPermissions", () => {
       "obsidianBases",
     ]);
   });
+
+  it("telegram includes all vault-available tools when telegram defaults are empty (all enabled by default)", () => {
+    const tools = resolveToolPermissions({
+      surface: "telegram",
+      vaultAvailable: true,
+      toolDefaults: { chat: {}, agent: {}, telegram: {} },
+    });
+
+    const names = tools.map((t) => t.name);
+    expect(names).toContain("getCurrentTime");
+    expect(names).toContain("webSearch");
+    expect(names).toContain("localSearch");
+    expect(names).toContain("writeFile");
+  });
+
+  it("telegram excludes tools that are explicitly disabled in telegram defaults", () => {
+    const tools = resolveToolPermissions({
+      surface: "telegram",
+      vaultAvailable: true,
+      toolDefaults: { chat: {}, agent: {}, telegram: { webSearch: false, writeFile: false } },
+    });
+
+    const names = tools.map((t) => t.name);
+    expect(names).not.toContain("webSearch");
+    expect(names).not.toContain("writeFile");
+    expect(names).toContain("getCurrentTime");
+    expect(names).toContain("localSearch");
+  });
+
+  it("telegram excludes tools that require vault when vault is unavailable", () => {
+    const tools = resolveToolPermissions({
+      surface: "telegram",
+      vaultAvailable: false,
+      toolDefaults: { chat: {}, agent: {}, telegram: {} },
+    });
+
+    const names = tools.map((t) => t.name);
+    expect(names).not.toContain("localSearch");
+    expect(names).not.toContain("writeFile");
+    expect(names).not.toContain("obsidianBases");
+    expect(names).toContain("getCurrentTime");
+    expect(names).toContain("webSearch");
+  });
 });

@@ -7,6 +7,7 @@ import { AutonomousAgentChainRunner } from "./AutonomousAgentChainRunner";
 import { resolveRuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { ChatMessage } from "@/types/message";
 import { getPromptProfileInstructions } from "@/system-prompts/systemPromptBuilder";
+import { ABORT_REASON } from "@/constants";
 
 jest.mock("@/logger", () => ({
   logError: jest.fn(),
@@ -460,5 +461,32 @@ describe("AutonomousAgentChainRunner preset routing", () => {
     );
 
     expect(systemMessage.content).toContain(getPromptProfileInstructions("chat_rag"));
+  });
+
+  it("clears the message and returns empty string when new-chat abort occurs during raw streaming", async () => {
+    const preset = {
+      id: "chat",
+      promptProfile: "chat",
+      runtimePolicy: resolveRuntimeChainPolicy("chat"),
+      tools: [],
+    } as any;
+
+    const newChatAbortController = new AbortController();
+    chatModel.stream = jest.fn(async function* () {
+      newChatAbortController.abort(ABORT_REASON.NEW_CHAT);
+      yield { content: "partial content that should be discarded" };
+    });
+
+    const result = await runner.run(
+      userMessage,
+      newChatAbortController,
+      updateCurrentAiMessage,
+      addMessage,
+      { preset, runtimePolicy: preset.runtimePolicy }
+    );
+
+    expect(result).toBe("");
+    expect(updateCurrentAiMessage).toHaveBeenLastCalledWith("");
+    expect(addMessage).not.toHaveBeenCalled();
   });
 });
