@@ -8,6 +8,7 @@ import {
   getQACitationInstructions,
   hasExistingCitations,
   hasInlineCitations,
+  mergeIntoCitationSources,
   normalizeCitations,
   processInlineCitations,
   sanitizeContentForCitations,
@@ -745,6 +746,47 @@ More content
 
     it("should collapse duplicates separated by comma", () => {
       expect(deduplicateAdjacentCitations("cites [1], [1]")).toBe("cites [1]");
+    });
+  });
+
+  describe("mergeIntoCitationSources", () => {
+    it("deduplicates by path, preserving first-seen order", () => {
+      const acc: { title?: string; path?: string }[] = [];
+      const seen = new Set<string>();
+
+      mergeIntoCitationSources(acc, seen, [
+        { title: "Note A", path: "Note A.md" },
+        { title: "Note B", path: "Note B.md" },
+      ]);
+      mergeIntoCitationSources(acc, seen, [
+        { title: "Note B", path: "Note B.md" }, // duplicate — should be ignored
+        { title: "Note C", path: "Note C.md" },
+      ]);
+
+      expect(acc).toEqual([
+        { title: "Note A", path: "Note A.md" },
+        { title: "Note B", path: "Note B.md" },
+        { title: "Note C", path: "Note C.md" },
+      ]);
+    });
+
+    it("falls back to title as dedup key when path is absent", () => {
+      const acc: { title?: string; path?: string }[] = [];
+      const seen = new Set<string>();
+
+      mergeIntoCitationSources(acc, seen, [{ title: "Untitled Note" }]);
+      mergeIntoCitationSources(acc, seen, [{ title: "Untitled Note" }]);
+
+      expect(acc).toHaveLength(1);
+    });
+
+    it("skips entries with neither path nor title", () => {
+      const acc: { title?: string; path?: string }[] = [];
+      const seen = new Set<string>();
+
+      mergeIntoCitationSources(acc, seen, [{}, { title: "Note A" }]);
+
+      expect(acc).toEqual([{ title: "Note A" }]);
     });
   });
 });

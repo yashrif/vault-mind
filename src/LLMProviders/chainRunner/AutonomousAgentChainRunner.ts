@@ -55,6 +55,7 @@ import { findDuplicateQuery, stripLeakedRoleLines } from "./utils/queryDeduplica
 import { buildEnvelopeMultimodalContent, buildRunnerMessages } from "./utils/runnerMessages";
 import { streamRawModelResponse } from "./utils/rawStreaming";
 import { LocalSearchResultFormatter } from "./utils/localSearchResultFormatting";
+import { addFallbackSources, mergeIntoCitationSources } from "./utils/citationUtils";
 
 const AGENT_LOOP_GUIDANCE = `## Agent Behavior
 - You have a limited number of tool calls. Use them wisely.
@@ -122,6 +123,7 @@ interface ReActLoopResult {
   finalResponse: string;
   sources: AgentSource[];
   responseMetadata?: ResponseMetadata;
+  fallbackCitationSources: { title?: string; path?: string }[];
 }
 
 export class AutonomousAgentChainRunner extends BaseChainRunner {
@@ -135,6 +137,21 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
   private accumulatedContent = ""; // Track content to include in timer updates
   private allReasoningSteps: Array<{ timestamp: number; summary: string; toolName?: string }> = []; // Full history of all steps
   private abortHandledByTimer = false; // Flag to prevent duplicate interrupted messages
+
+  /**
+   * Appends a fallback Sources block when localSearch was used but the model omitted citations.
+   * Sources are the turn-scoped accumulator from runReActLoop(), not formatter last-state.
+   */
+  private applyLocalSearchCitationFallback(
+    response: string,
+    fallbackSources: { title?: string; path?: string }[]
+  ): string {
+    if (!response) return response;
+    const settings = getSettings();
+    if (!settings.enableInlineCitations) return response;
+    if (!fallbackSources?.length) return response;
+    return addFallbackSources(response, fallbackSources, settings.enableInlineCitations);
+  }
 
   private getAvailableTools(runtimePolicy?: RuntimeChainPolicy): StructuredTool[] {
     const registry = ToolRegistry.getInstance();
@@ -518,6 +535,10 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
 
       // Finalize and return
       const uniqueSources = deduplicateSources(loopResult.sources);
+      const finalResponse = this.applyLocalSearchCitationFallback(
+        loopResult.finalResponse,
+        loopResult.fallbackCitationSources
+      );
 
       if (context.messages.length > 0) {
         recordPromptPayload({
@@ -528,7 +549,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
       }
 
       await this.handleResponse(
-        loopResult.finalResponse,
+        finalResponse,
         userMessage,
         abortController,
         addMessage,
@@ -540,7 +561,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
       );
 
       this.lastDisplayedContent = "";
-      return loopResult.finalResponse;
+      return finalResponse;
     } catch (error: any) {
       // Always stop the reasoning timer on error
       this.stopReasoningTimer();
@@ -755,6 +776,8 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
 
     const maxIterations = getSettings().autonomousAgentMaxIterations;
     const collectedSources: AgentSource[] = [];
+    const fallbackCitationSources: { title?: string; path?: string }[] = [];
+    const fallbackCitationSourceKeys = new Set<string>();
     const loopStartTime = Date.now();
 
     const previousSearchQueries: string[] = [];
@@ -854,6 +877,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
           finalResponse,
           sources: collectedSources,
           responseMetadata,
+          fallbackCitationSources,
         };
       }
 
@@ -946,6 +970,11 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
         if (tc.name === "localSearch" && result.success) {
           const processed = processLocalSearchResult(result);
           collectedSources.push(...processed.sources);
+          mergeIntoCitationSources(
+            fallbackCitationSources,
+            fallbackCitationSourceKeys,
+            this.localSearchResultFormatter.getFallbackCitationSources() ?? []
+          );
 
           // Extract source info for reasoning summary (just count and titles, no terms needed)
           sourceInfo = {
@@ -1036,6 +1065,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
             finalResponse,
             sources: collectedSources,
             responseMetadata,
+            fallbackCitationSources,
           };
         }
       } else {
@@ -1057,6 +1087,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
           finalResponse: "",
           sources: collectedSources,
           responseMetadata,
+          fallbackCitationSources,
         };
       }
       const interruptedMessage = "The response was interrupted.";
@@ -1068,6 +1099,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
         finalResponse,
         sources: collectedSources,
         responseMetadata,
+        fallbackCitationSources,
       };
     }
 
@@ -1090,6 +1122,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
       finalResponse,
       sources: collectedSources,
       responseMetadata,
+      fallbackCitationSources,
     };
   }
 

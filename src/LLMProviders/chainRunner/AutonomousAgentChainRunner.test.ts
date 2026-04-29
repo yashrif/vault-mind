@@ -18,6 +18,7 @@ jest.mock("@/logger", () => ({
 jest.mock("@/settings/model", () => ({
   getSettings: jest.fn(() => ({
     autonomousAgentMaxIterations: 1,
+    enableInlineCitations: true,
   })),
 }));
 
@@ -488,5 +489,157 @@ describe("AutonomousAgentChainRunner preset routing", () => {
     expect(result).toBe("");
     expect(updateCurrentAiMessage).toHaveBeenLastCalledWith("");
     expect(addMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("AutonomousAgentChainRunner citation fallback", () => {
+  let runner: AutonomousAgentChainRunner;
+  let userMessage: ChatMessage;
+  let abortController: AbortController;
+  let updateCurrentAiMessage: jest.Mock;
+  let addMessage: jest.Mock;
+
+  beforeEach(() => {
+    const chatModel = {
+      modelName: "test-model",
+      bindTools: jest.fn(() => ({
+        stream: jest.fn(async function* () {
+          yield { content: "answer" };
+        }),
+      })),
+      stream: jest.fn(async function* () {
+        yield { content: "answer" };
+      }),
+    };
+    runner = new AutonomousAgentChainRunner({
+      app: { vault: {} },
+      chatModelManager: {
+        getChatModel: jest.fn(() => chatModel),
+        findModelByName: jest.fn(() => ({ capabilities: [] })),
+      },
+      memoryManager: {
+        getMemory: jest.fn(() => ({ chatHistory: { messages: [] } })),
+        saveContext: jest.fn(),
+      },
+      userMemoryManager: {},
+    } as any);
+    userMessage = {
+      id: "msg-cit",
+      message: "Hello",
+      originalMessage: "Hello",
+      sender: "user",
+      timestamp: { epoch: 0, display: "", fileName: "" },
+      isVisible: true,
+      contextEnvelope: {
+        version: 1,
+        conversationId: null,
+        messageId: "msg-cit",
+        layers: [{ id: "L5_USER", text: "Hello" }],
+        serializedText: "serialized",
+        layerHashes: {},
+        combinedHash: "hash",
+      },
+    } as ChatMessage;
+    abortController = new AbortController();
+    updateCurrentAiMessage = jest.fn();
+    addMessage = jest.fn();
+  });
+
+  it("appends fallback Sources block when localSearch ran but response has no citations", async () => {
+    const preset = {
+      id: "chat_rag",
+      promptProfile: "chat_rag",
+      runtimePolicy: resolveRuntimeChainPolicy("chat_rag"),
+      tools: [{ name: "localSearch" }],
+    } as any;
+
+    jest.spyOn(runner as any, "runReActLoop").mockResolvedValue({
+      finalResponse: "Here is the answer.",
+      sources: [],
+      responseMetadata: undefined,
+      fallbackCitationSources: [{ title: "Note A", path: "Note A.md" }],
+    });
+
+    const result = await runner.run(
+      userMessage,
+      abortController,
+      updateCurrentAiMessage,
+      addMessage,
+      {
+        preset,
+        runtimePolicy: preset.runtimePolicy,
+      }
+    );
+
+    expect(result).toContain("#### Sources:");
+    expect(addMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("#### Sources:") })
+    );
+  });
+
+  it("leaves response unchanged when it already contains a Sources block", async () => {
+    const preset = {
+      id: "chat_rag",
+      promptProfile: "chat_rag",
+      runtimePolicy: resolveRuntimeChainPolicy("chat_rag"),
+      tools: [{ name: "localSearch" }],
+    } as any;
+
+    const responseWithSources = "Here is the answer.\n\n#### Sources:\n\n[^1]: [[Note A]]";
+
+    jest.spyOn(runner as any, "runReActLoop").mockResolvedValue({
+      finalResponse: responseWithSources,
+      sources: [],
+      responseMetadata: undefined,
+      fallbackCitationSources: [{ title: "Note A", path: "Note A.md" }],
+    });
+
+    const result = await runner.run(
+      userMessage,
+      abortController,
+      updateCurrentAiMessage,
+      addMessage,
+      {
+        preset,
+        runtimePolicy: preset.runtimePolicy,
+      }
+    );
+
+    const sourcesMatches = (result.match(/#### Sources:/g) || []).length;
+    expect(sourcesMatches).toBe(1);
+  });
+
+  it("uses accumulated sources from all searches, not just the last one", async () => {
+    const preset = {
+      id: "chat_rag",
+      promptProfile: "chat_rag",
+      runtimePolicy: resolveRuntimeChainPolicy("chat_rag"),
+      tools: [{ name: "localSearch" }],
+    } as any;
+
+    // Formatter would only return last search's sources, but the accumulator has both
+    jest.spyOn(runner as any, "runReActLoop").mockResolvedValue({
+      finalResponse: "Combined answer from two searches.",
+      sources: [],
+      responseMetadata: undefined,
+      fallbackCitationSources: [
+        { title: "Note A", path: "Note A.md" },
+        { title: "Note B", path: "Note B.md" },
+      ],
+    });
+
+    const result = await runner.run(
+      userMessage,
+      abortController,
+      updateCurrentAiMessage,
+      addMessage,
+      {
+        preset,
+        runtimePolicy: preset.runtimePolicy,
+      }
+    );
+
+    expect(result).toContain("Note A");
+    expect(result).toContain("Note B");
   });
 });
