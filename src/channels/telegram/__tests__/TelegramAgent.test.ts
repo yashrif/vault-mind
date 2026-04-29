@@ -12,7 +12,7 @@ jest.mock("@/utils", () => ({
   formatDateTime: jest.fn().mockReturnValue("2024-01-01 00:00:00"),
   cleanMessageForCopy: jest.fn().mockImplementation((message: string) =>
     message
-      .replace(/<!--AGENT_REASONING:\w+:\d+:.*-->/g, "")
+      .replace(/<!--CORTEX_REASONING:v1:[\s\S]*?-->/g, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim()
   ),
@@ -76,6 +76,7 @@ jest.mock("../TelegramStore", () => ({
 import { TelegramAgent } from "../TelegramAgent";
 import { TelegramClient } from "../TelegramClient";
 import { TelegramStore } from "../TelegramStore";
+import { serializeReasoningPayload } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { updateChatMemory } from "@/chatUtils";
 import type { TelegramStoredMessage } from "../TelegramTypes";
 
@@ -103,6 +104,21 @@ function makeUserMsg(overrides: Partial<TelegramStoredMessage> = {}): TelegramSt
     stored_at: Date.now(),
     ...overrides,
   };
+}
+
+/** Build a persisted reasoning marker for Telegram display-text tests. */
+function makeReasoningMarker(): string {
+  return serializeReasoningPayload({
+    status: "complete",
+    elapsedSeconds: 3,
+    steps: [
+      {
+        id: "step-1",
+        timestamp: Date.now(),
+        summary: "Consulting my notes",
+      },
+    ],
+  });
 }
 
 /**
@@ -319,6 +335,7 @@ describe("TelegramAgent", () => {
 
   it("calls runChain, then sendMessage, then appendBotMessage for a telegram user message", async () => {
     const callOrder: string[] = [];
+    const reasoningMarker = makeReasoningMarker();
 
     const runChain = jest
       .fn()
@@ -332,7 +349,7 @@ describe("TelegramAgent", () => {
           callOrder.push("runChain");
           onPartial("**Partial**");
           addMessage({
-            message: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+            message: `${reasoningMarker}
 # Reply
 
 - I am the **AI** reply`,
@@ -367,7 +384,7 @@ describe("TelegramAgent", () => {
       42,
       "telegram",
       {
-        displayText: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+        displayText: `${reasoningMarker}
 # Reply
 
 - I am the **AI** reply`,

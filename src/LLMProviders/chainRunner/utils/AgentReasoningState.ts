@@ -5,23 +5,46 @@
  * which replaces the old tool call banner with a more informative reasoning display.
  */
 
+export const CORTEX_REASONING_MARKER_PREFIX = "<!--CORTEX_REASONING:v1:";
+const CORTEX_REASONING_MARKER_REGEX = /<!--CORTEX_REASONING:v1:([A-Za-z0-9+/=]+)-->/;
+const CORTEX_REASONING_MARKER_ANY_REGEX = /<!--CORTEX_REASONING:v1:[\s\S]*?-->/g;
+const MAX_ARG_STRING_LENGTH = 300;
+const MAX_RESULT_PREVIEW_LENGTH = 800;
+const MAX_PREVIEW_DEPTH = 3;
+const MAX_PREVIEW_ENTRIES = 20;
+const SENSITIVE_KEY_REGEX = /api[-_]?key|token|password|secret|authorization/i;
+
+export type ToolDetailStatus = "running" | "success" | "error";
+
+export interface ReasoningToolDetails {
+  status: ToolDetailStatus;
+  argsPreview: unknown;
+  resultPreview?: string;
+  durationMs?: number;
+  truncated: boolean;
+  errorMessage?: string;
+}
+
 /**
  * Represents a single reasoning step in the agent loop
  */
 export interface ReasoningStep {
+  id: string;
   timestamp: number;
   summary: string;
   toolName?: string;
+  toolDetails?: ReasoningToolDetails;
 }
 
 /**
  * Status of the reasoning block
  * - idle: No agent activity
  * - reasoning: Agent is actively processing/executing tools
- * - collapsed: Reasoning complete, block is collapsed
  * - complete: Response complete, block can be expanded
  */
-export type ReasoningStatus = "idle" | "reasoning" | "collapsed" | "complete";
+export type ReasoningStatus = "idle" | "reasoning" | "complete";
+
+export type PersistedReasoningStatus = "reasoning" | "complete";
 
 /**
  * Full state for the Agent Reasoning Block
@@ -45,69 +68,226 @@ export function createInitialReasoningState(): AgentReasoningState {
   };
 }
 
-/**
- * Data structure for serialized reasoning block (embedded in message)
- */
-export interface SerializedReasoningData {
-  elapsed: number;
-  steps: string[];
+export interface ReasoningPayload {
+  status: PersistedReasoningStatus;
+  elapsedSeconds: number;
+  steps: ReasoningStep[];
+}
+
+export interface ParsedReasoningMessage {
+  payload: ReasoningPayload;
+  contentAfter: string;
+  marker: string;
+}
+
+interface PreviewResult {
+  preview: unknown;
+  truncated: boolean;
 }
 
 /**
- * Serialize reasoning state to a marker format for embedding in messages.
- * Format: <!--AGENT_REASONING:status:elapsedSeconds:["step1","step2"]-->
- *
- * @param state - The reasoning state to serialize
- * @returns Marker string to embed in message
+ * Encode text as base64 while preserving UTF-8 content in browsers and tests.
  */
-export function serializeReasoningBlock(state: AgentReasoningState): string {
-  if (state.status === "idle") {
-    return "";
+function encodeBase64Utf8(text: string): string {
+  const globalObject = globalThis as typeof globalThis & {
+    Buffer?: { from(input: string, encoding: string): { toString(encoding: string): string } };
+  };
+
+  if (globalObject.Buffer) {
+    return globalObject.Buffer.from(text, "utf8").toString("base64");
   }
 
-  const stepsJson = JSON.stringify(state.steps.map((s) => s.summary));
-  return `<!--AGENT_REASONING:${state.status}:${state.elapsedSeconds}:${stepsJson}-->`;
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
 }
 
 /**
- * Parsed reasoning data from a marker
+ * Decode base64 into UTF-8 text while preserving browser compatibility.
  */
-export interface ParsedReasoningBlock {
-  hasReasoning: boolean;
-  status: ReasoningStatus;
-  elapsedSeconds: number;
-  steps: string[];
-  contentAfter: string;
+function decodeBase64Utf8(encoded: string): string {
+  const globalObject = globalThis as typeof globalThis & {
+    Buffer?: { from(input: string, encoding: string): { toString(encoding: string): string } };
+  };
+
+  if (globalObject.Buffer) {
+    return globalObject.Buffer.from(encoded, "base64").toString("utf8");
+  }
+
+  const binary = atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 /**
- * Parse reasoning block marker from message content.
- *
- * @param content - Message content that may contain reasoning marker
- * @returns Parsed reasoning data or null if no marker found
+ * Return true when a value is a plain object record.
  */
-export function parseReasoningBlock(content: string): ParsedReasoningBlock | null {
-  const match = content.match(/<!--AGENT_REASONING:(\w+):(\d+):(.+?)-->/);
-  if (!match) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Validate persisted tool details before rendering.
+ */
+function isReasoningToolDetails(value: unknown): value is ReasoningToolDetails {
+  if (!isRecord(value)) return false;
+  if (!("argsPreview" in value)) return false;
+  if (value.resultPreview !== undefined && typeof value.resultPreview !== "string") return false;
+  if (value.durationMs !== undefined && typeof value.durationMs !== "number") return false;
+  if (value.errorMessage !== undefined && typeof value.errorMessage !== "string") return false;
+  return (
+    (value.status === "running" || value.status === "success" || value.status === "error") &&
+    typeof value.truncated === "boolean"
+  );
+}
+
+/**
+ * Validate a single persisted reasoning step.
+ */
+function isReasoningStep(value: unknown): value is ReasoningStep {
+  if (!isRecord(value)) return false;
+  if (typeof value.id !== "string") return false;
+  if (typeof value.timestamp !== "number" || !Number.isFinite(value.timestamp)) return false;
+  if (typeof value.summary !== "string") return false;
+  if (value.toolName !== undefined && typeof value.toolName !== "string") return false;
+  if (value.toolDetails !== undefined && !isReasoningToolDetails(value.toolDetails)) return false;
+  return true;
+}
+
+/**
+ * Validate a parsed reasoning payload before returning it to UI code.
+ */
+function isReasoningPayload(value: unknown): value is ReasoningPayload {
+  if (!isRecord(value)) return false;
+  if (value.status !== "reasoning" && value.status !== "complete") return false;
+  if (typeof value.elapsedSeconds !== "number" || !Number.isFinite(value.elapsedSeconds))
+    return false;
+  if (!Array.isArray(value.steps)) return false;
+  return value.steps.every(isReasoningStep);
+}
+
+/**
+ * Serialize a reasoning payload into a safe HTML comment marker.
+ */
+export function serializeReasoningPayload(payload: ReasoningPayload): string {
+  const json = JSON.stringify(payload);
+  return `${CORTEX_REASONING_MARKER_PREFIX}${encodeBase64Utf8(json)}-->`;
+}
+
+/**
+ * Parse a CORTEX_REASONING marker from a message.
+ */
+export function parseReasoningMessage(content: string): ParsedReasoningMessage | null {
+  const match = content.match(CORTEX_REASONING_MARKER_REGEX);
+  if (!match) return null;
+
+  const [marker, encoded] = match;
+  try {
+    const payload = JSON.parse(decodeBase64Utf8(encoded));
+    if (!isReasoningPayload(payload)) {
+      return null;
+    }
+
+    return {
+      payload,
+      contentAfter: content.replace(marker, "").trim(),
+      marker,
+    };
+  } catch {
     return null;
   }
+}
 
-  const [fullMatch, status, elapsed, stepsJson] = match;
+/**
+ * Remove persisted reasoning markers from text before reuse outside local display.
+ */
+export function stripReasoningMarker(content: string): string {
+  return content.replace(CORTEX_REASONING_MARKER_ANY_REGEX, "").trim();
+}
 
-  let steps: string[] = [];
-  try {
-    steps = JSON.parse(stepsJson) as string[];
-  } catch {
-    // Invalid JSON, return empty steps
-    steps = [];
+/**
+ * Sanitize arbitrary tool args/results into bounded JSON-safe preview values.
+ */
+function sanitizePreviewValue(value: unknown, depth: number = 0): PreviewResult {
+  if (typeof value === "string") {
+    if (value.length > MAX_ARG_STRING_LENGTH) {
+      return { preview: value.slice(0, MAX_ARG_STRING_LENGTH) + "...", truncated: true };
+    }
+    return { preview: value, truncated: false };
   }
 
+  if (typeof value !== "object" || value === null) {
+    return { preview: value, truncated: false };
+  }
+
+  if (depth >= MAX_PREVIEW_DEPTH) {
+    return { preview: "[Max depth reached]", truncated: true };
+  }
+
+  if (Array.isArray(value)) {
+    const items = value
+      .slice(0, MAX_PREVIEW_ENTRIES)
+      .map((item) => sanitizePreviewValue(item, depth + 1));
+    const truncated = items.some((item) => item.truncated) || value.length > MAX_PREVIEW_ENTRIES;
+    const preview = items.map((item) => item.preview);
+    if (value.length > MAX_PREVIEW_ENTRIES) {
+      preview.push(`... ${value.length - MAX_PREVIEW_ENTRIES} more items`);
+    }
+    return { preview, truncated };
+  }
+
+  const entries = Object.entries(value).slice(0, MAX_PREVIEW_ENTRIES);
+  let truncated = Object.keys(value).length > MAX_PREVIEW_ENTRIES;
+  const preview: Record<string, unknown> = {};
+
+  for (const [key, nestedValue] of entries) {
+    if (SENSITIVE_KEY_REGEX.test(key)) {
+      preview[key] = "[redacted]";
+      continue;
+    }
+    const sanitized = sanitizePreviewValue(nestedValue, depth + 1);
+    preview[key] = sanitized.preview;
+    truncated = truncated || sanitized.truncated;
+  }
+
+  if (Object.keys(value).length > MAX_PREVIEW_ENTRIES) {
+    preview.__truncated = `${Object.keys(value).length - MAX_PREVIEW_ENTRIES} more entries`;
+  }
+
+  return { preview, truncated };
+}
+
+/**
+ * Build safe persisted details for a tool call/result pair.
+ */
+export function buildToolDetailPreview(params: {
+  args?: Record<string, unknown>;
+  result?: string;
+  success?: boolean;
+  durationMs?: number;
+}): ReasoningToolDetails {
+  const argsPreview = sanitizePreviewValue(params.args ?? {});
+  const resultText = params.result ?? "";
+  const resultTruncated = resultText.length > MAX_RESULT_PREVIEW_LENGTH;
+  const resultPreview = resultText
+    ? resultText.slice(0, MAX_RESULT_PREVIEW_LENGTH) + (resultTruncated ? "..." : "")
+    : undefined;
+  const status: ToolDetailStatus =
+    params.success === undefined ? "running" : params.success ? "success" : "error";
+
   return {
-    hasReasoning: true,
-    status: status as ReasoningStatus,
-    elapsedSeconds: parseInt(elapsed, 10),
-    steps,
-    contentAfter: content.replace(fullMatch, "").trim(),
+    status,
+    argsPreview: argsPreview.preview,
+    resultPreview,
+    durationMs: params.durationMs,
+    truncated: argsPreview.truncated || resultTruncated,
+    errorMessage: status === "error" ? resultPreview : undefined,
   };
 }
 

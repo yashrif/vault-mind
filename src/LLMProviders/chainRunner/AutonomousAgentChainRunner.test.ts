@@ -8,6 +8,7 @@ import { resolveRuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { ChatMessage } from "@/types/message";
 import { getPromptProfileInstructions } from "@/system-prompts/systemPromptBuilder";
 import { ABORT_REASON } from "@/constants";
+import { parseReasoningMessage } from "./utils/AgentReasoningState";
 
 jest.mock("@/logger", () => ({
   logError: jest.fn(),
@@ -489,6 +490,42 @@ describe("AutonomousAgentChainRunner preset routing", () => {
     expect(result).toBe("");
     expect(updateCurrentAiMessage).toHaveBeenLastCalledWith("");
     expect(addMessage).not.toHaveBeenCalled();
+  });
+
+  it("updates the same pending tool reasoning step with result details during live streaming", () => {
+    const update = jest.fn();
+
+    (runner as any).startReasoningTimer(update);
+    const stepId = (runner as any).addToolReasoningStep(
+      "provider-call-1",
+      "Searching notes",
+      "localSearch",
+      { query: "roadmap", apiKey: "secret" },
+      update
+    );
+    (runner as any).completeToolReasoningStep(
+      "provider-call-1",
+      { success: true, result: "Found roadmap.md" },
+      25,
+      update
+    );
+    (runner as any).stopReasoningTimer();
+
+    expect(stepId).toBe("step-1");
+    expect(update).toHaveBeenCalledWith(expect.stringContaining("CORTEX_REASONING"));
+    const parsed = parseReasoningMessage(update.mock.calls.at(-1)?.[0] ?? "");
+    expect(parsed?.payload.steps).toHaveLength(1);
+    expect(parsed?.payload.steps[0]).toMatchObject({
+      id: "step-1",
+      summary: "Searching notes",
+      toolName: "localSearch",
+      toolDetails: {
+        status: "success",
+        resultPreview: "Found roadmap.md",
+        durationMs: 25,
+      },
+    });
+    expect((parsed?.payload.steps[0].toolDetails?.argsPreview as any).apiKey).toBe("[redacted]");
   });
 });
 

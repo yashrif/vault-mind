@@ -10,6 +10,7 @@ import {
   TEXT_READABLE_EXTENSIONS,
   USER_SENDER,
 } from "@/constants";
+import { stripReasoningMarker } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { logInfo, logWarn } from "@/logger";
 import { CortexSettings } from "@/settings/model";
 import { ChatMessage } from "@/types/message";
@@ -969,10 +970,8 @@ export function cleanMessageForCopy(message: string): string {
     ""
   );
 
-  // Remove agent reasoning blocks
-  // Format: <!--AGENT_REASONING:status:elapsed:["step1","step2"]-->
-  // Use greedy .* so we match to the real closing --> even if the JSON payload contains -->
-  cleanedMessage = cleanedMessage.replace(/<!--AGENT_REASONING:\w+:\d+:.*-->/g, "");
+  // Remove local-only cortex reasoning blocks.
+  cleanedMessage = stripReasoningMarker(cleanedMessage);
 
   // Clean up any resulting multiple consecutive newlines (more than 2)
   cleanedMessage = cleanedMessage.replace(/\n{3,}/g, "\n\n");

@@ -1,8 +1,15 @@
+import { serializeReasoningPayload } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { formatTelegramOutboundMessage } from "../telegramOutboundFormat";
 
 describe("formatTelegramOutboundMessage", () => {
-  it("removes hidden agent metadata before building Telegram payloads", () => {
-    const input = `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+  const reasoningMarker = serializeReasoningPayload({
+    status: "complete",
+    elapsedSeconds: 3,
+    steps: [{ id: "step-1", timestamp: 1, summary: "Consulting my notes" }],
+  });
+
+  it("removes hidden cortex reasoning metadata before building Telegram payloads", () => {
+    const input = `${reasoningMarker}
 
 Hello!`;
 
@@ -64,15 +71,15 @@ print("hi")
     });
   });
 
-  it("preserves reasoning while still stripping tool markers from local display text", () => {
-    const input = `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+  it("preserves reasoning in local display while stripping tool markers from local display text", () => {
+    const input = `${reasoningMarker}
 
 <!--TOOL_CALL_START:123:localSearch:Local Search:🔍::true-->Searching...<!--TOOL_CALL_END:123:Found 5 results-->
 
 Hello!`;
 
     expect(formatTelegramOutboundMessage(input)).toEqual({
-      displayText: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+      displayText: `${reasoningMarker}
 
 Hello!`,
       storageText: "Hello!",

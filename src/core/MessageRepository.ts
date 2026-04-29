@@ -1,4 +1,5 @@
 import { PromptContextEnvelope } from "@/context/PromptContextTypes";
+import { stripReasoningMarker } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { formatDateTime } from "@/utils";
 import { ChatMessage, MessageContext, NewChatMessage, StoredMessage } from "@/types/message";
 import { logInfo } from "@/logger";
@@ -14,6 +15,22 @@ import { logInfo } from "@/logger";
  */
 export class MessageRepository {
   private messages: StoredMessage[] = [];
+
+  /**
+   * Return true when a message sender represents an assistant response.
+   */
+  private isAssistantSender(sender: string): boolean {
+    return sender === "AI" || sender === "ai" || sender === "assistant";
+  }
+
+  /**
+   * Remove local-only reasoning from assistant text before model reuse.
+   */
+  private getLLMSafeText(msg: StoredMessage): string {
+    return this.isAssistantSender(msg.sender)
+      ? stripReasoningMarker(msg.displayText)
+      : msg.displayText;
+  }
 
   /**
    * Generate a unique message ID
@@ -236,8 +253,12 @@ export class MessageRepository {
 
     return {
       id: msg.id,
-      message: msg.processedText, // TRANSITIONAL: Full context (legacy format)
-      originalMessage: msg.displayText,
+      message: this.isAssistantSender(msg.sender)
+        ? stripReasoningMarker(msg.processedText)
+        : msg.processedText, // TRANSITIONAL: Full context (legacy format)
+      originalMessage: this.isAssistantSender(msg.sender)
+        ? stripReasoningMarker(msg.displayText)
+        : msg.displayText,
       sender: msg.sender,
       timestamp: msg.timestamp,
       isVisible: false, // LLM messages are not for display
@@ -261,8 +282,8 @@ export class MessageRepository {
   getLLMMessages(): ChatMessage[] {
     return this.messages.map((msg) => ({
       id: msg.id,
-      message: msg.displayText, // Changed from processedText to prevent context duplication
-      originalMessage: msg.displayText,
+      message: this.getLLMSafeText(msg), // Changed from processedText to prevent context duplication
+      originalMessage: this.getLLMSafeText(msg),
       sender: msg.sender,
       timestamp: msg.timestamp,
       isVisible: false,

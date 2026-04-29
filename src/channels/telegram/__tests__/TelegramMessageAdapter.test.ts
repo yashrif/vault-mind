@@ -2,6 +2,22 @@ import {
   mapTelegramMessageToChatMessage,
   mapTelegramMessagesToChatMessages,
 } from "../TelegramMessageAdapter";
+import { serializeReasoningPayload } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
+
+/** Build a persisted reasoning marker for Telegram display mapping tests. */
+function makeReasoningMarker(): string {
+  return serializeReasoningPayload({
+    status: "complete",
+    elapsedSeconds: 3,
+    steps: [
+      {
+        id: "step-1",
+        timestamp: Date.now(),
+        summary: "Consulting my notes",
+      },
+    ],
+  });
+}
 
 describe("TelegramMessageAdapter", () => {
   it("maps a telegram bot message into shared ChatMessage shape", () => {
@@ -50,6 +66,7 @@ describe("TelegramMessageAdapter", () => {
 
   it("prefers richer display text when present", () => {
     const storedAt = 1_710_000_000_200;
+    const reasoningMarker = makeReasoningMarker();
     const telegramMessage = {
       local_id: "local-2",
       chat_id: 123,
@@ -57,7 +74,7 @@ describe("TelegramMessageAdapter", () => {
       sender_type: "bot" as const,
       source: "telegram" as const,
       text: "Hello from bot",
-      displayText: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+      displayText: `${reasoningMarker}
 
 Hello from bot`,
       date: Math.floor(storedAt / 1000),
@@ -66,7 +83,7 @@ Hello from bot`,
 
     const chatMessage = mapTelegramMessageToChatMessage(telegramMessage, 0);
 
-    expect(chatMessage.message).toBe(`<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+    expect(chatMessage.message).toBe(`${reasoningMarker}
 
 Hello from bot`);
   });

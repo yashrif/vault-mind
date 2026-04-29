@@ -151,7 +151,7 @@ See [Context and Mentions](context-and-mentions.md) for the full @-mention refer
 
 ## Tool Call Indicators
 
-While the agent is working, the chat shows status indicators for each tool call:
+While the agent is working, the chat shows a reasoning panel with each tool step:
 
 - "Reading files"
 - "Searching the web"
@@ -159,6 +159,10 @@ While the agent is working, the chat shows status indicators for each tool call:
 - "Compacting"
 
 This lets you see what the agent is doing as it works.
+
+After the response finishes, the panel stays available in the message in a collapsed state. You can expand it to review the completed steps. Tool steps include a nested details section with a safe preview of the tool input and result, plus success or error status and timing when available.
+
+Saved chats keep this reasoning panel for local display. It is not included when Cortex sends previous assistant messages back to the AI, copies message text, inserts text into a note, or sends a Telegram reply.
 
 ---
 

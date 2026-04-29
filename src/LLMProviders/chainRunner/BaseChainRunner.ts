@@ -5,6 +5,7 @@ import type { ChainPreset } from "@/runtime/ChainPreset";
 import type { RuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { ChatMessage, ResponseMetadata } from "@/types/message";
 import { err2String, formatDateTime } from "@/utils";
+import { stripReasoningMarker } from "./utils/AgentReasoningState";
 import ChainManager from "../chainManager";
 
 export interface ChainRunner {
@@ -93,8 +94,9 @@ export abstract class BaseChainRunner implements ChainRunner {
       // while excluding context artifact blocks.
       const l5Text = userMessage.contextEnvelope?.layers.find((l) => l.id === "L5_USER")?.text;
       const inputForMemory = l5Text || userMessage.originalMessage || userMessage.message;
-      const outputForMemory =
-        llmFormattedOutput || fullAIResponse || "[Response truncated - no content generated]";
+      const outputForMemory = stripReasoningMarker(
+        llmFormattedOutput || fullAIResponse || "[Response truncated - no content generated]"
+      );
       await (memoryOverride ?? this.chainManager.memoryManager).saveContext(
         { input: inputForMemory },
         { output: outputForMemory }

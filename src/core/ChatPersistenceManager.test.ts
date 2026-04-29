@@ -1,4 +1,5 @@
 import { ChatMessage } from "@/types/message";
+import { serializeReasoningPayload } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { Notice, TFile } from "obsidian";
 import { ChatPersistenceManager } from "./ChatPersistenceManager";
 
@@ -1030,6 +1031,68 @@ tags:
   });
 
   describe("round-trip save and load", () => {
+    it("preserves CORTEX_REASONING markers in assistant display text through save and load", async () => {
+      const marker = serializeReasoningPayload({
+        status: "complete",
+        elapsedSeconds: 4,
+        steps: [
+          {
+            id: "step-1",
+            timestamp: 1,
+            summary: "Searching notes",
+            toolName: "localSearch",
+            toolDetails: {
+              status: "success",
+              argsPreview: { query: "roadmap" },
+              resultPreview: "Found roadmap.md",
+              durationMs: 12,
+              truncated: false,
+            },
+          },
+        ],
+      });
+      const originalMessages: ChatMessage[] = [
+        {
+          id: "1",
+          message: "Find my roadmap",
+          sender: USER_SENDER,
+          timestamp: {
+            epoch: 1695513480000,
+            display: "2024/09/23 22:18:00",
+            fileName: "2024_09_23_221800",
+          },
+          isVisible: true,
+        },
+        {
+          id: "2",
+          message: `${marker}\n\nThe roadmap is in [[roadmap]].`,
+          sender: AI_SENDER,
+          timestamp: {
+            epoch: 1695513481000,
+            display: "2024/09/23 22:18:01",
+            fileName: "2024_09_23_221801",
+          },
+          isVisible: true,
+        },
+      ];
+
+      const formattedContent = (persistenceManager as any).formatChatContent(originalMessages);
+      expect(formattedContent).toContain("CORTEX_REASONING");
+
+      const parsedMessages = (persistenceManager as any).parseChatContent(`---
+epoch: 1695513480000
+modelKey: gpt-4
+tags:
+  - cortex-conversation
+---
+
+${formattedContent}`);
+
+      expect(parsedMessages[1].message).toContain("CORTEX_REASONING");
+      expect(parsedMessages[1].message).toContain("The roadmap is in");
+      expect(parsedMessages[1].originalMessage).toBe("The roadmap is in [[roadmap]].");
+    });
+
     it("should preserve messages through save and load cycle", async () => {
       const originalMessages: ChatMessage[] = [
         {

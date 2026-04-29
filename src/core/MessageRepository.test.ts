@@ -1,4 +1,5 @@
 import { MessageRepository } from "./MessageRepository";
+import { serializeReasoningPayload } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { ChatMessage, MessageContext, StoredMessage } from "@/types/message";
 import { formatDateTime } from "@/utils";
 import { TFile } from "obsidian";
@@ -123,6 +124,38 @@ describe("MessageRepository", () => {
       // For full context, use getLLMMessage(id)
       const fullMessage = messageRepo.getLLMMessage(id1);
       expect(fullMessage?.message).toBe("Hello with context");
+    });
+
+    it("strips persisted reasoning markers from assistant LLM history while preserving display text", () => {
+      const marker = serializeReasoningPayload({
+        status: "complete",
+        elapsedSeconds: 3,
+        steps: [
+          {
+            id: "step-1",
+            timestamp: 1,
+            summary: "Searching notes",
+            toolName: "localSearch",
+            toolDetails: {
+              status: "success",
+              argsPreview: { query: "project notes" },
+              resultPreview: "Found one note",
+              durationMs: 10,
+              truncated: false,
+            },
+          },
+        ],
+      });
+
+      messageRepo.addMessage(
+        `${marker}\n\nAnswer from notes`,
+        `${marker}\n\nAnswer from notes`,
+        "AI"
+      );
+
+      expect(messageRepo.getDisplayMessages()[0].message).toContain("CORTEX_REASONING");
+      expect(messageRepo.getLLMMessages()[0].message).toBe("Answer from notes");
+      expect(messageRepo.getLLMMessages()[0].originalMessage).toBe("Answer from notes");
     });
   });
 
