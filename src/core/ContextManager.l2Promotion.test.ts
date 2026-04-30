@@ -187,6 +187,30 @@ describe("ContextManager L2 promotion filtering", () => {
     expect(l2Context).toContain("URL content here");
   });
 
+  it("should strip persisted reasoning markers from promoted note context", () => {
+    const noteSegment: PromptLayerSegment = {
+      id: "notes/reasoning.md",
+      content: `<note_context>\n<title>Reasoning</title>\n<path>notes/reasoning.md</path>\n<content>Visible before\n<!--CORTEX_REASONING:v1:abc-->\nVisible after</content>\n</note_context>`,
+      stable: false,
+      metadata: { source: "current_turn", notePath: "notes/reasoning.md" },
+    };
+
+    const mockRepo = createMockMessageRepo([
+      {
+        id: "msg-1",
+        sender: "user",
+        contextEnvelope: buildEnvelopeWithL3Segments([noteSegment]),
+      },
+      { id: "msg-2", sender: "user" },
+    ]);
+
+    const { l2Context } = contextManager.buildL2ContextFromPreviousTurns("msg-2", mockRepo);
+
+    expect(l2Context).toContain("Visible before");
+    expect(l2Context).toContain("Visible after");
+    expect(l2Context).not.toContain("CORTEX_REASONING");
+  });
+
   it("should allow unknown/unregistered tags to pass through to L2", () => {
     const priorContextSegment: PromptLayerSegment = {
       id: "old/note.md",

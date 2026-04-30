@@ -4,6 +4,7 @@ jest.mock("@/logger", () => ({
   logError: jest.fn(),
 }));
 
+import { serializeReasoningPayload } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { TelegramStore } from "../TelegramStore";
 import type { TelegramUpdate } from "../TelegramTypes";
 
@@ -39,6 +40,21 @@ function setupEmptyVault() {
   mockAdapter.mkdir.mockResolvedValue(undefined);
   mockAdapter.read.mockResolvedValue("[]");
   mockAdapter.write.mockResolvedValue(undefined);
+}
+
+/** Build a persisted reasoning marker for Telegram display-text tests. */
+function makeReasoningMarker(): string {
+  return serializeReasoningPayload({
+    status: "complete",
+    elapsedSeconds: 3,
+    steps: [
+      {
+        id: "step-1",
+        timestamp: Date.now(),
+        summary: "Consulting my notes",
+      },
+    ],
+  });
 }
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
@@ -231,8 +247,10 @@ describe("TelegramStore", () => {
     });
 
     it("stores optional richer display text separately from the Telegram-safe text", async () => {
+      const reasoningMarker = makeReasoningMarker();
+
       await store.appendBotMessage("Hello!", 111, "telegram", {
-        displayText: `<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+        displayText: `${reasoningMarker}
 
 Hello!`,
       });
@@ -240,7 +258,7 @@ Hello!`,
       const msgs = store.getVisibleMessages();
       const botMessage = msgs[msgs.length - 1];
       expect(botMessage.text).toBe("Hello!");
-      expect(botMessage.displayText).toBe(`<!--AGENT_REASONING:complete:3:["Consulting my notes"]-->
+      expect(botMessage.displayText).toBe(`${reasoningMarker}
 
 Hello!`);
     });

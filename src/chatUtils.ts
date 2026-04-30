@@ -1,4 +1,5 @@
 import { AI_SENDER, USER_SENDER } from "@/constants";
+import { stripReasoningMarker } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { ChatMessage } from "@/types/message";
 import MemoryManager from "./LLMProviders/memoryManager";
 
@@ -19,7 +20,10 @@ export async function updateChatMemory(
       if (nextMsg?.sender === AI_SENDER) {
         const l5Text = msg.contextEnvelope?.layers.find((layer) => layer.id === "L5_USER")?.text;
         const inputForMemory = l5Text || msg.originalMessage || msg.message;
-        await memoryManager.saveContext({ input: inputForMemory }, { output: nextMsg.message });
+        await memoryManager.saveContext(
+          { input: inputForMemory },
+          { output: stripReasoningMarker(nextMsg.message) }
+        );
       }
     }
   }

@@ -8,6 +8,14 @@ import { resolveRuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { ChatMessage } from "@/types/message";
 import { getPromptProfileInstructions } from "@/system-prompts/systemPromptBuilder";
 import { ABORT_REASON } from "@/constants";
+import { parseReasoningMessage, ReasoningStep } from "./utils/AgentReasoningState";
+import { ToolRegistry } from "@/tools/ToolRegistry";
+
+const mockToolRegistry = {
+  getAllTools: jest.fn(() => []),
+  getEnabledTools: jest.fn(() => []),
+  getToolMetadata: jest.fn(() => undefined),
+};
 
 jest.mock("@/logger", () => ({
   logError: jest.fn(),
@@ -56,11 +64,7 @@ jest.mock("@/LLMProviders/projectManager", () => ({
 
 jest.mock("@/tools/ToolRegistry", () => ({
   ToolRegistry: {
-    getInstance: jest.fn(() => ({
-      getAllTools: jest.fn(() => []),
-      getEnabledTools: jest.fn(() => []),
-      getToolMetadata: jest.fn(() => undefined),
-    })),
+    getInstance: jest.fn(() => mockToolRegistry),
   },
 }));
 
@@ -353,6 +357,10 @@ describe("AutonomousAgentChainRunner preset routing", () => {
   let addMessage: jest.Mock;
 
   beforeEach(() => {
+    mockToolRegistry.getAllTools.mockReturnValue([]);
+    mockToolRegistry.getEnabledTools.mockReturnValue([]);
+    mockToolRegistry.getToolMetadata.mockReset();
+    mockToolRegistry.getToolMetadata.mockReturnValue(undefined);
     chatModel = {
       modelName: "test-model",
       bindTools: jest.fn(() => ({
@@ -464,6 +472,90 @@ describe("AutonomousAgentChainRunner preset routing", () => {
     expect(systemMessage.content).toContain(getPromptProfileInstructions("chat_rag"));
   });
 
+  it("does not include localSearch guidance for plain Chat when localSearch is unavailable", async () => {
+    const registry = ToolRegistry.getInstance();
+    (registry.getToolMetadata as jest.Mock).mockImplementation((toolName: string) => {
+      if (toolName !== "getTimeRangeMs") {
+        return undefined;
+      }
+
+      return {
+        id: "getTimeRangeMs",
+        displayName: "Get Time Range",
+        description: "Convert time expressions",
+        category: "time",
+        accessLevel: "free",
+        customPromptInstructions: "Convert natural language time expressions to date ranges.",
+        conditionalPromptInstructions: [
+          {
+            requiredToolIds: ["localSearch"],
+            content: "For time-based vault search, call localSearch with the returned time range.",
+          },
+        ],
+      };
+    });
+
+    const preset = {
+      id: "chat",
+      promptProfile: "chat",
+      runtimePolicy: resolveRuntimeChainPolicy("chat"),
+      tools: [{ name: "getTimeRangeMs" }],
+    } as any;
+
+    await runner.run(userMessage, abortController, updateCurrentAiMessage, addMessage, {
+      preset,
+      runtimePolicy: preset.runtimePolicy,
+    });
+
+    const boundModel = chatModel.bindTools.mock.results[0].value;
+    const messages = boundModel.stream.mock.calls[0][0];
+    const systemMessage = messages.find(
+      (message: any) => message.constructor.name === "SystemMessage"
+    );
+
+    expect(systemMessage.content).toContain("Convert natural language time expressions");
+    expect(systemMessage.content).not.toContain("localSearch");
+  });
+
+  it("keeps localSearch guidance for Chat + RAG when localSearch is available", async () => {
+    const registry = ToolRegistry.getInstance();
+    (registry.getToolMetadata as jest.Mock).mockImplementation((toolName: string) => {
+      if (toolName !== "localSearch") {
+        return undefined;
+      }
+
+      return {
+        id: "localSearch",
+        displayName: "Vault Search",
+        description: "Search vault notes",
+        category: "search",
+        accessLevel: "costly",
+        customPromptInstructions: "Call localSearch for vault-grounded questions.",
+      };
+    });
+
+    const preset = {
+      id: "chat_rag",
+      promptProfile: "chat_rag",
+      runtimePolicy: resolveRuntimeChainPolicy("chat_rag"),
+      tools: [{ name: "localSearch" }],
+    } as any;
+
+    await runner.run(userMessage, abortController, updateCurrentAiMessage, addMessage, {
+      preset,
+      runtimePolicy: preset.runtimePolicy,
+    });
+
+    const boundModel = chatModel.bindTools.mock.results[0].value;
+    const messages = boundModel.stream.mock.calls[0][0];
+    const systemMessage = messages.find(
+      (message: any) => message.constructor.name === "SystemMessage"
+    );
+
+    expect(systemMessage.content).toContain("For Vault Search:");
+    expect(systemMessage.content).toContain("localSearch");
+  });
+
   it("clears the message and returns empty string when new-chat abort occurs during raw streaming", async () => {
     const preset = {
       id: "chat",
@@ -489,6 +581,42 @@ describe("AutonomousAgentChainRunner preset routing", () => {
     expect(result).toBe("");
     expect(updateCurrentAiMessage).toHaveBeenLastCalledWith("");
     expect(addMessage).not.toHaveBeenCalled();
+  });
+
+  it("updates the same pending tool reasoning step with result details during live streaming", () => {
+    const update = jest.fn();
+
+    (runner as any).startReasoningTimer(update);
+    const stepId = (runner as any).addToolReasoningStep(
+      "provider-call-1",
+      "Searching notes",
+      "localSearch",
+      { query: "roadmap", apiKey: "secret" },
+      update
+    );
+    (runner as any).completeToolReasoningStep(
+      "provider-call-1",
+      { success: true, result: "Found roadmap.md" },
+      25,
+      update
+    );
+    (runner as any).stopReasoningTimer();
+
+    expect(stepId).toBe("step-1");
+    expect(update).toHaveBeenCalledWith(expect.stringContaining("CORTEX_REASONING"));
+    const parsed = parseReasoningMessage(update.mock.calls.at(-1)?.[0] ?? "");
+    expect(parsed?.payload.steps).toHaveLength(1);
+    expect(parsed?.payload.steps[0]).toMatchObject({
+      id: "step-1",
+      summary: "Searching notes",
+      toolName: "localSearch",
+      toolDetails: {
+        status: "success",
+        resultPreview: "Found roadmap.md",
+        durationMs: 25,
+      },
+    });
+    expect((parsed?.payload.steps[0].toolDetails?.argsPreview as any).apiKey).toBe("[redacted]");
   });
 });
 
@@ -641,5 +769,52 @@ describe("AutonomousAgentChainRunner citation fallback", () => {
 
     expect(result).toContain("Note A");
     expect(result).toContain("Note B");
+  });
+});
+
+describe("stopReasoningTimer", () => {
+  it("marks in-flight tool steps as interrupted when reasoning is stopped before result arrives", () => {
+    const runner = new AutonomousAgentChainRunner({
+      app: { vault: {} },
+      chatModelManager: {
+        getChatModel: jest.fn(() => ({})),
+        findModelByName: jest.fn(() => ({ capabilities: [] })),
+      },
+      memoryManager: {
+        getMemory: jest.fn(() => ({ chatHistory: { messages: [] } })),
+        saveContext: jest.fn(),
+      },
+      userMemoryManager: {},
+    } as any);
+
+    const step: ReasoningStep = {
+      id: "step-1",
+      timestamp: Date.now(),
+      summary: "Searching notes for ...",
+      toolName: "localSearch",
+      toolDetails: {
+        status: "running",
+        argsPreview: { query: "test" },
+        truncated: false,
+      },
+    };
+
+    (runner as any).allReasoningSteps = [step];
+    (runner as any).pendingToolStepIds = new Map([["tc-1", "step-1"]]);
+    (runner as any).pendingToolArgs = new Map([["tc-1", { query: "test" }]]);
+    (runner as any).reasoningState = {
+      status: "reasoning",
+      startTime: Date.now(),
+      elapsedSeconds: 0,
+      steps: [],
+    };
+
+    (runner as any).stopReasoningTimer();
+
+    const finalStep = (runner as any).allReasoningSteps[0] as ReasoningStep;
+    expect(finalStep.toolDetails?.status).toBe("error");
+    expect(finalStep.toolDetails?.errorMessage).toBe("Interrupted");
+    expect((runner as any).pendingToolStepIds.size).toBe(0);
+    expect((runner as any).pendingToolArgs.size).toBe(0);
   });
 });

@@ -59,6 +59,8 @@ The mode selector controls how Cortex responds and what tools it has access to.
 
 General-purpose conversation. Good for writing, brainstorming, summarizing, or any task where you want to talk to an AI. Your currently open note and selected text are automatically included as context.
 
+Chat can use the context you attach or already have open, such as the active note, selected text, and mentioned notes. To let Cortex search across your vault automatically, switch to **Chat + RAG**.
+
 The secondary control in Chat mode is a retrieval toggle:
 
 - **General** — Responds from the model's training knowledge plus your active note/selection context. No vault search.
@@ -88,6 +90,8 @@ A bridge between Telegram and Cortex. Shows one always-on read-only thread manag
 - Obsidian composer input is disabled in Channels view (send messages from Telegram)
 - Messages that arrive from Telegram still receive AI replies sent back to Telegram
 - In-message actions are intentionally limited to avoid unsafe edits/regenerations on external chat history
+
+**Telegram tool settings** are configurable under **Settings → Cortex → Telegram → Telegram Tools**. All configurable tools are on by default; toggle individual tools off to prevent the bot from using them. Always-enabled tools (such as time lookup and note reading) are not shown and cannot be disabled.
 
 ---
 
@@ -122,6 +126,8 @@ Each piece of context appears as a badge in the row:
 | Selected text  | File icon + line range | A highlighted range, e.g. L12–L18         |
 
 Click the **×** on any badge to remove it from context.
+
+If a note, selected text, search result, or attached file contains Cortex's saved reasoning display metadata, Cortex removes that metadata before sending the context to the AI. Your original notes and files are not changed.
 
 ### Context status (projects)
 

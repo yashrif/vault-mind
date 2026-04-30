@@ -31,7 +31,11 @@ import { AgentReasoningBlock } from "@/components/chat-components/AgentReasoning
 import { USER_SENDER } from "@/constants";
 import { cn } from "@/lib/utils";
 import { parseToolCallMarkers } from "@/LLMProviders/chainRunner/utils/toolCallParser";
-import { parseReasoningBlock } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
+import {
+  parseReasoningMessage,
+  ReasoningPayload,
+  stripReasoningMarker,
+} from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { processInlineCitations } from "@/LLMProviders/chainRunner/utils/citationUtils";
 import { ChatMessage } from "@/types/message";
 import { cleanMessageForCopy, extractYoutubeVideoId, insertIntoEditor } from "@/utils";
@@ -332,11 +336,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   // Agent Reasoning Block state
-  const [reasoningData, setReasoningData] = useState<{
-    status: "reasoning" | "collapsed" | "complete";
-    elapsedSeconds: number;
-    steps: string[];
-  } | null>(null);
+  const [reasoningData, setReasoningData] = useState<ReasoningPayload | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const componentRef = useRef<Component | null>(null);
   const isUnmountingRef = useRef<boolean>(false);
@@ -670,20 +670,16 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
 
       const originMessage = message.message;
 
-      // Parse and extract agent reasoning block if present
-      const reasoningBlockData = parseReasoningBlock(originMessage);
-      if (reasoningBlockData?.hasReasoning && reasoningBlockData.status !== "idle") {
-        setReasoningData({
-          status: reasoningBlockData.status as "reasoning" | "collapsed" | "complete",
-          elapsedSeconds: reasoningBlockData.elapsedSeconds,
-          steps: reasoningBlockData.steps,
-        });
+      // Parse and extract persisted cortex reasoning block if present.
+      const reasoningMessage = parseReasoningMessage(originMessage);
+      if (reasoningMessage) {
+        setReasoningData(reasoningMessage.payload);
       } else {
         setReasoningData(null);
       }
 
       // Use content after reasoning block (or full message if no reasoning block)
-      const messageContent = reasoningBlockData?.contentAfter ?? originMessage;
+      const messageContent = reasoningMessage?.contentAfter ?? stripReasoningMarker(originMessage);
       const processedMessage = preprocess(messageContent);
       const parsedMessage = parseToolCallMarkers(processedMessage, messageId.current);
 
@@ -1012,12 +1008,7 @@ const ChatSingleMessage: React.FC<ChatSingleMessageProps> = ({
 
           {/* Agent Reasoning Block (if present) */}
           {reasoningData && message.sender !== USER_SENDER && (
-            <AgentReasoningBlock
-              status={reasoningData.status}
-              elapsedSeconds={reasoningData.elapsedSeconds}
-              steps={reasoningData.steps}
-              isStreaming={isStreaming}
-            />
+            <AgentReasoningBlock payload={reasoningData} isStreaming={isStreaming} />
           )}
 
           <div className="message-content">{renderMessageContent()}</div>

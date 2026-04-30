@@ -1,5 +1,6 @@
 import { logError, logInfo, logWarn } from "@/logger";
 import { getSettings } from "@/settings/model";
+import type { ChainPresetId } from "@/runtime/ChainPreset";
 import { ToolManager } from "@/tools/toolManager";
 import { ToolRegistry } from "@/tools/ToolRegistry";
 import { err2String } from "@/utils";
@@ -24,13 +25,39 @@ export interface ToolExecutionResult {
   displayResult?: string;
 }
 
+export interface ToolExecutionOptions {
+  originalUserMessage?: string;
+  presetId?: ChainPresetId;
+}
+
+/**
+ * Build a user-facing message when a model asks for a tool that is unavailable for this turn.
+ */
+function buildMissingToolMessage(
+  toolName: string,
+  availableToolNames: string,
+  presetId?: ChainPresetId
+): string {
+  const availableTools = availableToolNames || "none";
+
+  if (toolName === "localSearch" && presetId === "chat") {
+    return `Vault Search is not available in Chat. Turn on Chat + RAG to search your vault. Available tools for this Chat turn: ${availableTools}.`;
+  }
+
+  if (toolName === "localSearch" && presetId === "chat_rag") {
+    return `Vault Search was requested but is not available for this Chat + RAG turn. Check vault availability and the resolved RAG tool configuration. Available tools: ${availableTools}.`;
+  }
+
+  return `Tool '${toolName}' is not available for this turn. Available tools: ${availableTools}. Check the current mode and tool settings.`;
+}
+
 /**
  * Executes a single tool call with timeout and error handling
  */
 export async function executeSequentialToolCall(
   toolCall: ToolCall,
   availableTools: any[],
-  originalUserMessage?: string
+  options: ToolExecutionOptions = {}
 ): Promise<ToolExecutionResult> {
   const DEFAULT_TOOL_TIMEOUT = 120000; // 120 seconds timeout per tool
 
@@ -51,7 +78,7 @@ export async function executeSequentialToolCall(
       const availableToolNames = availableTools.map((t) => t.name).join(", ");
       return {
         toolName: toolCall.name,
-        result: `Error: Tool '${toolCall.name}' not found. Available tools: ${availableToolNames}. Make sure you have the tool enabled in the Agent settings.`,
+        result: buildMissingToolMessage(toolCall.name, availableToolNames, options.presetId),
         success: false,
       };
     }
@@ -64,8 +91,8 @@ export async function executeSequentialToolCall(
     const toolArgs = { ...toolCall.args };
 
     // If tool requires user message content and it's provided, inject it
-    if (metadata?.requiresUserMessageContent && originalUserMessage) {
-      toolArgs._userMessageContent = originalUserMessage;
+    if (metadata?.requiresUserMessageContent && options.originalUserMessage) {
+      toolArgs._userMessageContent = options.originalUserMessage;
     }
 
     // Determine timeout for this tool

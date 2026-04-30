@@ -1,5 +1,6 @@
 import { TFile } from "obsidian";
 import { z } from "zod";
+import { sanitizeTextForModelContext } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { logInfo, logWarn } from "@/logger";
 import { createLangChainTool } from "./createLangChainTool";
 import { FileParserManager } from "./FileParserManager";
@@ -219,7 +220,7 @@ async function resolveNoteFile(notePath: string): Promise<ResolveNoteOutcome> {
 async function readNoteText(file: TFile): Promise<string> {
   try {
     const fileParserManager = new FileParserManager(app.vault);
-    return await fileParserManager.parseFile(file, app.vault);
+    return sanitizeTextForModelContext(await fileParserManager.parseFile(file, app.vault));
   } catch (error) {
     logWarn(`readNote: failed to read ${file.path}`, error);
     return "";

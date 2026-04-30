@@ -12,7 +12,12 @@ function isChatConfigurableTool({ metadata }: ToolDefinition): boolean {
   return metadata.accessLevel === "costly" && metadata.id !== "localSearch";
 }
 
-export const ToolSettingsSection: React.FC = () => {
+interface ToolSettingsSectionProps {
+  /** When provided, renders only that surface's section. Omit to render Chat + Agent (default). */
+  surface?: "telegram";
+}
+
+export const ToolSettingsSection: React.FC<ToolSettingsSectionProps> = ({ surface }) => {
   const settings = useSettingsValue();
   const registry = ToolRegistry.getInstance();
   const toolDefaults = settings.toolDefaults;
@@ -25,11 +30,15 @@ export const ToolSettingsSection: React.FC = () => {
   /**
    * Updates the default state for a tool on the selected surface.
    */
-  const handleToolToggle = (surface: "chat" | "agent", toolId: string, enabled: boolean) => {
+  const handleToolToggle = (
+    surf: "chat" | "agent" | "telegram",
+    toolId: string,
+    enabled: boolean
+  ) => {
     updateSetting("toolDefaults", {
       ...toolDefaults,
-      [surface]: {
-        ...toolDefaults[surface],
+      [surf]: {
+        ...toolDefaults[surf],
         [toolId]: enabled,
       },
     });
@@ -37,17 +46,23 @@ export const ToolSettingsSection: React.FC = () => {
 
   /**
    * Renders a switch row bound to one surface-specific tool default.
+   * Telegram uses opt-out semantics (checked unless explicitly false);
+   * chat and agent use opt-in semantics (checked only when explicitly true).
    */
-  const renderToolSwitch = (definition: ToolDefinition, surface: "chat" | "agent") => {
+  const renderToolSwitch = (definition: ToolDefinition, surf: "chat" | "agent" | "telegram") => {
     const { metadata } = definition;
+    const checked =
+      surf === "telegram"
+        ? toolDefaults.telegram?.[metadata.id] !== false
+        : toolDefaults[surf]?.[metadata.id] === true;
     return (
       <SettingItem
-        key={`${surface}-${metadata.id}`}
+        key={`${surf}-${metadata.id}`}
         type="switch"
         title={metadata.displayName}
         description={metadata.description}
-        checked={toolDefaults[surface]?.[metadata.id] === true}
-        onCheckedChange={(checked) => handleToolToggle(surface, metadata.id, checked)}
+        checked={checked}
+        onCheckedChange={(value) => handleToolToggle(surf, metadata.id, value)}
       />
     );
   };
@@ -82,6 +97,41 @@ export const ToolSettingsSection: React.FC = () => {
       );
     });
   };
+
+  /**
+   * Renders all configurable tools available to Telegram, defaulting to enabled.
+   */
+  const renderTelegramTools = () => {
+    const categories = Array.from(toolsByCategory.entries()).filter(([_, tools]) =>
+      tools.some((tool) => configurableToolIds.has(tool.metadata.id))
+    );
+    return categories.map(([category, tools]) => {
+      const configurableInCategory = tools.filter((tool) =>
+        configurableToolIds.has(tool.metadata.id)
+      );
+
+      if (configurableInCategory.length === 0) return null;
+
+      return (
+        <div key={category} className="tw-flex tw-flex-col tw-gap-2">
+          {configurableInCategory.map((definition) => renderToolSwitch(definition, "telegram"))}
+        </div>
+      );
+    });
+  };
+
+  if (surface === "telegram") {
+    return (
+      <div className="tw-mt-4 tw-rounded-lg tw-bg-secondary tw-p-4">
+        <div className="tw-mb-2 tw-text-sm tw-font-medium">Telegram Tools</div>
+        <div className="tw-mb-4 tw-text-xs tw-text-muted">
+          Tools available to the Telegram bot. All tools are on by default; toggle off to disable
+          individually.
+        </div>
+        <div className="tw-flex tw-flex-col tw-gap-2">{renderTelegramTools()}</div>
+      </div>
+    );
+  }
 
   return (
     <>

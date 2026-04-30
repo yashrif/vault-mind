@@ -1,8 +1,9 @@
 import React from "react";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import ChatSingleMessage, {
   normalizeFootnoteRendering,
 } from "@/components/chat-components/ChatSingleMessage";
+import { serializeReasoningPayload } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { ChatMessage } from "@/types/message";
 import type { App } from "obsidian";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -193,5 +194,58 @@ describe("ChatSingleMessage", () => {
     expect(messageSegment?.querySelector(".footnote-backref")).toBeNull();
     expect(messageSegment?.querySelector(".content-hr")).not.toBeNull();
     expect(messageSegment?.querySelector('a[href="#fn-2"]')?.textContent).toBe("2");
+  });
+
+  it("renders persisted cortex reasoning separately from assistant markdown", async () => {
+    const marker = serializeReasoningPayload({
+      status: "complete",
+      elapsedSeconds: 7,
+      steps: [
+        {
+          id: "step-1",
+          timestamp: 1,
+          summary: "Searching notes",
+          toolName: "localSearch",
+          toolDetails: {
+            status: "success",
+            argsPreview: { query: "roadmap" },
+            resultPreview: "Found roadmap.md",
+            durationMs: 15,
+            truncated: false,
+          },
+        },
+      ],
+    });
+    const message: ChatMessage = {
+      ...baseMessage,
+      message: `${marker}\n\nFinal answer from the note.`,
+    };
+
+    const { container, getByText } = render(
+      <TooltipProvider>
+        <ChatSingleMessage
+          message={message}
+          app={createAppStub()}
+          isStreaming={false}
+          onDelete={() => {}}
+        />
+      </TooltipProvider>
+    );
+
+    await waitFor(() =>
+      expect(renderMarkdownMock).toHaveBeenCalledWith(
+        "Final answer from the note.",
+        expect.any(HTMLElement),
+        "",
+        expect.anything()
+      )
+    );
+
+    expect(container.textContent).toContain("Thought for");
+    expect(container.textContent).not.toContain("CORTEX_REASONING");
+
+    fireEvent.click(getByText(/Thought for/));
+    expect(container.textContent).toContain("Searching notes");
+    expect(container.textContent).toContain("localSearch");
   });
 });

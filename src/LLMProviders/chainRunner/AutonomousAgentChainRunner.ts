@@ -44,18 +44,19 @@ import { recordPromptPayload } from "./utils/promptPayloadRecorder";
 import { PromptDebugReport } from "./utils/toolPromptDebugger";
 import {
   AgentReasoningState,
+  buildToolDetailPreview,
   createInitialReasoningState,
   extractFirstSentence,
-  LocalSearchSourceInfo,
-  serializeReasoningBlock,
+  ReasoningStep,
+  serializeReasoningPayload,
   summarizeToolCall,
-  summarizeToolResult,
 } from "./utils/AgentReasoningState";
 import { findDuplicateQuery, stripLeakedRoleLines } from "./utils/queryDeduplication";
 import { buildEnvelopeMultimodalContent, buildRunnerMessages } from "./utils/runnerMessages";
 import { streamRawModelResponse } from "./utils/rawStreaming";
 import { LocalSearchResultFormatter } from "./utils/localSearchResultFormatting";
 import { addFallbackSources, mergeIntoCitationSources } from "./utils/citationUtils";
+import { buildToolPromptGuidance } from "./utils/toolPromptGuidance";
 
 const AGENT_LOOP_GUIDANCE = `## Agent Behavior
 - You have a limited number of tool calls. Use them wisely.
@@ -107,6 +108,7 @@ interface ReActLoopParams {
   boundModel: Runnable;
   chatModel: Runnable; // Raw model without tools, used for forced synthesis
   tools: StructuredTool[];
+  presetId: ChainPreset["id"];
   messages: BaseMessage[];
   originalPrompt: string;
   abortController: AbortController;
@@ -135,7 +137,10 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
   private reasoningState: AgentReasoningState = createInitialReasoningState();
   private reasoningTimerInterval: ReturnType<typeof setInterval> | null = null;
   private accumulatedContent = ""; // Track content to include in timer updates
-  private allReasoningSteps: Array<{ timestamp: number; summary: string; toolName?: string }> = []; // Full history of all steps
+  private allReasoningSteps: ReasoningStep[] = []; // Full history of all steps
+  private reasoningStepCounter = 0;
+  private pendingToolStepIds: Map<string, string> = new Map();
+  private pendingToolArgs: Map<string, Record<string, unknown>> = new Map();
   private abortHandledByTimer = false; // Flag to prevent duplicate interrupted messages
 
   /**
@@ -198,38 +203,10 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
     };
     this.accumulatedContent = "";
     this.allReasoningSteps = []; // Reset full history
+    this.reasoningStepCounter = 0;
+    this.pendingToolStepIds.clear();
+    this.pendingToolArgs.clear();
     this.abortHandledByTimer = false; // Reset abort flag
-
-    // Add initial step immediately for better UX (randomized for variety)
-    const initialSteps = [
-      "Understanding your question",
-      "Analyzing your request",
-      "Processing your query",
-      "Thinking about this",
-      "Considering your question",
-      "Working on this",
-      "Pondering the possibilities",
-      "Diving into your request",
-      "Let me think about this",
-      "Exploring your question",
-      "Getting my thoughts together",
-      "Examining the details",
-      "Looking into this",
-      "Mulling this over",
-      "On it",
-      "Firing up the neurons",
-      "Connecting the dots",
-      "Brewing some ideas",
-      "Spinning up the gears",
-      "Warming up the engines",
-      "Crunching the details",
-      "Putting on my thinking cap",
-      "Consulting my notes",
-      "Gathering my thoughts",
-      "Rolling up my sleeves",
-    ];
-    const randomStep = initialSteps[Math.floor(Math.random() * initialSteps.length)];
-    this.addReasoningStep(randomStep);
 
     // Update every 100ms for smooth timer - always includes accumulated content
     this.reasoningTimerInterval = setInterval(() => {
@@ -269,18 +246,25 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
    * @param summary - Human-readable summary of the step
    * @param toolName - Optional name of the tool associated with this step
    */
-  private addReasoningStep(summary: string, toolName?: string, detailedOnly = false): void {
-    const step = {
+  private addReasoningStep(
+    summary: string,
+    toolName?: string,
+    detailedOnly = false,
+    toolDetails?: ReasoningStep["toolDetails"]
+  ): string {
+    const step: ReasoningStep = {
+      id: this.nextReasoningStepId(),
       timestamp: Date.now(),
       summary,
       toolName,
+      toolDetails,
     };
     // Always add to full history
     this.allReasoningSteps.push(step);
 
     // For detailed-only steps, skip the rolling display
     if (detailedOnly) {
-      return;
+      return step.id;
     }
 
     // Add to display state (rolling window)
@@ -289,6 +273,75 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
     if (this.reasoningState.steps.length > 4) {
       this.reasoningState.steps.shift();
     }
+    return step.id;
+  }
+
+  /**
+   * Return the next sequential reasoning step ID for this turn.
+   */
+  private nextReasoningStepId(): string {
+    this.reasoningStepCounter += 1;
+    return `step-${this.reasoningStepCounter}`;
+  }
+
+  /**
+   * Emit the current reasoning marker immediately instead of waiting for the timer tick.
+   */
+  private emitReasoningUpdate(updateFn: (message: string) => void): void {
+    const reasoningBlock = this.buildReasoningBlockMarkup();
+    const fullMessage = reasoningBlock
+      ? reasoningBlock + (this.accumulatedContent ? "\n\n" + this.accumulatedContent : "")
+      : this.accumulatedContent;
+    updateFn(fullMessage);
+  }
+
+  /**
+   * Add a running tool step and remember it for the matching result update.
+   */
+  private addToolReasoningStep(
+    toolCallId: string,
+    summary: string,
+    toolName: string,
+    args: Record<string, unknown>,
+    updateFn: (message: string) => void
+  ): string {
+    const stepId = this.addReasoningStep(
+      summary,
+      toolName,
+      false,
+      buildToolDetailPreview({ args })
+    );
+    this.pendingToolStepIds.set(toolCallId, stepId);
+    this.pendingToolArgs.set(toolCallId, args);
+    this.emitReasoningUpdate(updateFn);
+    return stepId;
+  }
+
+  /**
+   * Attach result details to the previously created tool step.
+   */
+  private completeToolReasoningStep(
+    toolCallId: string,
+    result: { success: boolean; result?: string },
+    durationMs: number,
+    updateFn: (message: string) => void,
+    displayResult?: string
+  ): void {
+    const stepId = this.pendingToolStepIds.get(toolCallId);
+    if (!stepId) return;
+
+    const step = this.allReasoningSteps.find((candidate) => candidate.id === stepId);
+    if (!step) return;
+
+    step.toolDetails = buildToolDetailPreview({
+      args: this.pendingToolArgs.get(toolCallId) ?? {},
+      result: displayResult ?? result.result,
+      success: result.success,
+      durationMs,
+    });
+    this.pendingToolStepIds.delete(toolCallId);
+    this.pendingToolArgs.delete(toolCallId);
+    this.emitReasoningUpdate(updateFn);
   }
 
   /**
@@ -299,7 +352,17 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
       clearInterval(this.reasoningTimerInterval);
       this.reasoningTimerInterval = null;
     }
-    this.reasoningState.status = "collapsed";
+    this.reasoningState.status = "complete";
+    // Finalize any tool steps that were interrupted before their result arrived.
+    for (const [, stepId] of this.pendingToolStepIds) {
+      const step = this.allReasoningSteps.find((s) => s.id === stepId);
+      if (step?.toolDetails) {
+        step.toolDetails.status = "error";
+        step.toolDetails.errorMessage = "Interrupted";
+      }
+    }
+    this.pendingToolStepIds.clear();
+    this.pendingToolArgs.clear();
   }
 
   /**
@@ -317,16 +380,28 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
    * @returns Markup string for the reasoning block
    */
   private buildReasoningBlockMarkup(): string {
-    // When complete, use full history for the expanded view
-    if (this.reasoningState.status === "complete" || this.reasoningState.status === "collapsed") {
-      const stateWithFullHistory: AgentReasoningState = {
-        ...this.reasoningState,
-        steps: this.allReasoningSteps,
-      };
-      return serializeReasoningBlock(stateWithFullHistory);
+    if (this.reasoningState.status === "idle") {
+      return "";
     }
+
+    // When complete, use full history for the expanded view
+    if (this.reasoningState.status === "complete") {
+      if (this.allReasoningSteps.length === 0) {
+        return "";
+      }
+      return serializeReasoningPayload({
+        status: "complete",
+        elapsedSeconds: this.reasoningState.elapsedSeconds,
+        steps: this.allReasoningSteps,
+      });
+    }
+
     // During reasoning, use the rolling window
-    return serializeReasoningBlock(this.reasoningState);
+    return serializeReasoningPayload({
+      status: "reasoning",
+      elapsedSeconds: this.reasoningState.elapsedSeconds,
+      steps: this.reasoningState.steps,
+    });
   }
 
   // TODO: Unify system prompt construction -- this static method and prepareAgentConversation()
@@ -351,10 +426,11 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
       .filter((meta): meta is NonNullable<typeof meta> => meta !== undefined);
 
     // Build tool-specific instructions from metadata (no XML format needed)
-    const toolInstructions = toolMetadata
-      .filter((meta) => meta.customPromptInstructions)
-      .map((meta) => `For ${meta.displayName}: ${meta.customPromptInstructions}`)
-      .join("\n");
+    const toolInstructions = buildToolPromptGuidance({
+      toolMetadata,
+      availableToolNames: availableTools.map((tool) => tool.name),
+      prefixCustomInstructionsWithDisplayName: true,
+    });
 
     const parts = [basePrompt];
     if (toolInstructions) {
@@ -518,6 +594,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
         boundModel: context.loopDeps.boundModel,
         chatModel,
         tools: context.loopDeps.availableTools,
+        presetId: preset.id,
         messages: context.messages,
         originalPrompt: context.originalUserPrompt,
         abortController,
@@ -701,10 +778,11 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
       .filter((meta): meta is NonNullable<typeof meta> => meta !== undefined);
 
     // Build tool-specific instructions from metadata
-    const toolInstructions = toolMetadata
-      .filter((meta) => meta.customPromptInstructions)
-      .map((meta) => `For ${meta.displayName}: ${meta.customPromptInstructions}`)
-      .join("\n");
+    const toolInstructions = buildToolPromptGuidance({
+      toolMetadata,
+      availableToolNames: availableTools.map((tool) => tool.name),
+      prefixCustomInstructionsWithDisplayName: true,
+    });
 
     // Combine system message with tool guidelines and agent loop guidance
     const systemContent = [
@@ -766,6 +844,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
     const {
       boundModel,
       tools,
+      presetId,
       messages,
       originalPrompt,
       abortController,
@@ -948,6 +1027,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
       for (let tcIdx = 0; tcIdx < uniqueToolCalls.length; tcIdx++) {
         const tc = uniqueToolCalls[tcIdx];
         if (abortController.signal.aborted) break;
+        const toolCallId = tc.id || generateToolCallId();
 
         const toolCall = {
           name: tc.name,
@@ -956,15 +1036,23 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
 
         // Add tool call step (shown in both rolling display and expanded view)
         const toolCallSummary = summarizeToolCall(tc.name, toolCall.args);
-        this.addReasoningStep(toolCallSummary, tc.name);
+        this.addToolReasoningStep(
+          toolCallId,
+          toolCallSummary,
+          tc.name,
+          toolCall.args,
+          updateCurrentAiMessage
+        );
 
         logToolCall(toolCall, iteration);
 
         // Execute the tool
-        const result = await executeSequentialToolCall(toolCall, tools, originalPrompt);
-
-        // Track source info for reasoning summary
-        let sourceInfo: LocalSearchSourceInfo | undefined;
+        const toolStartTime = Date.now();
+        const result = await executeSequentialToolCall(toolCall, tools, {
+          originalUserMessage: originalPrompt,
+          presetId,
+        });
+        let displayResult: string | undefined;
 
         // Special handling for localSearch
         if (tc.name === "localSearch" && result.success) {
@@ -976,11 +1064,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
             this.localSearchResultFormatter.getFallbackCitationSources() ?? []
           );
 
-          // Extract source info for reasoning summary (just count and titles, no terms needed)
-          sourceInfo = {
-            titles: processed.sources.map((s) => s.title),
-            count: processed.sources.length,
-          };
+          displayResult = processed.formattedForDisplay;
 
           result.result = applyCiCOrderingToLocalSearchResult(
             processed.formattedForLLM,
@@ -989,6 +1073,13 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
         }
 
         logToolResult(tc.name, result);
+        this.completeToolReasoningStep(
+          toolCallId,
+          result,
+          Date.now() - toolStartTime,
+          updateCurrentAiMessage,
+          displayResult
+        );
 
         // Track the executed query only on success so transient failures remain retryable.
         // A failed localSearch means no results were retrieved; the model should be able
@@ -1000,19 +1091,8 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
           }
         }
 
-        // Add tool result step only when it provides new info (failure or source counts).
-        // Skip redundant success steps like "Listed vault tasks" after "Listing vault tasks".
-        const resultSummary = summarizeToolResult(tc.name, result, sourceInfo, toolCall.args);
-        if (!result.success || sourceInfo) {
-          this.addReasoningStep(resultSummary, tc.name);
-        }
-
         // Add ToolMessage to conversation
-        const toolMessage = createToolResultMessage(
-          tc.id || generateToolCallId(),
-          tc.name,
-          result.result
-        );
+        const toolMessage = createToolResultMessage(toolCallId, tc.name, result.result);
         messages.push(toolMessage);
       }
 

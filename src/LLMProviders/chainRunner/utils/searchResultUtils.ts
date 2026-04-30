@@ -1,5 +1,6 @@
 import { logInfo, logWarn, logMarkdownBlock, logTable } from "@/logger";
 import { sanitizeContentForCitations } from "@/LLMProviders/chainRunner/utils/citationUtils";
+import { sanitizeTextForModelContext } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 
 /**
  * Quality summary for search results.
@@ -109,6 +110,7 @@ export function formatSearchResultsForLLM(searchResults: any[]): string {
           modified = date.toISOString();
         }
       }
+      const content = sanitizeTextForModelContext(doc.content || "");
 
       // Use template literal for cleaner XML generation
       return `<document>
@@ -125,7 +127,7 @@ export function formatSearchResultsForLLM(searchResults: any[]): string {
           : ""
       }
 <content>
-${doc.content || ""}
+${content}
 </content>
 </document>`;
     })
@@ -298,6 +300,7 @@ export function formatSplitSearchResultsForLLM(
         const path = doc.path || "";
         const matchType = doc.matchType || doc.source || "filter";
         const modified = toIsoString(doc.mtime);
+        const content = sanitizeTextForModelContext(doc.content || "");
 
         return `<document>
 <id>${id}</id>
@@ -305,7 +308,7 @@ export function formatSplitSearchResultsForLLM(
 <path>${path}</path>
 <matchType>${matchType}</matchType>${modified ? `\n<modified>${modified}</modified>` : ""}
 <content>
-${doc.content || ""}
+${content}
 </content>
 </document>`;
       })
@@ -322,6 +325,7 @@ ${doc.content || ""}
         const title = doc.title || "Untitled";
         const path = doc.path || "";
         const modified = toIsoString(doc.mtime);
+        const content = sanitizeTextForModelContext(doc.content || "");
 
         return `<document>
 <id>${id}</id>
@@ -337,7 +341,7 @@ ${doc.content || ""}
             : ""
         }
 <content>
-${doc.content || ""}
+${content}
 </content>
 </document>`;
       })
@@ -406,7 +410,7 @@ export function formatMetadataOnlyDocuments(
       const title = doc.title || "Untitled";
       const path = doc.path || "";
       const modified = toIsoString(doc.mtime);
-      const content = sanitizeContentForCitations(doc.content || "");
+      const content = sanitizeContentForCitations(sanitizeTextForModelContext(doc.content || ""));
       const snippet = content.slice(0, snippetLength);
 
       const pathEl = path ? `\n<path>${path}</path>` : "";

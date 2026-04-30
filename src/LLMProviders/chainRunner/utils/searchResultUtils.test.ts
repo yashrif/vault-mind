@@ -2,6 +2,7 @@ import {
   formatSearchResultsForLLM,
   formatSearchResultStringForLLM,
   extractSourcesFromSearchResults,
+  formatSplitSearchResultsForLLM,
   formatMetadataOnlyDocuments,
   isFilterOnlyResults,
   isTimeDominantResults,
@@ -122,6 +123,21 @@ describe("searchResultUtils", () => {
 
       const result = formatSearchResultsForLLM(documents);
       expect(result).toContain("<title>Untitled</title>");
+    });
+
+    it("should strip persisted reasoning markers from document content", () => {
+      const documents = [
+        {
+          title: "Reasoning Note",
+          content: "Visible before\n<!--CORTEX_REASONING:v1:abc-->\nVisible after",
+        },
+      ];
+
+      const result = formatSearchResultsForLLM(documents);
+
+      expect(result).toContain("Visible before");
+      expect(result).toContain("Visible after");
+      expect(result).not.toContain("CORTEX_REASONING");
     });
   });
 
@@ -376,6 +392,48 @@ describe("searchResultUtils", () => {
       const result = formatMetadataOnlyDocuments(docs);
       expect(result).toContain("<title>Doc1</title>");
       expect(result).toContain("<title>Doc2</title>");
+    });
+
+    it("should strip persisted reasoning markers from snippets", () => {
+      const docs = [
+        {
+          title: "Reasoning Note",
+          content: "Visible before\n<!--CORTEX_REASONING:v1:abc-->\nVisible after",
+        },
+      ];
+
+      const result = formatMetadataOnlyDocuments(docs);
+
+      expect(result).toContain("Visible before");
+      expect(result).toContain("Visible after");
+      expect(result).not.toContain("CORTEX_REASONING");
+    });
+  });
+
+  describe("formatSplitSearchResultsForLLM", () => {
+    it("should strip persisted reasoning markers from filter and search sections", () => {
+      const filterDocs = [
+        {
+          title: "Filter Match",
+          path: "filter.md",
+          content: "Filter before\n<!--CORTEX_REASONING:v1:abc-->\nFilter after",
+        },
+      ];
+      const searchDocs = [
+        {
+          title: "Search Match",
+          path: "search.md",
+          content: "Search before\n<!--CORTEX_REASONING:v1:abc-->\nSearch after",
+        },
+      ];
+
+      const result = formatSplitSearchResultsForLLM(filterDocs, searchDocs);
+
+      expect(result).toContain("Filter before");
+      expect(result).toContain("Filter after");
+      expect(result).toContain("Search before");
+      expect(result).toContain("Search after");
+      expect(result).not.toContain("CORTEX_REASONING");
     });
   });
 

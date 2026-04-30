@@ -474,7 +474,7 @@ function convertToTimeInfo(dateTime: DateTime): TimeInfo {
 
 const getTimeRangeMsTool = createLangChainTool({
   name: "getTimeRangeMs",
-  description: "Convert natural language time expressions to date ranges for use with localSearch",
+  description: "Convert natural language time expressions to date ranges",
   schema: z.object({
     timeExpression: z.string()
       .describe(`Natural language time expression to convert to a date range.
@@ -486,12 +486,12 @@ COMMON EXPRESSIONS:
 - Date ranges: "from July 1 to July 15", "between May and June"
 - Time periods: "last 7 days", "past 30 days", "previous 3 months"
 
-IMPORTANT: This tool is typically used as the first step before localSearch when searching notes by time.
+IMPORTANT: Use the returned range only when another available tool or the final answer needs a concrete date range.
 
 EXAMPLE WORKFLOW:
 1. User: "what did I do last week"
 2. First call getTimeRangeMs with timeExpression: "last week"
-3. Then use the returned time range with localSearch`),
+3. Then use the returned time range with another available tool or the final answer`),
   }),
   func: async ({ timeExpression }) => {
     const result = getTimeRangeMs(timeExpression);

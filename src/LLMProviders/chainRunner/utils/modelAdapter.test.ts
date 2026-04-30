@@ -76,6 +76,43 @@ describe("ModelAdapter", () => {
       expect(enhancedPrompt).toContain("## General Guidelines");
     });
 
+    it("does not mention localSearch in generic prompt sections when localSearch is unavailable", () => {
+      const mockModel = { modelName: "gpt-5" } as any;
+      const adapter = ModelAdapterFactory.createAdapter(mockModel);
+
+      const enhancedPrompt = adapter.enhanceSystemPrompt(
+        basePrompt,
+        toolDescriptions,
+        ["getTimeRangeMs"],
+        []
+      );
+
+      expect(enhancedPrompt).not.toContain("localSearch");
+    });
+
+    it("keeps localSearch prompt guidance when localSearch is available", () => {
+      const mockModel = { modelName: "gpt-4" } as any;
+      const adapter = ModelAdapterFactory.createAdapter(mockModel);
+
+      const enhancedPrompt = adapter.enhanceSystemPrompt(
+        basePrompt,
+        toolDescriptions,
+        ["getTimeRangeMs", "localSearch"],
+        [
+          {
+            id: "localSearch",
+            displayName: "Vault Search",
+            description: "Search vault notes",
+            category: "search",
+            accessLevel: "costly",
+            customPromptInstructions: "Call localSearch for vault-grounded questions.",
+          },
+        ]
+      );
+
+      expect(enhancedPrompt).toContain("localSearch");
+    });
+
     it("should handle GPT-specific enhancements", () => {
       const mockModel = { modelName: "gpt-4" } as any;
       const adapter = ModelAdapterFactory.createAdapter(mockModel);
@@ -105,6 +142,16 @@ describe("ModelAdapter", () => {
 
       // Check Gemini-specific sections
       expect(enhancedPrompt).toContain("CRITICAL INSTRUCTIONS FOR GEMINI");
+    });
+
+    it("does not add localSearch to Gemini reminders when localSearch is unavailable", () => {
+      const mockModel = { modelName: "gemini-pro" } as any;
+      const adapter = ModelAdapterFactory.createAdapter(mockModel);
+
+      const enhanced = adapter.enhanceUserMessage("find this in my notes", true);
+
+      expect(enhanced).toContain("Use the available tools immediately");
+      expect(enhanced).not.toContain("localSearch");
     });
 
     it("should exclude instructions when no metadata provided", () => {
