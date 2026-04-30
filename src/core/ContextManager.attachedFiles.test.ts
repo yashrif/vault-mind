@@ -122,6 +122,18 @@ describe("ContextManager — attachedFilesContext in envelope", () => {
     expect(l3Layer.text).toContain("This is the file content");
   });
 
+  it("strips persisted reasoning markers from attached file content in L3", () => {
+    const fileXml = `<attached_file name="notes.txt">\nBefore\n<!--CORTEX_REASONING:v1:abc-->\nAfter\n</attached_file>`;
+    const params = buildMinimalEnvelopeParams(fileXml);
+
+    const envelope = contextManager.buildPromptContextEnvelope(params);
+
+    const l3Layer = envelope.layers.find((l: any) => l.id === "L3_TURN");
+    expect(l3Layer.text).toContain("Before");
+    expect(l3Layer.text).toContain("After");
+    expect(l3Layer.text).not.toContain("CORTEX_REASONING");
+  });
+
   it("produces a segment per attached file when multiple files are provided", () => {
     const fileXml = [
       `<attached_file name="a.txt">\nContent of A\n</attached_file>`,

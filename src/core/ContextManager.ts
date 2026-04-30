@@ -11,6 +11,7 @@ import {
   PromptLayerSegment,
 } from "@/context/PromptContextTypes";
 import { ContextProcessor } from "@/contextProcessor";
+import { sanitizeTextForModelContext } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { logInfo } from "@/logger";
 import { Mention } from "@/mentions/Mention";
 import type { LegacyChainId } from "@/runtime/ChainPreset";
@@ -224,7 +225,10 @@ export class ContextManager {
       // 8b. Process locally-attached file contents (from the file picker, not vault TFiles)
       const attachedFileContents = message.context?.attachedFileContents || [];
       const attachedFilesAddition = attachedFileContents
-        .map((f) => `<attached_file name="${f.name}">\n${f.content}\n</attached_file>`)
+        .map(
+          (f) =>
+            `<attached_file name="${f.name}">\n${sanitizeTextForModelContext(f.content)}\n</attached_file>`
+        )
         .join("\n");
 
       // 9. Build context portion separately (for compaction boundary preservation)
@@ -428,7 +432,9 @@ export class ContextManager {
               // compactSegmentForL2 handles per-block filtering of non-recoverable
               // (ephemeral) blocks like selected_text / web_selected_text, so they
               // don't persist into L2 and shadow the current turn's fresh context.
-              const compacted = this.compactSegmentForL2(segment.content);
+              const compacted = this.compactSegmentForL2(
+                sanitizeTextForModelContext(segment.content)
+              );
               if (!compacted.trim()) {
                 continue;
               }
@@ -588,11 +594,12 @@ export class ContextManager {
 
     // L3: All compacted context as a single segment
     // Store paths for deduplication in multi-turn context
-    if (params.compactedContext.trim()) {
+    const sanitizedCompactedContext = sanitizeTextForModelContext(params.compactedContext);
+    if (sanitizedCompactedContext.trim()) {
       layerSegments.L3_TURN = [
         {
           id: "compacted_context",
-          content: params.compactedContext,
+          content: sanitizedCompactedContext,
           stable: false,
           metadata: {
             source: "compacted",
@@ -629,7 +636,7 @@ export class ContextManager {
    * Delegates to the standalone parseContextIntoSegments function.
    */
   private parseContextIntoSegments(contextXml: string, stable: boolean): PromptLayerSegment[] {
-    return parseContextIntoSegments(contextXml, stable);
+    return parseContextIntoSegments(sanitizeTextForModelContext(contextXml), stable);
   }
 
   /**
@@ -643,7 +650,7 @@ export class ContextManager {
     content: string,
     extraMetadata?: Record<string, unknown>
   ) {
-    const normalized = (content || "").trim();
+    const normalized = sanitizeTextForModelContext(content || "").trim();
     if (!normalized) {
       return;
     }

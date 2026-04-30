@@ -1,6 +1,7 @@
 import {
   buildToolDetailPreview,
   parseReasoningMessage,
+  sanitizeTextForModelContext,
   serializeReasoningPayload,
   stripReasoningMarker,
   summarizeToolCall,
@@ -64,6 +65,13 @@ describe("CORTEX_REASONING payload", () => {
     expect(parseReasoningMessage(missingSteps)).toBeNull();
     expect(parseReasoningMessage(missingToolArgs)).toBeNull();
     expect(stripReasoningMarker(invalidBase64)).toBe("Answer");
+  });
+
+  it("preserves model-context whitespace while removing reasoning markers", () => {
+    const content = "  \nBefore\n<!--CORTEX_REASONING:v1:abc-->\nAfter\n  ";
+
+    expect(sanitizeTextForModelContext(content)).toBe("  \nBefore\n\nAfter\n  ");
+    expect(stripReasoningMarker(content)).toBe("Before\n\nAfter");
   });
 
   it("redacts sensitive keys and caps previews", () => {

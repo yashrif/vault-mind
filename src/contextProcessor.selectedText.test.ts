@@ -135,6 +135,44 @@ describe("ContextProcessor.processSelectedTextContexts", () => {
     expect(result).toContain("Web content about React best practices");
   });
 
+  it("should strip persisted reasoning markers from note selected text content", () => {
+    const noteContext: NoteSelectedTextContext = {
+      id: "note-1",
+      sourceType: "note",
+      content: "Visible before\n<!--CORTEX_REASONING:v1:abc-->\nVisible after",
+      noteTitle: "Reasoning Note",
+      notePath: "dev/reasoning.md",
+      startLine: 1,
+      endLine: 3,
+    };
+
+    mockSelectedTextContexts.push(noteContext);
+
+    const result = processor.processSelectedTextContexts();
+
+    expect(result).toContain("Visible before");
+    expect(result).toContain("Visible after");
+    expect(result).not.toContain("CORTEX_REASONING");
+  });
+
+  it("should strip persisted reasoning markers from web selected text content", () => {
+    const webContext: WebSelectedTextContext = {
+      id: "web-1",
+      sourceType: "web",
+      content: "Visible web before\n<!--CORTEX_REASONING:v1:abc-->\nVisible web after",
+      title: "Reasoning Web",
+      url: "https://example.com/reasoning",
+    };
+
+    mockSelectedTextContexts.push(webContext);
+
+    const result = processor.processSelectedTextContexts();
+
+    expect(result).toContain("Visible web before");
+    expect(result).toContain("Visible web after");
+    expect(result).not.toContain("CORTEX_REASONING");
+  });
+
   it("should escape XML special characters in content", () => {
     const noteContext: NoteSelectedTextContext = {
       id: "note-1",

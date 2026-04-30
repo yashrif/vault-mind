@@ -205,10 +205,25 @@ export function parseReasoningMessage(content: string): ParsedReasoningMessage |
 }
 
 /**
+ * Remove persisted reasoning markers from text without changing surrounding content.
+ */
+export function removeReasoningMarker(content: string): string {
+  return content.replace(CORTEX_REASONING_MARKER_ANY_REGEX, "");
+}
+
+/**
  * Remove persisted reasoning markers from text before reuse outside local display.
  */
 export function stripReasoningMarker(content: string): string {
-  return content.replace(CORTEX_REASONING_MARKER_ANY_REGEX, "").trim();
+  return removeReasoningMarker(content).trim();
+}
+
+/**
+ * Remove Cortex-owned local display artifacts before text is sent to a model.
+ * This preserves source text boundaries so note/file context is not silently trimmed.
+ */
+export function sanitizeTextForModelContext(content: string): string {
+  return removeReasoningMarker(content);
 }
 
 /**

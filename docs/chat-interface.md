@@ -123,6 +123,8 @@ Each piece of context appears as a badge in the row:
 
 Click the **×** on any badge to remove it from context.
 
+If a note, selected text, search result, or attached file contains Cortex's saved reasoning display metadata, Cortex removes that metadata before sending the context to the AI. Your original notes and files are not changed.
+
 ### Context status (projects)
 
 When a project is active, a status icon appears on the right side of the context bar:

@@ -96,6 +96,19 @@ describe("readNoteTool", () => {
     expect(result.content).toBe(["## Heading", "Line 1", "Line 2"].join("\n"));
   });
 
+  it("strips persisted reasoning markers from returned note content", async () => {
+    const notePath = "Notes/reasoning.md";
+    const file = new MockTFile(notePath);
+    getAbstractFileByPathMock.mockReturnValue(file);
+    mockRead.mockResolvedValue("Intro\n<!--CORTEX_REASONING:v1:abc-->\nAnswer");
+
+    const result = await invokeReadNoteTool(readNoteTool, { notePath });
+
+    expect(result.content).toContain("Intro");
+    expect(result.content).toContain("Answer");
+    expect(result.content).not.toContain("CORTEX_REASONING");
+  });
+
   it("respects the requested chunk index", async () => {
     const notePath = "Notes/multi.md";
     const file = new MockTFile(notePath);

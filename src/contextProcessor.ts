@@ -1,5 +1,6 @@
 import { getSelectedTextContexts } from "@/aiParams";
 import { logWarn, logInfo, logError } from "@/logger";
+import { sanitizeTextForModelContext } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { escapeXml } from "@/LLMProviders/chainRunner/utils/xmlParsing";
 import { getWebViewerService } from "@/services/webViewerService/webViewerServiceSingleton";
 import { WebViewerTimeoutError } from "@/services/webViewerService/webViewerServiceTypes";
@@ -580,7 +581,8 @@ export class ContextProcessor {
         const ctime = stats ? new Date(stats.ctime).toISOString() : "Unknown";
         const mtime = stats ? new Date(stats.mtime).toISOString() : "Unknown";
 
-        additionalContext += `\n\n<${prompt_tag}>\n<title>${escapeXml(note.basename)}</title>\n<path>${note.path}</path>\n<ctime>${ctime}</ctime>\n<mtime>${mtime}</mtime>\n<content>\n${content}\n</content>\n</${prompt_tag}>`;
+        const sanitizedContent = sanitizeTextForModelContext(content);
+        additionalContext += `\n\n<${prompt_tag}>\n<title>${escapeXml(note.basename)}</title>\n<path>${note.path}</path>\n<ctime>${ctime}</ctime>\n<mtime>${mtime}</mtime>\n<content>\n${sanitizedContent}\n</content>\n</${prompt_tag}>`;
       } catch (error) {
         logError(`Error processing file ${note.path}:`, error);
         additionalContext += `\n\n<${prompt_tag}_error>\n<title>${escapeXml(note.basename)}</title>\n<path>${note.path}</path>\n<error>[Error: Could not process file]</error>\n</${prompt_tag}_error>`;
@@ -654,12 +656,13 @@ export class ContextProcessor {
     let additionalContext = "";
 
     for (const selectedText of selectedTextContexts) {
+      const sanitizedContent = sanitizeTextForModelContext(selectedText.content);
       if (selectedText.sourceType === "web") {
         // Web selected text context
-        additionalContext += `\n\n<${WEB_SELECTED_TEXT_TAG}>\n<title>${escapeXml(selectedText.title)}</title>\n<url>${escapeXml(selectedText.url)}</url>\n<content>\n${escapeXml(selectedText.content)}\n</content>\n</${WEB_SELECTED_TEXT_TAG}>`;
+        additionalContext += `\n\n<${WEB_SELECTED_TEXT_TAG}>\n<title>${escapeXml(selectedText.title)}</title>\n<url>${escapeXml(selectedText.url)}</url>\n<content>\n${escapeXml(sanitizedContent)}\n</content>\n</${WEB_SELECTED_TEXT_TAG}>`;
       } else {
         // Note selected text context (default for backward compatibility)
-        additionalContext += `\n\n<${SELECTED_TEXT_TAG}>\n<title>${escapeXml(selectedText.noteTitle)}</title>\n<path>${escapeXml(selectedText.notePath)}</path>\n<start_line>${selectedText.startLine.toString()}</start_line>\n<end_line>${selectedText.endLine.toString()}</end_line>\n<content>\n${selectedText.content}\n</content>\n</${SELECTED_TEXT_TAG}>`;
+        additionalContext += `\n\n<${SELECTED_TEXT_TAG}>\n<title>${escapeXml(selectedText.noteTitle)}</title>\n<path>${escapeXml(selectedText.notePath)}</path>\n<start_line>${selectedText.startLine.toString()}</start_line>\n<end_line>${selectedText.endLine.toString()}</end_line>\n<content>\n${sanitizedContent}\n</content>\n</${SELECTED_TEXT_TAG}>`;
       }
     }
 
