@@ -179,7 +179,7 @@ export const AgentReasoningBlock: React.FC<AgentReasoningBlockProps> = ({
           )}
         >
           <span className="agent-reasoning-icon">
-            {isActive || isStreaming ? (
+            {isActive ? (
               <CortexSpinner />
             ) : (
               <ChevronRight
