@@ -284,7 +284,7 @@ export function buildToolDetailPreview(params: {
   return {
     status,
     argsPreview: argsPreview.preview,
-    resultPreview,
+    resultPreview: status !== "error" ? resultPreview : undefined,
     durationMs: params.durationMs,
     truncated: argsPreview.truncated || resultTruncated,
     errorMessage: status === "error" ? resultPreview : undefined,

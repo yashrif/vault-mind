@@ -184,3 +184,39 @@ describe("AgentReasoningState tool summaries", () => {
     ).toBe("Listed orphaned notes");
   });
 });
+
+describe("buildToolDetailPreview", () => {
+  it("does not set resultPreview on error so the text is not shown twice", () => {
+    const details = buildToolDetailPreview({
+      args: {},
+      result: "Tool failed: file not found",
+      success: false,
+      durationMs: 120,
+    });
+
+    expect(details.status).toBe("error");
+    expect(details.errorMessage).toBe("Tool failed: file not found");
+    expect(details.resultPreview).toBeUndefined();
+  });
+
+  it("does not set errorMessage on success", () => {
+    const details = buildToolDetailPreview({
+      args: { query: "hello" },
+      result: "Found 3 results",
+      success: true,
+      durationMs: 80,
+    });
+
+    expect(details.status).toBe("success");
+    expect(details.resultPreview).toBe("Found 3 results");
+    expect(details.errorMessage).toBeUndefined();
+  });
+
+  it("sets status to running and leaves result fields undefined when success is absent", () => {
+    const details = buildToolDetailPreview({ args: { path: "note.md" } });
+
+    expect(details.status).toBe("running");
+    expect(details.resultPreview).toBeUndefined();
+    expect(details.errorMessage).toBeUndefined();
+  });
+});
