@@ -45,6 +45,17 @@ describe("Time Expression Tests", () => {
     jest.restoreAllMocks();
   });
 
+  it("describes time range conversion without localSearch-specific workflow", () => {
+    const schemaDescription =
+      (getTimeRangeMsTool as any).schema?.shape?.timeExpression?.description ?? "";
+
+    expect(getTimeRangeMsTool.description).toBe(
+      "Convert natural language time expressions to date ranges"
+    );
+    expect(schemaDescription).toContain("another available tool or the final answer");
+    expect(schemaDescription).not.toContain("localSearch");
+  });
+
   describe("Relative Time Ranges", () => {
     test.each([
       // Last X units

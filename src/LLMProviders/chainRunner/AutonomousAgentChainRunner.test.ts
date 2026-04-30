@@ -9,6 +9,13 @@ import { ChatMessage } from "@/types/message";
 import { getPromptProfileInstructions } from "@/system-prompts/systemPromptBuilder";
 import { ABORT_REASON } from "@/constants";
 import { parseReasoningMessage, ReasoningStep } from "./utils/AgentReasoningState";
+import { ToolRegistry } from "@/tools/ToolRegistry";
+
+const mockToolRegistry = {
+  getAllTools: jest.fn(() => []),
+  getEnabledTools: jest.fn(() => []),
+  getToolMetadata: jest.fn(() => undefined),
+};
 
 jest.mock("@/logger", () => ({
   logError: jest.fn(),
@@ -57,11 +64,7 @@ jest.mock("@/LLMProviders/projectManager", () => ({
 
 jest.mock("@/tools/ToolRegistry", () => ({
   ToolRegistry: {
-    getInstance: jest.fn(() => ({
-      getAllTools: jest.fn(() => []),
-      getEnabledTools: jest.fn(() => []),
-      getToolMetadata: jest.fn(() => undefined),
-    })),
+    getInstance: jest.fn(() => mockToolRegistry),
   },
 }));
 
@@ -354,6 +357,10 @@ describe("AutonomousAgentChainRunner preset routing", () => {
   let addMessage: jest.Mock;
 
   beforeEach(() => {
+    mockToolRegistry.getAllTools.mockReturnValue([]);
+    mockToolRegistry.getEnabledTools.mockReturnValue([]);
+    mockToolRegistry.getToolMetadata.mockReset();
+    mockToolRegistry.getToolMetadata.mockReturnValue(undefined);
     chatModel = {
       modelName: "test-model",
       bindTools: jest.fn(() => ({
@@ -463,6 +470,90 @@ describe("AutonomousAgentChainRunner preset routing", () => {
     );
 
     expect(systemMessage.content).toContain(getPromptProfileInstructions("chat_rag"));
+  });
+
+  it("does not include localSearch guidance for plain Chat when localSearch is unavailable", async () => {
+    const registry = ToolRegistry.getInstance();
+    (registry.getToolMetadata as jest.Mock).mockImplementation((toolName: string) => {
+      if (toolName !== "getTimeRangeMs") {
+        return undefined;
+      }
+
+      return {
+        id: "getTimeRangeMs",
+        displayName: "Get Time Range",
+        description: "Convert time expressions",
+        category: "time",
+        accessLevel: "free",
+        customPromptInstructions: "Convert natural language time expressions to date ranges.",
+        conditionalPromptInstructions: [
+          {
+            requiredToolIds: ["localSearch"],
+            content: "For time-based vault search, call localSearch with the returned time range.",
+          },
+        ],
+      };
+    });
+
+    const preset = {
+      id: "chat",
+      promptProfile: "chat",
+      runtimePolicy: resolveRuntimeChainPolicy("chat"),
+      tools: [{ name: "getTimeRangeMs" }],
+    } as any;
+
+    await runner.run(userMessage, abortController, updateCurrentAiMessage, addMessage, {
+      preset,
+      runtimePolicy: preset.runtimePolicy,
+    });
+
+    const boundModel = chatModel.bindTools.mock.results[0].value;
+    const messages = boundModel.stream.mock.calls[0][0];
+    const systemMessage = messages.find(
+      (message: any) => message.constructor.name === "SystemMessage"
+    );
+
+    expect(systemMessage.content).toContain("Convert natural language time expressions");
+    expect(systemMessage.content).not.toContain("localSearch");
+  });
+
+  it("keeps localSearch guidance for Chat + RAG when localSearch is available", async () => {
+    const registry = ToolRegistry.getInstance();
+    (registry.getToolMetadata as jest.Mock).mockImplementation((toolName: string) => {
+      if (toolName !== "localSearch") {
+        return undefined;
+      }
+
+      return {
+        id: "localSearch",
+        displayName: "Vault Search",
+        description: "Search vault notes",
+        category: "search",
+        accessLevel: "costly",
+        customPromptInstructions: "Call localSearch for vault-grounded questions.",
+      };
+    });
+
+    const preset = {
+      id: "chat_rag",
+      promptProfile: "chat_rag",
+      runtimePolicy: resolveRuntimeChainPolicy("chat_rag"),
+      tools: [{ name: "localSearch" }],
+    } as any;
+
+    await runner.run(userMessage, abortController, updateCurrentAiMessage, addMessage, {
+      preset,
+      runtimePolicy: preset.runtimePolicy,
+    });
+
+    const boundModel = chatModel.bindTools.mock.results[0].value;
+    const messages = boundModel.stream.mock.calls[0][0];
+    const systemMessage = messages.find(
+      (message: any) => message.constructor.name === "SystemMessage"
+    );
+
+    expect(systemMessage.content).toContain("For Vault Search:");
+    expect(systemMessage.content).toContain("localSearch");
   });
 
   it("clears the message and returns empty string when new-chat abort occurs during raw streaming", async () => {

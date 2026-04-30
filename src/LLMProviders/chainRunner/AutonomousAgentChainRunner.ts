@@ -56,6 +56,7 @@ import { buildEnvelopeMultimodalContent, buildRunnerMessages } from "./utils/run
 import { streamRawModelResponse } from "./utils/rawStreaming";
 import { LocalSearchResultFormatter } from "./utils/localSearchResultFormatting";
 import { addFallbackSources, mergeIntoCitationSources } from "./utils/citationUtils";
+import { buildToolPromptGuidance } from "./utils/toolPromptGuidance";
 
 const AGENT_LOOP_GUIDANCE = `## Agent Behavior
 - You have a limited number of tool calls. Use them wisely.
@@ -107,6 +108,7 @@ interface ReActLoopParams {
   boundModel: Runnable;
   chatModel: Runnable; // Raw model without tools, used for forced synthesis
   tools: StructuredTool[];
+  presetId: ChainPreset["id"];
   messages: BaseMessage[];
   originalPrompt: string;
   abortController: AbortController;
@@ -424,10 +426,11 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
       .filter((meta): meta is NonNullable<typeof meta> => meta !== undefined);
 
     // Build tool-specific instructions from metadata (no XML format needed)
-    const toolInstructions = toolMetadata
-      .filter((meta) => meta.customPromptInstructions)
-      .map((meta) => `For ${meta.displayName}: ${meta.customPromptInstructions}`)
-      .join("\n");
+    const toolInstructions = buildToolPromptGuidance({
+      toolMetadata,
+      availableToolNames: availableTools.map((tool) => tool.name),
+      prefixCustomInstructionsWithDisplayName: true,
+    });
 
     const parts = [basePrompt];
     if (toolInstructions) {
@@ -591,6 +594,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
         boundModel: context.loopDeps.boundModel,
         chatModel,
         tools: context.loopDeps.availableTools,
+        presetId: preset.id,
         messages: context.messages,
         originalPrompt: context.originalUserPrompt,
         abortController,
@@ -774,10 +778,11 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
       .filter((meta): meta is NonNullable<typeof meta> => meta !== undefined);
 
     // Build tool-specific instructions from metadata
-    const toolInstructions = toolMetadata
-      .filter((meta) => meta.customPromptInstructions)
-      .map((meta) => `For ${meta.displayName}: ${meta.customPromptInstructions}`)
-      .join("\n");
+    const toolInstructions = buildToolPromptGuidance({
+      toolMetadata,
+      availableToolNames: availableTools.map((tool) => tool.name),
+      prefixCustomInstructionsWithDisplayName: true,
+    });
 
     // Combine system message with tool guidelines and agent loop guidance
     const systemContent = [
@@ -839,6 +844,7 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
     const {
       boundModel,
       tools,
+      presetId,
       messages,
       originalPrompt,
       abortController,
@@ -1042,7 +1048,10 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
 
         // Execute the tool
         const toolStartTime = Date.now();
-        const result = await executeSequentialToolCall(toolCall, tools, originalPrompt);
+        const result = await executeSequentialToolCall(toolCall, tools, {
+          originalUserMessage: originalPrompt,
+          presetId,
+        });
         let displayResult: string | undefined;
 
         // Special handling for localSearch

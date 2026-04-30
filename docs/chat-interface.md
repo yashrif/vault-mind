@@ -59,6 +59,8 @@ The mode selector controls how Cortex responds and what tools it has access to.
 
 General-purpose conversation. Good for writing, brainstorming, summarizing, or any task where you want to talk to an AI. Your currently open note and selected text are automatically included as context.
 
+Chat can use the context you attach or already have open, such as the active note, selected text, and mentioned notes. To let Cortex search across your vault automatically, switch to **Chat + RAG**.
+
 The secondary control in Chat mode is a retrieval toggle:
 
 - **General** — Responds from the model's training knowledge plus your active note/selection context. No vault search.

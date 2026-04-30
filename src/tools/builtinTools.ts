@@ -138,10 +138,19 @@ Examples:
       accessLevel: "free",
       isAlwaysEnabled: true,
       customPromptInstructions: `For time-based queries:
-- Use this tool to convert time expressions like "last week", "yesterday", "last month" to proper time ranges
-- This is typically the first step before using localSearch with a time range
+- Use this tool to convert time expressions like "last week", "yesterday", "last month" to proper time ranges.
+- Return the time range to the conversation only when another available tool or the user request needs it.
 
 Example: For "last week" → timeExpression: "last week"`,
+      conditionalPromptInstructions: [
+        {
+          requiredToolIds: ["localSearch"],
+          content: `For time-based vault searches:
+1. First call getTimeRangeMs with the user's time expression.
+2. Then call localSearch with the returned timeRange.
+3. For salientTerms, only use terms that exist in the user's original query.`,
+        },
+      ],
     },
   },
   {
@@ -172,7 +181,7 @@ Example: "what time is 6pm PT in Tokyo" (PT is UTC-8 or UTC-7, Tokyo is UTC+9) �
       isAlwaysEnabled: true,
       customPromptInstructions: `For readNote:
 - Decide based on the user's request: only call this tool when the question requires reading note content.
-- If the user asks about a note title that is already mentioned in the current or previous turns of the conversation, or linked in <active_note> or <note_context> blocks, call readNote directly—do not use localSearch to look it up. Even if the note title mention is partial but similar to what you have seen in the context, try to infer the correct note path from context. Skip the tool when a note is irrelevant to the user query.
+- If the user asks about a note title that is already mentioned in the current or previous turns of the conversation, or linked in <active_note> or <note_context> blocks, call readNote directly. Even if the note title mention is partial but similar to what you have seen in the context, try to infer the correct note path from context. Skip the tool when a note is irrelevant to the user query.
 - If the user asks about notes linked from that note, read the original note first, then follow the "linkedNotes" paths returned in the tool result to inspect those linked notes.
 - Always start with chunk 0 (omit chunkIndex or set it to 0). Only request the next chunk if the previous chunk did not answer the question.
 - Pass vault-relative paths without a leading slash. If a call fails, adjust the path (for example, add ".md" or use an alternative candidate) and retry only if necessary.
@@ -183,6 +192,13 @@ Example: "what time is 6pm PT in Tokyo" (PT is UTC-8 or UTC-7, Tokyo is UTC+9) �
 Examples:
 - First chunk: notePath: "Projects/launch-plan.md" (chunkIndex omitted or 0)
 - Next chunk: notePath: "Projects/launch-plan.md", chunkIndex: 1`,
+      conditionalPromptInstructions: [
+        {
+          requiredToolIds: ["localSearch"],
+          content:
+            "When localSearch is available, do not use it just to rediscover a note path that is already clear from current context; call readNote directly instead.",
+        },
+      ],
     },
   },
   {
@@ -270,13 +286,20 @@ export function registerFileTreeTool(vault: Vault): void {
       customPromptInstructions: `For getFileTree:
 - Use to browse the vault's file structure including paths of notes and folders
 - Always call this tool to explore the exact path of notes or folders when you are not given the exact path.
-- DO NOT use this tool to look up note contents or metadata - use localSearch or readNote instead.
+- DO NOT use this tool to look up note contents or metadata. Use readNote when you know the note path.
 - No parameters needed
 
 Example queries that should use getFileTree:
 - "Create a new note in the projects folder" → call getFileTree to get the exact folder path
 - "Create a new note using the quick note template" → call getFileTree to look up the template path
 - "How many files are in the projects folder" → call getFileTree to list all files`,
+      conditionalPromptInstructions: [
+        {
+          requiredToolIds: ["localSearch"],
+          content:
+            "When localSearch is available, use localSearch rather than getFileTree for content-based vault search.",
+        },
+      ],
     },
   });
 }
@@ -413,7 +436,7 @@ export function registerCliTools(): void {
       accessLevel: "mixed",
       requiresVault: true,
       customPromptInstructions: `For obsidianTasks:
-- ALWAYS use this tool when the user asks about tasks, todos, or checkboxes. Do NOT use localSearch for task queries.
+- ALWAYS use this tool when the user asks about tasks, todos, or checkboxes. Do not use content search for task queries.
 - Use to list and filter tasks across the vault.
 - todo=true: show only incomplete tasks. done=true: show only completed tasks.
 - status="x": filter by specific status character (e.g., "/" for in-progress, "x" for done, " " for open).
@@ -422,6 +445,13 @@ export function registerCliTools(): void {
 - total=true: return only the task count.
 - file= resolves like a wikilink (name only). path= uses exact vault-relative path.
 - For time-based task queries (e.g. "tasks from last month"): use verbose=true to get tasks grouped by file, then filter results by file dates or daily note filenames to match the time range.`,
+      conditionalPromptInstructions: [
+        {
+          requiredToolIds: ["localSearch"],
+          content:
+            "Even when localSearch is available, prefer obsidianTasks over localSearch for tasks, todos, and checkbox queries.",
+        },
+      ],
     },
   });
 

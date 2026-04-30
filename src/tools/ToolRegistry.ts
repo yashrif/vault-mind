@@ -16,6 +16,11 @@ export type ToolUiCategory =
   | "custom"
   | "cli";
 
+export interface ConditionalToolPromptInstruction {
+  requiredToolIds: string[];
+  content: string;
+}
+
 export interface ToolMetadata {
   id: string;
   displayName: string;
@@ -26,6 +31,7 @@ export interface ToolMetadata {
   isAlwaysEnabled?: boolean; // Tools that are always available (e.g., time tools)
   requiresVault?: boolean; // Tools that need vault access
   customPromptInstructions?: string; // Optional custom instructions for this tool
+  conditionalPromptInstructions?: ConditionalToolPromptInstruction[];
   CortexCommands?: string[]; // Optional Cortex slash command aliases (e.g., "@vault")
   // Execution control properties
   timeoutMs?: number;

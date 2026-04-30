@@ -1,6 +1,7 @@
 import { logInfo } from "@/logger";
 import { ToolMetadata } from "@/tools/ToolRegistry";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { buildToolPromptGuidance } from "./toolPromptGuidance";
 
 /**
  * Represents a labeled segment of the system prompt used for tool prompting.
@@ -90,53 +91,11 @@ export interface ModelAdapter {
 class BaseModelAdapter implements ModelAdapter {
   constructor(protected modelName: string) {}
 
-  private buildToolSpecificInstructions(toolMetadata: ToolMetadata[]): string {
-    const instructions: string[] = [];
-
-    // Collect all custom instructions from tool metadata
-    for (const meta of toolMetadata) {
-      if (meta.customPromptInstructions) {
-        instructions.push(meta.customPromptInstructions);
-      }
-    }
-
-    const CortexCommandInstructions = this.buildCortexCommandInstructions(toolMetadata);
-    if (CortexCommandInstructions) {
-      instructions.push(CortexCommandInstructions);
-    }
-
-    return instructions.length > 0 ? instructions.join("\n\n") : "";
-  }
-
-  /**
-   * Build instructional text that maps Cortex command aliases to tool names.
-   *
-   * @param toolMetadata - Metadata for all tools available to the agent.
-   * @returns Instructional string or null if there are no Cortex aliases.
-   */
-  private buildCortexCommandInstructions(toolMetadata: ToolMetadata[]): string | null {
-    const aliasLines: string[] = [];
-
-    for (const meta of toolMetadata) {
-      if (!meta.CortexCommands || meta.CortexCommands.length === 0) {
-        continue;
-      }
-
-      for (const command of meta.CortexCommands) {
-        aliasLines.push(`- ${command}: call the tool named ${meta.id}`);
-      }
-    }
-
-    if (aliasLines.length === 0) {
-      return null;
-    }
-
-    return [
-      "When the user explicitly includes a Cortex command alias (e.g., @vault) in their message, treat it as a direct request to call the mapped tool before proceeding.",
-      "Honor these aliases exactly (case-insensitive):",
-      ...aliasLines,
-      "If the referenced tool is unavailable, explain that the command cannot be fulfilled instead of ignoring it.",
-    ].join("\n");
+  private buildToolSpecificInstructions(
+    toolMetadata: ToolMetadata[],
+    availableToolNames: string[] = []
+  ): string {
+    return buildToolPromptGuidance({ toolMetadata, availableToolNames });
   }
 
   enhanceSystemPrompt(
@@ -161,8 +120,41 @@ class BaseModelAdapter implements ModelAdapter {
     toolMetadata?: ToolMetadata[]
   ): PromptSection[] {
     const metadata = toolMetadata || [];
-    const toolSpecificInstructions = this.buildToolSpecificInstructions(metadata).trim();
+    const availableToolNameList = _availableToolNames ?? metadata.map((tool) => tool.id);
+    const availableToolNames = new Set(availableToolNameList);
+    const hasLocalSearch = availableToolNames.has("localSearch");
+    const toolSpecificInstructions = this.buildToolSpecificInstructions(
+      metadata,
+      availableToolNameList
+    ).trim();
     const normalizedBasePrompt = basePrompt.trimEnd();
+    const timeBasedQueryGuidance = hasLocalSearch
+      ? `## Time-based Queries
+When users ask about temporal periods (e.g., "what did I do last month", "show me notes from last week"), you MUST:
+1. First call getTimeRangeMs to convert the time expression to a proper time range
+2. Then use localSearch with the timeRange parameter from step 1
+3. For salientTerms, ONLY use words that exist in the user's original query (excluding time expressions)
+
+Example for "what did I do last month":
+1. Call getTimeRangeMs with timeExpression: "last month"
+2. Use localSearch with query matching the user's question
+3. salientTerms: [] - empty because "what", "I", "do" are not meaningful search terms
+
+Example for "meetings about project X last week":
+1. Call getTimeRangeMs with timeExpression: "last week"
+2. Use localSearch with query "meetings about project X"
+3. salientTerms: ["meetings", "project", "X"] - these words exist in the original query`
+      : `## Time-based Queries
+When users ask about temporal periods, call getTimeRangeMs only when a concrete date range is needed for an available tool or for the final answer. Do not claim to search the vault unless a vault-search tool is available.`;
+    const sourcePrioritySecondStep = hasLocalSearch
+      ? "2. **Vault second.** For questions that could plausibly be answered by the user's notes, use localSearch before falling back to external or general knowledge."
+      : "2. **Provided context second.** Use attached notes, active-note context, selected text, and prior conversation context. Do not claim you searched the vault unless a vault-search tool is available.";
+    const sourcePriorityThirdStep = hasLocalSearch
+      ? "3. **Web third.** If the vault has no relevant results, or the question is about external/current information the vault is unlikely to contain, search the web."
+      : "3. **Web third.** If provided context is insufficient and the question is about external/current information, search the web when web search is available.";
+    const sourcePriorityReminder = hasLocalSearch
+      ? "When in doubt, search the vault. It is always better to check and find nothing than to skip the search and miss relevant notes."
+      : "When vault-wide search is needed but no vault-search tool is available, explain that Chat + RAG is required instead of claiming you searched.";
     const sections: PromptSection[] = [
       {
         id: "base-system-prompt",
@@ -203,21 +195,7 @@ ${trimmedToolDescriptions}`,
         "src/LLMProviders/chainRunner/utils/modelAdapter.ts#BaseModelAdapter.buildSystemPromptSections",
       content: `# Tool Usage Guidelines
 
-## Time-based Queries
-When users ask about temporal periods (e.g., "what did I do last month", "show me notes from last week"), you MUST:
-1. First call getTimeRangeMs to convert the time expression to a proper time range
-2. Then use localSearch with the timeRange parameter from step 1
-3. For salientTerms, ONLY use words that exist in the user's original query (excluding time expressions)
-
-Example for "what did I do last month":
-1. Call getTimeRangeMs with timeExpression: "last month"
-2. Use localSearch with query matching the user's question
-3. salientTerms: [] - empty because "what", "I", "do" are not meaningful search terms
-
-Example for "meetings about project X last week":
-1. Call getTimeRangeMs with timeExpression: "last week"
-2. Use localSearch with query "meetings about project X"
-3. salientTerms: ["meetings", "project", "X"] - these words exist in the original query
+${timeBasedQueryGuidance}
 
 ## File-related Queries
 
@@ -247,14 +225,14 @@ If multiple results or no result, you should ask the user to provide a more spec
 You are the user's personal knowledge assistant. Always ground your answers in real sources rather than your own training data. Follow this priority chain:
 
 1. **Explicit context first.** If the user has attached notes, documents, URLs, YouTube transcripts, tweets, or any other content to the conversation, use that content as your primary source. The user added it for a reason.
-2. **Vault second.** For any question that could plausibly be answered by the user's notes, search the vault (localSearch). The user's own writing, meeting notes, journal entries, and saved references are highly valuable.
-3. **Web third.** If the vault has no relevant results, or the question is about external/current information the vault is unlikely to contain, search the web.
+${sourcePrioritySecondStep}
+${sourcePriorityThirdStep}
 4. **Your own knowledge last.** Only fall back on your training data when all of the above have been exhausted or are clearly inapplicable (e.g., explaining a general concept, writing code, or creative tasks that don't need source material).
 
-When in doubt, search the vault. It is always better to check and find nothing than to skip the search and miss relevant notes.
+${sourcePriorityReminder}
 
 ## General Guidelines
-- NEVER mention tool names like "localSearch", "webSearch", etc. in your responses. Use natural language like "searching your vault", "searching the web", etc.
+- NEVER mention internal tool names in your responses. Use natural language for actions you actually performed, such as "checking the available context" or "searching the web."
 
 You can use multiple tools in sequence. After each tool execution, you'll receive the results and can decide whether to use more tools or provide your final response.
 
@@ -306,15 +284,21 @@ class GPTModelAdapter extends BaseModelAdapter {
 
     const tools = availableToolNames || [];
     const hasComposerTools = tools.includes("writeFile") || tools.includes("editFile");
+    const hasLocalSearch = tools.includes("localSearch");
 
     const gptSectionParts: string[] = [];
 
     if (this.isGPT5Model()) {
-      gptSectionParts.push(`GPT-5 SPECIFIC RULES:
+      const gpt5Rules = `GPT-5 SPECIFIC RULES:
 - Use maximum 2 tool calls initially, then provide an answer
 - Call each tool ONCE per unique query
-- For optional parameters: OMIT them entirely if not needed (don't pass empty strings/null)
-- For localSearch: OMIT timeRange if not doing time-based search`);
+- For optional parameters: OMIT them entirely if not needed (don't pass empty strings/null)`;
+      gptSectionParts.push(
+        hasLocalSearch
+          ? `${gpt5Rules}
+- For localSearch: OMIT timeRange if not doing time-based search`
+          : gpt5Rules
+      );
     } else {
       gptSectionParts.push(
         "CRITICAL FOR GPT MODELS: You MUST use tools when the user's request requires them. Do not just describe what you plan to do - actually call the tools."
@@ -380,7 +364,7 @@ For editFile, pass the exact text to find and its replacement:
       lowerMessage.includes("typo");
 
     if (requiresSearch) {
-      return `${message}\n\nREMINDER: Call the localSearch tool now.`;
+      return `${message}\n\nREMINDER: Call the appropriate available search tool now.`;
     }
 
     if (requiresFileEdit) {
@@ -442,6 +426,8 @@ class ClaudeModelAdapter extends BaseModelAdapter {
       return sections;
     }
 
+    const tools = availableToolNames || [];
+    const hasLocalSearch = tools.includes("localSearch");
     const thinkingSectionParts: string[] = [
       `IMPORTANT FOR CLAUDE THINKING MODELS:
 - You are a thinking model with internal reasoning capability
@@ -480,8 +466,8 @@ CORRECT: Using tools first, then providing answer based on results`,
 - More tool calls OR final answer
 
 🎯 CORRECT PATTERN:
-I'll search your vault for piano practice information.
-[Call localSearch tool]
+${hasLocalSearch ? "I'll search your vault for piano practice information." : "I'll use the available tools to gather the needed information."}
+${hasLocalSearch ? "[Call localSearch tool]" : "[Call available tool]"}
 [RESPONSE ENDS HERE - NO MORE TEXT]
 
 ❌ WRONG PATTERN (DO NOT DO THIS):
@@ -559,10 +545,10 @@ When the user mentions "my notes" or "my vault", use the localSearch tool.
     ];
 
     geminiSectionParts.push(`GEMINI SPECIFIC RULES:
-1. When user mentions "my notes" about X → use localSearch with query "X"
-2. DO NOT ask clarifying questions about search terms
-3. DO NOT wait for permission to use tools
-4. Use tools based on the user's request
+1. DO NOT ask clarifying questions about search terms
+2. DO NOT wait for permission to use tools
+3. Use tools based on the user's request
+${hasLocalSearch ? '4. When user mentions "my notes" about X → use localSearch with query "X"' : "4. Use provided context for notes questions when no vault-search tool is available."}
 
 🚨 CRITICAL: SEQUENTIAL vs PARALLEL TOOL CALLS 🚨
 
@@ -570,6 +556,9 @@ When one tool's OUTPUT is needed as INPUT to another tool, you MUST make them in
 1. Call the FIRST tool
 2. STOP and wait for the result
 3. In the NEXT response, use the result from step 1 in the SECOND tool call
+${
+  hasLocalSearch
+    ? `
 
 ❌ WRONG (DO NOT DO THIS):
 User: "Recap my last week"
@@ -580,7 +569,9 @@ User: "Recap my last week"
 User: "Recap my last week"
 - FIRST: Call getTimeRangeMs with timeExpression "last week"
 - WAIT for result
-- SECOND: Call localSearch using the actual timeRange from the result
+- SECOND: Call localSearch using the actual timeRange from the result`
+    : ""
+}
 
 RULE: NEVER make up or guess parameter values. If you need a tool's output, call that tool FIRST, then WAIT for the result.
 
@@ -600,7 +591,7 @@ Remember: The user has already told you what to do. Execute it NOW with the avai
   enhanceUserMessage(message: string, requiresTools: boolean): string {
     if (requiresTools) {
       // Add explicit reminder for Gemini
-      return `${message}\n\nREMINDER: Use the tools immediately. Do not ask questions. For "my notes", use localSearch.`;
+      return `${message}\n\nREMINDER: Use the available tools immediately when the request requires them. Do not ask questions.`;
     }
     return message;
   }
@@ -626,6 +617,14 @@ class AgentModelAdapter extends BaseModelAdapter {
       availableToolNames,
       toolMetadata
     );
+    const tools = availableToolNames || [];
+    const hasLocalSearch = tools.includes("localSearch");
+    const noteSearchIntegrity = hasLocalSearch
+      ? "- NEVER claim to have searched notes unless you called localSearch AND received results"
+      : "- NEVER claim to have searched notes unless an available vault-search tool was actually called and returned results";
+    const noteCitationIntegrity = hasLocalSearch
+      ? "- If you only called localSearch, your citations can ONLY reference notes from that search"
+      : "- If you only used provided note context, your citations can ONLY reference that provided context";
 
     sections.push({
       id: "agent-guidelines",
@@ -639,13 +638,13 @@ You MUST follow these rules strictly:
 ## Tool Call Integrity
 - You can ONLY reference results from tools you have ACTUALLY called in this conversation
 - NEVER claim to have performed a web search unless you called the webSearch tool AND received results
-- NEVER claim to have searched notes unless you called localSearch AND received results
+${noteSearchIntegrity}
 - If you want to search the web, you MUST call the webSearch tool first - do not make up results
 
 ## Citation Rules
 - Every citation [1], [2], etc. MUST correspond to a real source returned by a tool
 - Do NOT invent sources like "General web search results for X" unless webSearch was actually called
-- If you only called localSearch, your citations can ONLY reference notes from that search
+${noteCitationIntegrity}
 - Count your actual tool calls - if you only made 1 tool call, you cannot have citations from multiple different tools
 
 ## Before Writing Citations

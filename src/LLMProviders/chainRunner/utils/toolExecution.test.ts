@@ -62,15 +62,29 @@ describe("toolExecution", () => {
       });
     });
 
-    it("should handle tool not found", async () => {
+    it("should handle generic tool not found without mentioning Agent settings", async () => {
       const result = await executeSequentialToolCall({ name: "unknownTool", args: {} }, []);
 
       expect(result).toEqual({
         toolName: "unknownTool",
         result:
-          "Error: Tool 'unknownTool' not found. Available tools: . Make sure you have the tool enabled in the Agent settings.",
+          "Tool 'unknownTool' is not available for this turn. Available tools: none. Check the current mode and tool settings.",
         success: false,
       });
+    });
+
+    it("explains that localSearch requires Chat + RAG when called from plain Chat", async () => {
+      const result = await executeSequentialToolCall(
+        { name: "localSearch", args: { query: "AdaBoost Algorithm" } },
+        [{ name: "readNote" }],
+        { presetId: "chat" }
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.result).toContain("Vault Search is not available in Chat");
+      expect(result.result).toContain("Turn on Chat + RAG");
+      expect(result.result).toContain("readNote");
+      expect(result.result).not.toContain("Agent settings");
     });
 
     it("should handle invalid tool call", async () => {
