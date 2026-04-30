@@ -1,5 +1,6 @@
 import { PromptContextEnvelope } from "@/context/PromptContextTypes";
 import { stripReasoningMarker } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
+import { AI_SENDER } from "@/constants";
 import { formatDateTime } from "@/utils";
 import { ChatMessage, MessageContext, NewChatMessage, StoredMessage } from "@/types/message";
 import { logInfo } from "@/logger";
@@ -20,7 +21,8 @@ export class MessageRepository {
    * Return true when a message sender represents an assistant response.
    */
   private isAssistantSender(sender: string): boolean {
-    return sender === "AI" || sender === "ai" || sender === "assistant";
+    // AI_SENDER = "ai"; legacy callers (e.g. ChatMessages.tsx) still emit "AI"
+    return sender === AI_SENDER || sender === "AI";
   }
 
   /**
@@ -348,7 +350,7 @@ export class MessageRepository {
       totalMessages: this.messages.length,
       visibleMessages: this.messages.filter((m) => m.isVisible).length,
       userMessages: this.messages.filter((m) => m.sender === "user" || m.sender === "USER").length,
-      aiMessages: this.messages.filter((m) => m.sender === "AI" || m.sender === "assistant").length,
+      aiMessages: this.messages.filter((m) => this.isAssistantSender(m.sender)).length,
     };
   }
 }

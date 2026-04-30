@@ -157,6 +157,36 @@ describe("MessageRepository", () => {
       expect(messageRepo.getLLMMessages()[0].message).toBe("Answer from notes");
       expect(messageRepo.getLLMMessages()[0].originalMessage).toBe("Answer from notes");
     });
+
+    it("strips reasoning markers from messages with legacy uppercase AI sender", () => {
+      const marker = serializeReasoningPayload({
+        status: "complete",
+        elapsedSeconds: 2,
+        steps: [{ id: "s1", timestamp: 1, summary: "Done" }],
+      });
+      messageRepo.addMessage(`${marker}\n\nAnswer`, `${marker}\n\nAnswer`, "AI");
+      expect(messageRepo.getLLMMessages()[0].message).toBe("Answer");
+    });
+
+    it("strips reasoning markers from messages with canonical lowercase ai sender", () => {
+      const marker = serializeReasoningPayload({
+        status: "complete",
+        elapsedSeconds: 2,
+        steps: [{ id: "s1", timestamp: 1, summary: "Done" }],
+      });
+      messageRepo.addMessage(`${marker}\n\nAnswer`, `${marker}\n\nAnswer`, "ai");
+      expect(messageRepo.getLLMMessages()[0].message).toBe("Answer");
+    });
+
+    it("does not strip reasoning markers from user messages regardless of content", () => {
+      const marker = serializeReasoningPayload({
+        status: "complete",
+        elapsedSeconds: 1,
+        steps: [{ id: "s1", timestamp: 1, summary: "Done" }],
+      });
+      messageRepo.addMessage(`${marker}\n\nUser text`, `${marker}\n\nUser text`, "user");
+      expect(messageRepo.getLLMMessages()[0].message).toContain("CORTEX_REASONING");
+    });
   });
 
   describe("editMessage", () => {
