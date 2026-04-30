@@ -113,7 +113,7 @@ const ReasoningStepItem: React.FC<{ step: ReasoningStep }> = ({ step }) => {
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <div className="tw-mt-1 tw-flex tw-flex-col tw-gap-2 tw-rounded tw-border tw-border-solid tw-border-border tw-p-2 tw-bg-secondary/40">
+              <div className="tw-mt-1 tw-flex tw-flex-col tw-gap-2 tw-rounded tw-border tw-border-solid tw-border-border tw-bg-secondary tw-p-2">
                 <div className="tw-flex tw-flex-wrap tw-gap-2 tw-text-xs tw-text-muted">
                   {details.durationMs !== undefined && <span>{details.durationMs}ms</span>}
                   {details.truncated && <span>Preview truncated</span>}
@@ -199,7 +199,7 @@ export const AgentReasoningBlock: React.FC<AgentReasoningBlockProps> = ({
         {steps.length > 0 && (
           <ul className="agent-reasoning-steps">
             {steps.map((step, index) => (
-              <ReasoningStepItem key={step.id || index} step={step} />
+              <ReasoningStepItem key={step.id} step={step} />
             ))}
           </ul>
         )}
