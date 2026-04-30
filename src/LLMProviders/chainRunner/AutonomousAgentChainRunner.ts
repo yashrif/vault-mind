@@ -351,6 +351,16 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
       this.reasoningTimerInterval = null;
     }
     this.reasoningState.status = "complete";
+    // Finalize any tool steps that were interrupted before their result arrived.
+    for (const [, stepId] of this.pendingToolStepIds) {
+      const step = this.allReasoningSteps.find((s) => s.id === stepId);
+      if (step?.toolDetails) {
+        step.toolDetails.status = "error";
+        step.toolDetails.errorMessage = "Interrupted";
+      }
+    }
+    this.pendingToolStepIds.clear();
+    this.pendingToolArgs.clear();
   }
 
   /**

@@ -8,7 +8,7 @@ import { resolveRuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { ChatMessage } from "@/types/message";
 import { getPromptProfileInstructions } from "@/system-prompts/systemPromptBuilder";
 import { ABORT_REASON } from "@/constants";
-import { parseReasoningMessage } from "./utils/AgentReasoningState";
+import { parseReasoningMessage, ReasoningStep } from "./utils/AgentReasoningState";
 
 jest.mock("@/logger", () => ({
   logError: jest.fn(),
@@ -678,5 +678,52 @@ describe("AutonomousAgentChainRunner citation fallback", () => {
 
     expect(result).toContain("Note A");
     expect(result).toContain("Note B");
+  });
+});
+
+describe("stopReasoningTimer", () => {
+  it("marks in-flight tool steps as interrupted when reasoning is stopped before result arrives", () => {
+    const runner = new AutonomousAgentChainRunner({
+      app: { vault: {} },
+      chatModelManager: {
+        getChatModel: jest.fn(() => ({})),
+        findModelByName: jest.fn(() => ({ capabilities: [] })),
+      },
+      memoryManager: {
+        getMemory: jest.fn(() => ({ chatHistory: { messages: [] } })),
+        saveContext: jest.fn(),
+      },
+      userMemoryManager: {},
+    } as any);
+
+    const step: ReasoningStep = {
+      id: "step-1",
+      timestamp: Date.now(),
+      summary: "Searching notes for ...",
+      toolName: "localSearch",
+      toolDetails: {
+        status: "running",
+        argsPreview: { query: "test" },
+        truncated: false,
+      },
+    };
+
+    (runner as any).allReasoningSteps = [step];
+    (runner as any).pendingToolStepIds = new Map([["tc-1", "step-1"]]);
+    (runner as any).pendingToolArgs = new Map([["tc-1", { query: "test" }]]);
+    (runner as any).reasoningState = {
+      status: "reasoning",
+      startTime: Date.now(),
+      elapsedSeconds: 0,
+      steps: [],
+    };
+
+    (runner as any).stopReasoningTimer();
+
+    const finalStep = (runner as any).allReasoningSteps[0] as ReasoningStep;
+    expect(finalStep.toolDetails?.status).toBe("error");
+    expect(finalStep.toolDetails?.errorMessage).toBe("Interrupted");
+    expect((runner as any).pendingToolStepIds.size).toBe(0);
+    expect((runner as any).pendingToolArgs.size).toBe(0);
   });
 });
