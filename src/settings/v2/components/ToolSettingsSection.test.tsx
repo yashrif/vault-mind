@@ -72,6 +72,7 @@ describe("ToolSettingsSection", () => {
         webSearch: true,
         writeFile: false,
       },
+      telegram: {},
     },
   };
 
@@ -121,6 +122,39 @@ describe("ToolSettingsSection", () => {
         ...settings.toolDefaults.agent,
         writeFile: true,
       },
+    });
+  });
+
+  describe("surface=telegram", () => {
+    it("renders Telegram Tools section without Chat or Agent sections", () => {
+      render(<ToolSettingsSection surface="telegram" />);
+
+      expect(screen.getByText("Telegram Tools")).toBeTruthy();
+      expect(screen.queryByText("Chat Tools")).toBeNull();
+      expect(screen.queryByText("Agent Tools")).toBeNull();
+    });
+
+    it("shows all configurable tools as present when toolDefaults.telegram is empty", () => {
+      render(<ToolSettingsSection surface="telegram" />);
+
+      // All configurable tools should be present regardless of access level
+      expect(screen.getByRole("button", { name: "Web Search" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Write to File" })).toBeTruthy();
+    });
+
+    it("updates toolDefaults.telegram when a Telegram tool is toggled", () => {
+      render(<ToolSettingsSection surface="telegram" />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Web Search" }));
+
+      // telegram defaults are empty (all enabled = true), so !true = false is passed
+      expect(updateSetting).toHaveBeenCalledWith("toolDefaults", {
+        ...settings.toolDefaults,
+        telegram: {
+          ...settings.toolDefaults.telegram,
+          webSearch: false,
+        },
+      });
     });
   });
 });

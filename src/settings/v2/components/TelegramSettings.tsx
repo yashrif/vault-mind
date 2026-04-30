@@ -1,4 +1,5 @@
 import { SettingItem } from "@/components/ui/setting-item";
+import { ToolSettingsSection } from "@/settings/v2/components/ToolSettingsSection";
 import { Button } from "@/components/ui/button";
 import { ObsidianNativeSelect } from "@/components/ui/obsidian-native-select";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -193,6 +194,8 @@ export const TelegramSettings: React.FC = () => {
             )}
           </div>
         </SettingItem>
+
+        <ToolSettingsSection surface="telegram" />
       </section>
     </div>
   );

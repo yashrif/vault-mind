@@ -91,6 +91,8 @@ A bridge between Telegram and Cortex. Shows one always-on read-only thread manag
 - Messages that arrive from Telegram still receive AI replies sent back to Telegram
 - In-message actions are intentionally limited to avoid unsafe edits/regenerations on external chat history
 
+**Telegram tool settings** are configurable under **Settings → Cortex → Telegram → Telegram Tools**. All configurable tools are on by default; toggle individual tools off to prevent the bot from using them. Always-enabled tools (such as time lookup and note reading) are not shown and cannot be disabled.
+
 ---
 
 ## Context Bar
