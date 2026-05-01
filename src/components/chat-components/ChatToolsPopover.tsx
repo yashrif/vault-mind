@@ -16,21 +16,24 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { DEFAULT_SETTINGS } from "@/constants";
 import { updateSetting, useSettingsValue } from "@/settings/model";
 import { ToolRegistry } from "@/tools/ToolRegistry";
-import { type ChainPresetId } from "@/runtime/ChainPreset";
 import {
   getProjectAgentOverride,
   isChatConfigurableTool,
   isToolChecked,
 } from "@/core/toolUiHelpers";
 
+/** Shorthand for a Lucide-style icon component */
+type IconComponent = React.FC<{ className?: string }>;
+
 /** Category icon mapping keyed by ToolUiCategory value */
-const CATEGORY_ICON: Record<string, React.FC<{ className?: string }>> = {
+const CATEGORY_ICON: Record<string, IconComponent> = {
   search: Database,
   file: FileText,
   media: Image,
@@ -56,13 +59,12 @@ const CATEGORY_COLOR: Record<string, string> = {
 export interface ChatToolsPopoverProps {
   /** "chat" binds to toolDefaults.chat; "agent" binds to toolDefaults.agent */
   surface: "chat" | "agent";
-  presetId: ChainPresetId;
-  /** Called when localSearch is toggled off in agent mode */
-  setVaultToggle: (v: boolean) => void;
-  /** Called when webSearch is toggled off in agent mode */
-  setWebToggle: (v: boolean) => void;
-  /** Called when writeFile is toggled off in agent mode */
-  setComposerToggle: (v: boolean) => void;
+  /** Called when localSearch is toggled in agent mode */
+  setVaultToggle?: (v: boolean) => void;
+  /** Called when webSearch is toggled in agent mode */
+  setWebToggle?: (v: boolean) => void;
+  /** Called when writeFile is toggled in agent mode */
+  setComposerToggle?: (v: boolean) => void;
   /** Called when localSearch is toggled off in agent mode */
   onVaultToggleOff?: () => void;
   /** Called when webSearch is toggled off in agent mode */
@@ -75,7 +77,7 @@ export interface ChatToolsPopoverProps {
  * Returns the category icon component for the given tool.
  * For the "search" category, uses Globe for webSearch and Database for others.
  */
-function getToolIcon(category: string, toolId: string): React.FC<{ className?: string }> {
+function getToolIcon(category: string, toolId: string): IconComponent {
   if (category === "search" && toolId === "webSearch") {
     return Globe;
   }
@@ -90,7 +92,6 @@ function getToolIcon(category: string, toolId: string): React.FC<{ className?: s
  */
 const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
   surface,
-  presetId,
   setVaultToggle,
   setWebToggle,
   setComposerToggle,
@@ -140,15 +141,15 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
     // Pill sync — agent mode only
     if (surface === "agent") {
       if (toolId === "localSearch") {
-        setVaultToggle(enabled);
+        setVaultToggle?.(enabled);
         if (!enabled) onVaultToggleOff?.();
       }
       if (toolId === "webSearch") {
-        setWebToggle(enabled);
+        setWebToggle?.(enabled);
         if (!enabled) onWebToggleOff?.();
       }
       if (toolId === "writeFile") {
-        setComposerToggle(enabled);
+        setComposerToggle?.(enabled);
         if (!enabled) onComposerToggleOff?.();
       }
     }
@@ -186,15 +187,17 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
     });
   };
 
+  /**
+   * Handles popover open/close state and clears search when closing.
+   */
+  const handleOpenChange = (v: boolean): void => {
+    setOpen(v);
+    if (!v) setSearch("");
+  };
+
   return (
     <TooltipProvider delayDuration={0}>
-      <Popover
-        open={open}
-        onOpenChange={(v) => {
-          setOpen(v);
-          if (!v) setSearch("");
-        }}
-      >
+      <Popover open={open} onOpenChange={handleOpenChange}>
         {/* Trigger: wrench button with active-count badge */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -252,17 +255,12 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
           <div className="tw-border-b tw-border-border tw-px-3 tw-py-2">
             <div className="tw-relative">
               <Search className="tw-absolute tw-left-2 tw-top-1/2 tw-size-3.5 tw--translate-y-1/2 tw-text-muted" />
-              <input
+              <Input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search tools..."
-                className={cn(
-                  "tw-w-full tw-rounded-md tw-border tw-border-border",
-                  "tw-bg-secondary tw-py-1.5 tw-pl-7 tw-pr-6",
-                  "tw-text-[12px] tw-text-normal placeholder:tw-text-muted",
-                  "focus:tw-outline-none focus:tw-ring-1 focus:tw-ring-ring"
-                )}
+                className="tw-pl-7 tw-pr-6 tw-text-[12px]"
               />
               {search && (
                 <button
@@ -295,7 +293,7 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
                 <button
                   key={toolId}
                   className="tw-flex tw-w-full tw-items-start tw-gap-2.5 tw-px-3 tw-py-2 tw-text-left hover:tw-bg-modifier-hover"
-                  onClick={() => !hasOverride && handleToggle(toolId, !checked)}
+                  onClick={() => handleToggle(toolId, !checked)}
                   disabled={hasOverride}
                   aria-label={`Toggle ${tool.metadata.displayName}`}
                 >
@@ -303,8 +301,6 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
                     checked={checked}
                     disabled={hasOverride}
                     className="tw-mt-0.5 tw-size-3.5"
-                    onCheckedChange={(v) => !hasOverride && handleToggle(toolId, !!v)}
-                    onClick={(e) => e.stopPropagation()}
                   />
                   <IconComponent className={cn("tw-mt-0.5 tw-size-3.5 tw-shrink-0", iconColor)} />
                   <div className="tw-flex tw-min-w-0 tw-flex-col tw-gap-0.5">
