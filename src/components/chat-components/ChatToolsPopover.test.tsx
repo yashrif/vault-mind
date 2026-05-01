@@ -23,12 +23,6 @@ jest.mock("@/components/ui/button", () => ({
   ),
 }));
 
-jest.mock("@/components/ui/checkbox", () => ({
-  Checkbox: ({ checked, disabled, onClick }: any) => (
-    <input type="checkbox" readOnly checked={!!checked} disabled={!!disabled} onClick={onClick} />
-  ),
-}));
-
 jest.mock("@/components/ui/input", () => ({
   Input: ({ value, onChange, placeholder }: any) => (
     <input data-testid="search-input" value={value} onChange={onChange} placeholder={placeholder} />
@@ -74,6 +68,7 @@ jest.mock("lucide-react", () => ({
   FileText: () => <span />,
   Globe: () => <span />,
   Image: () => <span />,
+  Check: () => <span />,
   Lock: () => <span />,
   PlugZap: () => <span />,
   Search: () => <span />,
@@ -437,7 +432,7 @@ describe("ChatToolsPopover", () => {
       );
     });
 
-    it("Disable all calls updateSetting with all tools disabled", () => {
+    it("Clear all calls updateSetting with all tools disabled", () => {
       mockGetConfigurableTools.mockReturnValue([webSearchTool, localSearchTool]);
       (useSettingsValue as jest.Mock).mockReturnValue({
         toolDefaults: {
@@ -449,8 +444,8 @@ describe("ChatToolsPopover", () => {
 
       render(<ChatToolsPopover surface="agent" />);
 
-      const disableAllButton = screen.getByRole("button", { name: /Disable all/i });
-      fireEvent.click(disableAllButton);
+      const clearAllButton = screen.getByRole("button", { name: /Clear all/i });
+      fireEvent.click(clearAllButton);
 
       expect(updateSetting).toHaveBeenCalledWith(
         "toolDefaults",
@@ -496,14 +491,8 @@ describe("ChatToolsPopover", () => {
 
       render(<ChatToolsPopover surface="agent" />);
 
-      // The checkbox for the overridden tool should be disabled
-      const checkboxes = screen.getAllByRole("checkbox");
-      const webSearchCheckbox = checkboxes.find(
-        (cb) => cb.closest("[aria-label]")?.getAttribute("aria-label") === "Toggle Web Search"
-      );
-
-      expect(webSearchCheckbox).toBeTruthy();
-      expect(webSearchCheckbox!.hasAttribute("disabled")).toBe(true);
+      const webSearchToggle = screen.getByRole("button", { name: "Toggle Web Search" });
+      expect(webSearchToggle.hasAttribute("disabled")).toBe(true);
     });
 
     it("shows lock tooltip text for overridden tool", () => {
@@ -527,13 +516,20 @@ describe("ChatToolsPopover", () => {
 
       render(<ChatToolsPopover surface="agent" />);
 
-      const checkboxes = screen.getAllByRole("checkbox");
-      const webSearchCheckbox = checkboxes.find(
-        (cb) => cb.closest("[aria-label]")?.getAttribute("aria-label") === "Toggle Web Search"
-      );
+      const webSearchToggle = screen.getByRole("button", { name: "Toggle Web Search" });
+      expect(webSearchToggle.hasAttribute("disabled")).toBe(false);
+    });
 
-      expect(webSearchCheckbox).toBeTruthy();
-      expect(webSearchCheckbox!.hasAttribute("disabled")).toBe(false);
+    it("uses the updated footer actions", () => {
+      mockGetConfigurableTools.mockReturnValue([webSearchTool]);
+      (useSettingsValue as jest.Mock).mockReturnValue(baseSettings);
+
+      render(<ChatToolsPopover surface="agent" />);
+
+      expect(screen.getByRole("button", { name: /Enable all/i })).toBeTruthy();
+      expect(screen.getByRole("button", { name: /Reset/i })).toBeTruthy();
+      expect(screen.getByRole("button", { name: /Clear all/i })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: /Disable all/i })).toBeNull();
     });
   });
 });

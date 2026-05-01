@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   Brain,
   Calendar,
+  Check,
   Code2,
   Database,
   FileText,
@@ -15,7 +16,6 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -169,7 +169,7 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
   /**
    * Disables all tools for this surface.
    */
-  const handleDisableAll = (): void => {
+  const handleClearAll = (): void => {
     const all = Object.fromEntries(tools.map((t) => [t.metadata.id, false]));
     updateSetting("toolDefaults", {
       ...settings.toolDefaults,
@@ -232,7 +232,12 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
           <TooltipContent className="tw-px-1 tw-py-0.5">Configure tools</TooltipContent>
         </Tooltip>
 
-        <PopoverContent side="top" align="end" sideOffset={8} className="tw-w-80 tw-p-0">
+        <PopoverContent
+          side="top"
+          align="end"
+          sideOffset={8}
+          className="tw-w-80 tw-overflow-hidden tw-rounded-xl tw-border tw-border-border tw-bg-primary tw-p-0 tw-shadow-lg"
+        >
           {/* ── Header ── */}
           <div className="tw-flex tw-items-center tw-gap-2 tw-border-b tw-border-border tw-px-3 tw-py-2.5">
             <div className="tw-flex tw-size-6 tw-items-center tw-justify-center tw-rounded tw-text-accent tw-bg-interactive-accent/10">
@@ -292,16 +297,23 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
               return (
                 <button
                   key={toolId}
-                  className="tw-flex tw-w-full tw-items-start tw-gap-2.5 tw-px-3 tw-py-2 tw-text-left hover:tw-bg-modifier-hover"
+                  className="tw-group tw-flex tw-w-full tw-items-start tw-gap-2.5 tw-px-3 tw-py-2 tw-text-left hover:tw-bg-modifier-hover"
                   onClick={() => handleToggle(toolId, !checked)}
                   disabled={hasOverride}
                   aria-label={`Toggle ${tool.metadata.displayName}`}
                 >
-                  <Checkbox
-                    checked={checked}
-                    disabled={hasOverride}
-                    className="tw-mt-0.5 tw-size-3.5"
-                  />
+                  <div
+                    aria-hidden="true"
+                    className={cn(
+                      "tw-mt-0.5 tw-flex tw-size-4 tw-shrink-0 tw-items-center tw-justify-center tw-rounded-sm tw-border tw-transition-colors",
+                      checked
+                        ? "tw-border-interactive-accent tw-bg-interactive-accent tw-text-on-accent"
+                        : "tw-border-border tw-text-transparent group-hover:tw-border-border-hover",
+                      hasOverride && "tw-opacity-60"
+                    )}
+                  >
+                    <Check className="tw-size-3" />
+                  </div>
                   <IconComponent className={cn("tw-mt-0.5 tw-size-3.5 tw-shrink-0", iconColor)} />
                   <div className="tw-flex tw-min-w-0 tw-flex-col tw-gap-0.5">
                     <span className="tw-truncate tw-text-[12px] tw-font-medium tw-text-normal">
@@ -327,8 +339,8 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
           </div>
 
           {/* ── Footer ── */}
-          <div className="tw-flex tw-items-center tw-justify-between tw-border-t tw-border-border tw-px-3 tw-py-2.5">
-            <div className="tw-flex tw-items-center tw-gap-2">
+          <div className="tw-flex tw-items-center tw-justify-between tw-border-t tw-border-border tw-px-3 tw-py-2.5 tw-bg-secondary/40">
+            <div className="tw-flex tw-items-center tw-gap-2.5">
               <Button
                 variant="ghost2"
                 size="fit"
@@ -338,17 +350,12 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
                 Enable all
               </Button>
               <div className="tw-h-3 tw-w-px tw-border-l tw-border-border" />
-              <Button
-                variant="ghost2"
-                size="fit"
-                className="tw-text-[11px]"
-                onClick={handleDisableAll}
-              >
-                Disable all
+              <Button variant="ghost2" size="fit" className="tw-text-[11px]" onClick={handleReset}>
+                Reset
               </Button>
             </div>
-            <Button variant="ghost2" size="fit" className="tw-text-[11px]" onClick={handleReset}>
-              Reset
+            <Button variant="ghost2" size="fit" className="tw-text-[11px]" onClick={handleClearAll}>
+              Clear all
             </Button>
           </div>
         </PopoverContent>

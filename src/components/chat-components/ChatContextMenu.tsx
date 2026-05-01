@@ -21,8 +21,10 @@ import { isAgentPresetId } from "@/runtime/ChainPreset";
 import { mergeWebTabContexts } from "@/utils/urlNormalization";
 import { AtMentionTypeahead } from "./AtMentionTypeahead";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface ChatContextMenuProps {
+  surface?: "default" | "command-center";
   includeActiveNote: boolean;
   currentActiveFile: TFile | null;
   includeActiveWebTab: boolean;
@@ -96,6 +98,7 @@ function ContextSelection({
 }
 
 export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
+  surface = "default",
   includeActiveNote,
   currentActiveFile,
   includeActiveWebTab,
@@ -111,6 +114,7 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
   onTypeaheadSelect,
   lexicalEditorRef,
 }) => {
+  const isCommandCenter = surface === "command-center";
   const [presetId] = useChainPresetId();
   const contextStatus = useProjectContextStatus();
   const [indexingState] = useIndexingProgress();
@@ -183,7 +187,12 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
   };
 
   return (
-    <div className="tw-flex tw-w-full tw-items-start tw-gap-1">
+    <div
+      className={cn(
+        "tw-flex tw-w-full tw-items-start",
+        isCommandCenter ? "tw-gap-1.5" : "tw-gap-1"
+      )}
+    >
       <div className="tw-flex tw-h-full tw-items-start">
         <Popover open={showTypeahead} onOpenChange={setShowTypeahead}>
           <PopoverTrigger asChild>
@@ -191,7 +200,12 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
               ref={buttonRef}
               variant="ghost2"
               size="fit"
-              className="tw-ml-1 tw-rounded-sm tw-border tw-border-solid tw-border-border tw-text-muted"
+              className={cn(
+                "tw-text-muted",
+                isCommandCenter
+                  ? "tw-ml-0 tw-rounded-md tw-bg-secondary tw-px-2.5 tw-py-1 tw-text-normal hover:tw-bg-modifier-hover"
+                  : "tw-ml-1 tw-rounded-sm tw-border tw-border-solid tw-border-border"
+              )}
             >
               <span className="tw-text-base tw-font-medium tw-leading-none">@</span>
               {!hasContext && <span className="tw-pr-1 tw-text-sm tw-leading-4">Add context</span>}

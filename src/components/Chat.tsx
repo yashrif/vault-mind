@@ -927,46 +927,50 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
             </div>
           ) : (
             <>
-              <ChatControls
-                onNewChat={handleNewChat}
-                onSaveAsNote={() => handleSaveAsNote()}
-                onLoadHistory={handleLoadChatHistory}
-                onModeChange={handleChainModeChange}
-                chatHistory={chatHistoryItems}
-                onUpdateChatTitle={handleUpdateChatTitle}
-                onDeleteChat={handleDeleteChat}
-                onLoadChat={handleLoadChat}
-                onOpenSourceFile={handleOpenSourceFile}
-                latestTokenCount={latestTokenCount}
-                onChannelsToggle={() => setChannelsActive(true)}
-              />
-              <ChatInput
-                inputMessage={inputMessage}
-                setInputMessage={setInputMessage}
-                handleSendMessage={handleSendMessage}
-                isGenerating={loading}
-                onStopGenerating={() => handleStopGenerating(ABORT_REASON.USER_STOPPED)}
-                app={app}
-                contextNotes={contextNotes}
-                setContextNotes={setContextNotes}
-                includeActiveNote={includeActiveNote}
-                setIncludeActiveNote={setIncludeActiveNote}
-                includeActiveWebTab={includeActiveWebTab}
-                setIncludeActiveWebTab={setIncludeActiveWebTab}
-                activeWebTab={currentActiveWebTab}
-                selectedFiles={selectedFiles}
-                onAddFile={(files: File[]) => setSelectedFiles((prev) => [...prev, ...files])}
-                setSelectedFiles={setSelectedFiles}
-                disableModelSwitch={!!getCurrentProject()?.projectModelKey}
-                selectedTextContexts={selectedTextContexts}
-                onRemoveSelectedText={handleRemoveSelectedText}
-                showProgressCard={() => {
-                  setProgressCardVisible(true);
-                }}
-                showIndexingCard={() => {
-                  setIndexingCardVisible(true);
-                }}
-              />
+              <div className="tw-shrink-0 tw-px-3 tw-pb-3 tw-pt-1">
+                <ChatControls
+                  onNewChat={handleNewChat}
+                  onSaveAsNote={() => handleSaveAsNote()}
+                  onLoadHistory={handleLoadChatHistory}
+                  onModeChange={handleChainModeChange}
+                  surface="command-center"
+                  chatHistory={chatHistoryItems}
+                  onUpdateChatTitle={handleUpdateChatTitle}
+                  onDeleteChat={handleDeleteChat}
+                  onLoadChat={handleLoadChat}
+                  onOpenSourceFile={handleOpenSourceFile}
+                  latestTokenCount={latestTokenCount}
+                  onChannelsToggle={() => setChannelsActive(true)}
+                />
+                <ChatInput
+                  surface="command-center"
+                  inputMessage={inputMessage}
+                  setInputMessage={setInputMessage}
+                  handleSendMessage={handleSendMessage}
+                  isGenerating={loading}
+                  onStopGenerating={() => handleStopGenerating(ABORT_REASON.USER_STOPPED)}
+                  app={app}
+                  contextNotes={contextNotes}
+                  setContextNotes={setContextNotes}
+                  includeActiveNote={includeActiveNote}
+                  setIncludeActiveNote={setIncludeActiveNote}
+                  includeActiveWebTab={includeActiveWebTab}
+                  setIncludeActiveWebTab={setIncludeActiveWebTab}
+                  activeWebTab={currentActiveWebTab}
+                  selectedFiles={selectedFiles}
+                  onAddFile={(files: File[]) => setSelectedFiles((prev) => [...prev, ...files])}
+                  setSelectedFiles={setSelectedFiles}
+                  disableModelSwitch={!!getCurrentProject()?.projectModelKey}
+                  selectedTextContexts={selectedTextContexts}
+                  onRemoveSelectedText={handleRemoveSelectedText}
+                  showProgressCard={() => {
+                    setProgressCardVisible(true);
+                  }}
+                  showIndexingCard={() => {
+                    setIndexingCardVisible(true);
+                  }}
+                />
+              </div>
             </>
           )}
         </div>

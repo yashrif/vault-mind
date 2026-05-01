@@ -5,6 +5,7 @@ import { TFile } from "obsidian";
 import { ChatContextMenu } from "./ChatContextMenu";
 
 interface ChatControlsProps {
+  surface?: "default" | "command-center";
   contextNotes: TFile[];
   includeActiveNote: boolean;
   activeNote: TFile | null;
@@ -24,6 +25,7 @@ interface ChatControlsProps {
 }
 
 export const ContextControl: React.FC<ChatControlsProps> = ({
+  surface = "default",
   contextNotes,
   includeActiveNote,
   activeNote,
@@ -53,6 +55,7 @@ export const ContextControl: React.FC<ChatControlsProps> = ({
 
   return (
     <ChatContextMenu
+      surface={surface}
       includeActiveNote={includeActiveNote}
       currentActiveFile={activeNote}
       includeActiveWebTab={includeActiveWebTab}
