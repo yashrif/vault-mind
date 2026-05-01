@@ -1,16 +1,9 @@
 import React from "react";
 import { SettingItem } from "@/components/ui/setting-item";
 import { AGENT_MAX_ITERATIONS_LIMIT } from "@/constants";
+import { isChatConfigurableTool, isToolChecked } from "@/core/toolUiHelpers";
 import { updateSetting, useSettingsValue } from "@/settings/model";
-import { ToolDefinition } from "@/tools/ToolRegistry";
-import { ToolRegistry } from "@/tools/ToolRegistry";
-
-/**
- * Returns whether the tool should be configurable for Chat.
- */
-function isChatConfigurableTool({ metadata }: ToolDefinition): boolean {
-  return metadata.accessLevel === "costly" && metadata.id !== "localSearch";
-}
+import { ToolDefinition, ToolRegistry } from "@/tools/ToolRegistry";
 
 interface ToolSettingsSectionProps {
   /** When provided, renders only that surface's section. Omit to render Chat + Agent (default). */
@@ -51,10 +44,7 @@ export const ToolSettingsSection: React.FC<ToolSettingsSectionProps> = ({ surfac
    */
   const renderToolSwitch = (definition: ToolDefinition, surf: "chat" | "agent" | "telegram") => {
     const { metadata } = definition;
-    const checked =
-      surf === "telegram"
-        ? toolDefaults.telegram?.[metadata.id] !== false
-        : toolDefaults[surf]?.[metadata.id] === true;
+    const checked = isToolChecked(surf, toolDefaults, metadata.id);
     return (
       <SettingItem
         key={`${surf}-${metadata.id}`}
