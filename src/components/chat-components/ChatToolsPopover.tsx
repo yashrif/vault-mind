@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { DEFAULT_SETTINGS } from "@/constants";
 import { updateSetting, useSettingsValue } from "@/settings/model";
 import { ToolRegistry } from "@/tools/ToolRegistry";
-import { isAgentPresetId, type ChainPresetId } from "@/runtime/ChainPreset";
+import { type ChainPresetId } from "@/runtime/ChainPreset";
 import {
   getProjectAgentOverride,
   isChatConfigurableTool,
@@ -57,12 +57,11 @@ export interface ChatToolsPopoverProps {
   /** "chat" binds to toolDefaults.chat; "agent" binds to toolDefaults.agent */
   surface: "chat" | "agent";
   presetId: ChainPresetId;
-  /** Pill sync state — only used in agent mode for specific tool IDs */
-  vaultToggle: boolean;
+  /** Called when localSearch is toggled off in agent mode */
   setVaultToggle: (v: boolean) => void;
-  webToggle: boolean;
+  /** Called when webSearch is toggled off in agent mode */
   setWebToggle: (v: boolean) => void;
-  composerToggle: boolean;
+  /** Called when writeFile is toggled off in agent mode */
   setComposerToggle: (v: boolean) => void;
   /** Called when localSearch is toggled off in agent mode */
   onVaultToggleOff?: () => void;
@@ -103,7 +102,6 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
   const [search, setSearch] = useState("");
 
   const settings = useSettingsValue();
-  const isAgentMode = isAgentPresetId(presetId);
 
   const registry = ToolRegistry.getInstance();
   const allConfigurable = registry.getConfigurableTools();
@@ -288,8 +286,7 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
             {filtered.map((tool) => {
               const toolId = tool.metadata.id;
               const checked = isChecked(toolId);
-              const override =
-                isAgentMode && surface === "agent" ? getProjectAgentOverride(toolId) : undefined;
+              const override = surface === "agent" ? getProjectAgentOverride(toolId) : undefined;
               const hasOverride = override !== undefined && override !== "inherit";
               const IconComponent = getToolIcon(tool.metadata.category, toolId);
               const iconColor = CATEGORY_COLOR[tool.metadata.category] ?? "tw-text-muted";
