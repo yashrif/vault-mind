@@ -11,7 +11,7 @@ import { isImageFile } from "@/utils/fileContentExtractor";
 import { Button } from "@/components/ui/button";
 import { ModelSelector } from "@/components/ui/ModelSelector";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChatToolControls } from "./ChatToolControls";
+import { ChatToolsPopover } from "./ChatToolsPopover";
 import { ChainModeSelector } from "./ChainModeSelector";
 import {
   mergeWebTabContexts,
@@ -694,7 +694,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <div
-      className="tw-flex tw-w-full tw-flex-col tw-gap-0.5 tw-rounded-md tw-border tw-border-solid tw-border-border tw-px-1 tw-pb-1 tw-pt-2 tw-@container/chat-input"
+      className="tw-flex tw-w-full tw-flex-col tw-gap-0.5 tw-rounded-xl tw-border tw-border-solid tw-border-border tw-px-1 tw-pb-1 tw-pt-2 tw-transition-colors tw-duration-150 tw-@container/chat-input focus-within:tw-ring-1 focus-within:tw-ring-ring"
       ref={containerRef}
     >
       {/* Hide context controls in edit mode - editing only changes text, not context */}
@@ -786,7 +786,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
         />
       </div>
 
-      <div className="tw-flex tw-h-6 tw-justify-between tw-gap-1 tw-px-1">
+      <div className="tw-flex tw-h-6 tw-justify-between tw-gap-1 tw-border-t tw-border-solid tw-border-border tw-px-1">
         {isGenerating ? (
           <div className="tw-flex tw-items-center tw-gap-1 tw-px-1 tw-text-sm tw-text-muted">
             <Loader2 className="tw-size-3 tw-animate-spin" />
@@ -827,14 +827,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
             </Button>
           ) : (
             <>
-              <ChatToolControls
-                vaultToggle={vaultToggle}
+              <ChatToolsPopover
+                surface={isAgentMode ? "agent" : "chat"}
                 setVaultToggle={setVaultToggle}
-                webToggle={webToggle}
                 setWebToggle={setWebToggle}
-                composerToggle={composerToggle}
                 setComposerToggle={setComposerToggle}
-                presetId={currentPresetId}
                 onVaultToggleOff={handleVaultToggleOff}
                 onWebToggleOff={handleWebToggleOff}
                 onComposerToggleOff={handleComposerToggleOff}
@@ -867,9 +864,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 </Button>
               )}
               <Button
-                variant="ghost2"
+                variant="default"
                 size="fit"
-                className="tw-text-muted"
+                disabled={!inputMessage.trim()}
                 onClick={() => onSendMessage()}
               >
                 <CornerDownLeft className="!tw-size-3" />
