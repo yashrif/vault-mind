@@ -23,7 +23,7 @@ import {
 import { isAgentPresetId, isRichContextPresetId, type ChainPresetId } from "@/runtime/ChainPreset";
 import { SelectedTextContext, WebTabContext } from "@/types/message";
 import { isAllowedFileForNoteContext } from "@/utils";
-import { CornerDownLeft, FileText, Image, Loader2, Paperclip, StopCircle, X } from "lucide-react";
+import { ArrowUp, FileText, Image, Loader2, Paperclip, Save, StopCircle, X } from "lucide-react";
 import { App, Notice, TFile } from "obsidian";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { $getSelection, $isRangeSelection } from "lexical";
@@ -700,7 +700,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
     <div
       data-surface={surface}
       className={cn(
-        "tw-flex tw-w-full tw-flex-col tw-transition-colors tw-duration-150 tw-@container/chat-input focus-within:tw-ring-1 focus-within:tw-ring-ring",
+        "tw-flex tw-w-full tw-flex-col tw-transition-colors tw-duration-150 tw-@container/chat-input focus-within:tw-ring-1 focus-within:tw-ring-inset focus-within:tw-ring-ring",
         isCommandCenter
           ? "tw-gap-1 tw-rounded-2xl tw-bg-primary-alt tw-p-2"
           : "tw-gap-0.5 tw-rounded-xl tw-border tw-border-solid tw-border-border tw-px-1 tw-pb-1 tw-pt-2"
@@ -837,11 +837,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
             <Button
               variant="ghost2"
               size="fit"
-              className="tw-text-muted"
+              className="tw-size-8 tw-rounded-full tw-text-muted"
               onClick={() => onStopGenerating()}
             >
               <StopCircle className="tw-size-4" />
-              Stop
             </Button>
           ) : (
             <>
@@ -854,12 +853,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 onWebToggleOff={handleWebToggleOff}
                 onComposerToggleOff={handleComposerToggleOff}
               />
-              {isCommandCenter && (
-                <div
-                  data-testid="composer-action-divider"
-                  className="tw-mx-0.5 tw-h-4 tw-border-l tw-border-border"
-                />
-              )}
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -868,8 +861,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                       size="fit"
                       className={cn(
                         "tw-text-muted hover:tw-text-accent",
-                        isCommandCenter &&
-                          "tw-size-7 tw-rounded-md tw-p-0 hover:tw-bg-modifier-hover"
+                        isCommandCenter && "tw-size-7 tw-rounded-md tw-p-0"
                       )}
                       onClick={() => {
                         new AddFileModal(app, onAddFile).open();
@@ -901,20 +893,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 disabled={!inputMessage.trim()}
                 className={cn(
                   isCommandCenter &&
-                    "tw-h-8 tw-rounded-lg tw-px-3 tw-text-sm tw-font-medium tw-transition-all active:tw-scale-95 disabled:tw-shadow-none"
+                    "tw-size-8 tw-rounded-full tw-px-3 tw-text-sm tw-font-medium tw-transition-all active:tw-scale-95 disabled:tw-shadow-none"
                 )}
                 onClick={() => onSendMessage()}
               >
-                <CornerDownLeft className="!tw-size-3" />
-                <span>
-                  {editMode
-                    ? isCommandCenter
-                      ? "Save"
-                      : "save"
-                    : isCommandCenter
-                      ? "Send"
-                      : "chat"}
-                </span>
+                {editMode ? <Save className="tw-size-4" /> : <ArrowUp className="tw-size-4" />}
               </Button>
             </>
           )}

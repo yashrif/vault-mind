@@ -927,7 +927,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
             </div>
           ) : (
             <>
-              <div className="tw-shrink-0 tw-px-3 tw-pb-3 tw-pt-1">
+              <div className="tw-shrink-0">
                 <ChatControls
                   onNewChat={handleNewChat}
                   onSaveAsNote={() => handleSaveAsNote()}
