@@ -23,7 +23,7 @@ import {
 import { isAgentPresetId, isRichContextPresetId, type ChainPresetId } from "@/runtime/ChainPreset";
 import { SelectedTextContext, WebTabContext } from "@/types/message";
 import { isAllowedFileForNoteContext } from "@/utils";
-import { ArrowUp, FileText, Image, Loader2, Paperclip, Save, StopCircle, X } from "lucide-react";
+import { ArrowUp, FileText, Image, Loader2, Paperclip, Save, Square, X } from "lucide-react";
 import { App, Notice, TFile } from "obsidian";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { $getSelection, $isRangeSelection } from "lexical";
@@ -835,12 +835,12 @@ const ChatInput: React.FC<ChatInputProps> = ({
         <div className="tw-flex tw-items-center tw-gap-1">
           {isGenerating ? (
             <Button
-              variant="ghost2"
+              variant="secondary"
               size="fit"
-              className="tw-size-8 tw-rounded-full tw-text-muted"
+              className="tw-size-8 tw-rounded-full tw-transition-all"
               onClick={() => onStopGenerating()}
             >
-              <StopCircle className="tw-size-4" />
+              <Square className="tw-size-4 tw-fill-current tw-stroke-0" />
             </Button>
           ) : (
             <>
