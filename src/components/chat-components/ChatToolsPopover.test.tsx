@@ -29,6 +29,10 @@ jest.mock("@/components/ui/input", () => ({
   ),
 }));
 
+jest.mock("@/components/ui/scroll-area", () => ({
+  ScrollArea: ({ children }: any) => <div data-testid="scroll-area">{children}</div>,
+}));
+
 jest.mock("@/components/ui/tooltip", () => ({
   TooltipProvider: ({ children }: any) => <>{children}</>,
   Tooltip: ({ children }: any) => <>{children}</>,
@@ -403,6 +407,18 @@ describe("ChatToolsPopover", () => {
       expect(screen.getByText("Web Search")).toBeTruthy();
       expect(screen.getByText("Vault Search")).toBeTruthy();
       expect(screen.getByText("Write File")).toBeTruthy();
+    });
+
+    it("shows the query-specific empty state when no tools match", () => {
+      render(<ChatToolsPopover surface="agent" />);
+
+      const input = screen.getByTestId("search-input");
+      fireEvent.change(input, { target: { value: "missing" } });
+
+      expect(screen.getByText('No tools match "missing"')).toBeTruthy();
+      expect(screen.queryByText("Web Search")).toBeNull();
+      expect(screen.queryByText("Vault Search")).toBeNull();
+      expect(screen.queryByText("Write File")).toBeNull();
     });
   });
 
