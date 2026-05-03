@@ -79,13 +79,53 @@ describe("ChatToolControls autonomous behavior", () => {
 
     expect(screen.queryByTestId("brain-icon")).toBeNull();
 
-    const vaultButton = screen.getAllByTestId("database-icon")[0].closest("button");
+    const vaultButton = screen.getByText("Vault Search").closest("button");
     expect(vaultButton).not.toBeNull();
 
     fireEvent.click(vaultButton!);
 
     expect(setVaultToggle).toHaveBeenCalledWith(true);
     expect(updateSetting).not.toHaveBeenCalled();
+  });
+
+  it("renders one wrench popover with active count for real supported tools only", () => {
+    render(
+      <ChatToolControls
+        {...baseProps}
+        vaultToggle={true}
+        webToggle={true}
+        composerToggle={false}
+        presetId="agent"
+      />
+    );
+
+    expect(screen.getByTitle("Tools")).toBeTruthy();
+    expect(screen.getByTestId("active-tool-count").textContent).toBe("2");
+    expect(screen.getByText("Vault Search")).toBeTruthy();
+    expect(screen.getByText("Web Search")).toBeTruthy();
+    expect(screen.getByText("Composer")).toBeTruthy();
+    expect(screen.queryByText("Smart Search")).toBeNull();
+  });
+
+  it("calls the toggle-off callback when an active tool is unchecked", () => {
+    const onVaultToggleOff = jest.fn();
+
+    render(
+      <ChatToolControls
+        {...baseProps}
+        vaultToggle={true}
+        onVaultToggleOff={onVaultToggleOff}
+        presetId="agent"
+      />
+    );
+
+    const vaultButton = screen.getByText("Vault Search").closest("button");
+    expect(vaultButton).not.toBeNull();
+
+    fireEvent.click(vaultButton!);
+
+    expect(setVaultToggle).toHaveBeenCalledWith(false);
+    expect(onVaultToggleOff).toHaveBeenCalled();
   });
 
   it("does not render tool controls in Telegram chain", () => {

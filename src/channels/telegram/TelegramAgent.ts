@@ -253,6 +253,23 @@ export class TelegramAgent {
       logInfo(
         `[TelegramAgent] Reply sent to chat ${msg.chat_id} (${outboundPayload.storageText.length} chars).`
       );
+
+      const chatModel = this.chainManager.chatModelManager.getChatModel();
+      const exchangeMessages: ChatMessage[] = [
+        {
+          message: msg.text,
+          sender: USER_SENDER,
+          timestamp: formatDateTime(new Date(msg.stored_at)),
+          isVisible: true,
+        },
+        {
+          message: outboundPayload.storageText,
+          sender: AI_SENDER,
+          timestamp: formatDateTime(new Date()),
+          isVisible: true,
+        },
+      ];
+      this.chainManager.userMemoryManager.addRecentConversation(exchangeMessages, chatModel);
     } catch (err) {
       logError("[TelegramAgent] Failed to generate/send reply:", err);
       const fallbackText = "Sorry, I couldn't respond right now.";

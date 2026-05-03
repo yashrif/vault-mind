@@ -79,13 +79,22 @@ import { TelegramStore } from "../TelegramStore";
 import { serializeReasoningPayload } from "@/LLMProviders/chainRunner/utils/AgentReasoningState";
 import { updateChatMemory } from "@/chatUtils";
 import type { TelegramStoredMessage } from "../TelegramTypes";
+import { AI_SENDER, USER_SENDER } from "@/constants";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 /** Build a mock ChainManager-like object with runChain controlled by the test. */
-function makeChainManager(runChainImpl?: jest.Mock) {
+function makeChainManager(
+  runChainImpl?: jest.Mock,
+  opts: { addRecentConversation?: jest.Mock; getChatModel?: jest.Mock } = {}
+) {
+  const addRecentConversation =
+    opts.addRecentConversation ?? jest.fn().mockResolvedValue(undefined);
+  const getChatModel = opts.getChatModel ?? jest.fn().mockReturnValue({});
   return {
     memoryManager: {},
+    chatModelManager: { getChatModel },
+    userMemoryManager: { addRecentConversation },
     runChain: runChainImpl ?? jest.fn().mockResolvedValue(undefined),
   };
 }
@@ -659,5 +668,77 @@ describe("TelegramAgent", () => {
         }),
       })
     );
+  });
+
+  // ─── Memory recording ──────────────────────────────────────────────────────
+
+  describe("memory recording", () => {
+    it("calls addRecentConversation with raw user text and bot reply on success", async () => {
+      const addRecentConversation = jest.fn().mockResolvedValue(undefined);
+      const chainManager = makeChainManager(
+        jest
+          .fn()
+          .mockImplementation(
+            async (
+              _msg: unknown,
+              _abort: unknown,
+              updateFn: (t: string) => void,
+              addFn: (m: { message: string }) => void
+            ) => {
+              updateFn("Bot reply text");
+              addFn({ message: "Bot reply text" });
+            }
+          ),
+        { addRecentConversation }
+      );
+
+      const agent = new TelegramAgent(client, store, chainManager as any);
+      await agent.enqueueReply(makeUserMsg({ text: "Hello bot" }));
+      await flushQueue();
+
+      expect(addRecentConversation).toHaveBeenCalledTimes(1);
+      const [messages, chatModel] = addRecentConversation.mock.calls[0];
+      expect(messages).toHaveLength(2);
+      expect(messages[0].sender).toBe(USER_SENDER);
+      expect(messages[0].message).toBe("Hello bot");
+      expect(messages[1].sender).toBe(AI_SENDER);
+      expect(messages[1].message).toBe("Bot reply text");
+      expect(chatModel).toBeDefined();
+    });
+
+    it("does NOT call addRecentConversation when chain returns empty", async () => {
+      const addRecentConversation = jest.fn().mockResolvedValue(undefined);
+      const chainManager = makeChainManager(
+        jest
+          .fn()
+          .mockImplementation(
+            async (
+              _msg: unknown,
+              _abort: unknown,
+              updateFn: (t: string) => void,
+              addFn: (m: { message: string }) => void
+            ) => {
+              updateFn("");
+              addFn({ message: "" });
+            }
+          ),
+        { addRecentConversation }
+      );
+
+      const agent = new TelegramAgent(client, store, chainManager as any);
+      await agent.enqueueReply(makeUserMsg());
+      await flushQueue();
+
+      expect(addRecentConversation).not.toHaveBeenCalled();
+    });
+
+    it("ignores bot-source messages — no reply, no memory recording", async () => {
+      const addRecentConversation = jest.fn().mockResolvedValue(undefined);
+      const chainManager = makeChainManager(undefined, { addRecentConversation });
+      const agent = new TelegramAgent(client, store, chainManager as any);
+      await agent.enqueueReply(makeUserMsg({ sender_type: "bot" }));
+      await flushQueue();
+      expect(addRecentConversation).not.toHaveBeenCalled();
+    });
   });
 });

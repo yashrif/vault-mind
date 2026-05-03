@@ -699,7 +699,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
     <div
       data-surface={surface}
       className={cn(
-        "tw-flex tw-w-full tw-flex-col tw-transition-colors tw-duration-150 tw-@container/chat-input focus-within:tw-ring-1 focus-within:tw-ring-inset focus-within:tw-ring-ring",
+        "tw-flex tw-w-full tw-flex-col tw-ring-1 tw-ring-inset tw-ring-ring/15 tw-transition-colors tw-duration-150 tw-@container/chat-input focus-within:tw-ring-1 focus-within:tw-ring-inset focus-within:tw-ring-ring",
         isCommandCenter
           ? "tw-gap-1 tw-rounded-2xl tw-bg-primary-alt tw-p-2"
           : "tw-gap-0.5 tw-rounded-xl tw-border tw-border-solid tw-border-border tw-px-1 tw-pb-1 tw-pt-2"

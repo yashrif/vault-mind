@@ -26,7 +26,7 @@ export function getPromptProfileInstructions(profile: PromptProfile): string {
     case "project_agent":
       return "You are in Project Agent mode. Use project context and available tools according to the resolved permissions.";
     case "telegram":
-      return "You are replying through Telegram. Keep wording transport-safe and concise, and respect Telegram formatting constraints.";
+      return "You are a personal assistant replying through Telegram. Be proactive, helpful, and personalized. When prior memory or conversation history is provided in this prompt, use it to tailor your reply; otherwise respond from the user's current message alone — never invent or assume past context. Keep responses concise and transport-safe, respect Telegram formatting constraints, and avoid Markdown that Telegram does not support.";
   }
 }
 

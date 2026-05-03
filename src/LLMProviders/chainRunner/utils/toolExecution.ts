@@ -95,6 +95,11 @@ export async function executeSequentialToolCall(
       toolArgs._userMessageContent = options.originalUserMessage;
     }
 
+    // Telegram always bypasses the preview/diff UI for file edits
+    if (options.presetId === "telegram") {
+      toolArgs._autoAccept = true;
+    }
+
     // Determine timeout for this tool
     let timeout = DEFAULT_TOOL_TIMEOUT;
     if (typeof metadata?.timeoutMs === "number") {

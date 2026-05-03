@@ -15,7 +15,7 @@ export class UserMemoryManager {
   private app: App;
   private recentConversationsContent: string = "";
   private savedMemoriesContent: string = "";
-  private isUpdatingMemory: boolean = false;
+  private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(app: App) {
     this.app = app;
@@ -55,26 +55,29 @@ export class UserMemoryManager {
   }
 
   /**
-   * Adds a recent conversation to user memory storage in the background without blocking execution
+   * Adds a recent conversation to user memory storage.
+   * Writes are serialized via writeQueue so concurrent callers never collide
+   * with each other or trigger the single-flight guard in updateMemory.
    */
-  addRecentConversation(messages: ChatMessage[], chatModel?: BaseChatModel): void {
+  addRecentConversation(messages: ChatMessage[], chatModel?: BaseChatModel): Promise<void> {
     const settings = getSettings();
 
-    // Only proceed if memory is enabled
     if (!settings.enableRecentConversations) {
       logWarn("[UserMemoryManager] Recent history referencing is disabled, skipping analysis");
-      return;
+      return Promise.resolve();
     }
 
     if (messages.length === 0) {
       logWarn("[UserMemoryManager] No messages to analyze for user memory");
-      return;
+      return Promise.resolve();
     }
 
-    // Fire and forget - run in background
-    this.updateMemory(messages, chatModel).catch((error) => {
-      logError("[UserMemoryManager] Background user memory operation failed:", error);
-    });
+    this.writeQueue = this.writeQueue.then(() =>
+      this.updateMemory(messages, chatModel).catch((error) => {
+        logError("[UserMemoryManager] Background user memory operation failed:", error);
+      })
+    );
+    return this.writeQueue;
   }
 
   /**
@@ -185,13 +188,6 @@ export class UserMemoryManager {
    * Analyze chat messages and store useful information in user memory files
    */
   private async updateMemory(messages: ChatMessage[], chatModel?: BaseChatModel): Promise<void> {
-    // Prevent race conditions by ensuring only one memory update operation runs at a time
-    if (this.isUpdatingMemory) {
-      logInfo("[UserMemoryManager] Memory update already in progress, skipping.");
-      return;
-    }
-
-    this.isUpdatingMemory = true;
     try {
       // Ensure user memory folder exists
       await this.ensureMemoryFolderExists();
@@ -214,8 +210,6 @@ export class UserMemoryManager {
       );
     } catch (error) {
       logError("[UserMemoryManager] Error analyzing chat messages for user memory:", error);
-    } finally {
-      this.isUpdatingMemory = false;
     }
   }
 
