@@ -7,10 +7,7 @@ import { getChainPresetId } from "@/aiParams";
 import { getSettings } from "@/settings/model";
 import { resolveRuntimeChainPolicy, RuntimeChainPolicy } from "@/runtime/RuntimeChainPolicy";
 import { ChainPreset, isAgentPresetId, TOOL_CAPABILITY_ERROR } from "@/runtime/ChainPreset";
-import {
-  getPromptProfileInstructions,
-  getSystemPromptWithMemory,
-} from "@/system-prompts/systemPromptBuilder";
+import { getSystemPromptWithMemory } from "@/system-prompts/systemPromptBuilder";
 import { resolveToolPermissions } from "@/core/ToolPermissions";
 import { initializeBuiltinTools } from "@/tools/builtinTools";
 import { ToolRegistry } from "@/tools/ToolRegistry";
@@ -769,7 +766,6 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
 
     // Build system message: L1+L2 from envelope + tool guidelines from metadata
     const systemMessage = baseMessages.find((m) => m.role === "system");
-    const effectivePolicy = runtimePolicy ?? resolveRuntimeChainPolicy("agent");
 
     // Get tool metadata for semantic guidance (no XML format instructions needed)
     const registry = ToolRegistry.getInstance();
@@ -784,10 +780,11 @@ export class AutonomousAgentChainRunner extends BaseChainRunner {
       prefixCustomInstructionsWithDisplayName: true,
     });
 
-    // Combine system message with tool guidelines and agent loop guidance
+    // Combine system message with tool guidelines and agent loop guidance.
+    // L1_SYSTEM in the envelope already contains getPromptProfileInstructions via
+    // getSystemPromptWithMemory, so we must not inject it again here.
     const systemContent = [
       systemMessage?.content || "",
-      getPromptProfileInstructions(effectivePolicy.promptProfile),
       toolInstructions ? `\n## Tool Guidelines\n${toolInstructions}` : "",
       AGENT_LOOP_GUIDANCE,
     ]

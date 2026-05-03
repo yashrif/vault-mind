@@ -137,6 +137,10 @@ const writeFileSchema = z.object({
     .describe(
       `(Optional) Hint for confirmation preference. Note: preview is always shown unless the user has enabled auto-accept in settings.`
     ),
+  _autoAccept: z
+    .boolean()
+    .optional()
+    .describe("(Internal) Injected by execution layer to bypass preview."),
 });
 
 const writeFileTool = createLangChainTool({
@@ -149,7 +153,7 @@ const writeFileTool = createLangChainTool({
       3. If still failed to find the target file or the file path, ask the user to specify the target file.
       `,
   schema: writeFileSchema,
-  func: async ({ path, content, confirmation = true }) => {
+  func: async ({ path, content, confirmation = true, _autoAccept }) => {
     // Sanitize path to prevent ENAMETOOLONG errors on filesystems with 255-byte limits.
     // Must happen here (not just in getFile) so show_preview also receives the sanitized path,
     // since ApplyView uses state.path with its own getFile that doesn't sanitize.
@@ -167,7 +171,7 @@ const writeFileTool = createLangChainTool({
     // Only bypass confirmation when the user has explicitly enabled auto-accept in settings.
     // The LLM may pass confirmation=false, but that alone should not skip preview.
     const settings = getSettings();
-    const shouldBypassConfirmation = settings.autoAcceptEdits;
+    const shouldBypassConfirmation = settings.autoAcceptEdits || !!_autoAccept;
 
     if (shouldBypassConfirmation) {
       try {
@@ -211,6 +215,10 @@ To make the match unique, include enough surrounding context lines (not just the
     .describe(
       `(Required) The new text to replace the old text with. Can be empty string to delete the old text.`
     ),
+  _autoAccept: z
+    .boolean()
+    .optional()
+    .describe("(Internal) Injected by execution layer to bypass preview."),
 });
 
 /**
@@ -523,7 +531,17 @@ const editFileTool = createLangChainTool({
   name: "editFile",
   description: `Request to make a targeted change to an existing file by specifying the exact text to find and its replacement. Use this tool for precise, surgical edits to specific parts of a file.`,
   schema: editFileSchema,
-  func: async ({ path, oldText, newText }: { path: string; oldText: string; newText: string }) => {
+  func: async ({
+    path,
+    oldText,
+    newText,
+    _autoAccept,
+  }: {
+    path: string;
+    oldText: string;
+    newText: string;
+    _autoAccept?: boolean;
+  }) => {
     const sanitizedPath = sanitizeFilePath(path);
     const file = app.vault.getAbstractFileByPath(sanitizedPath);
 
@@ -562,7 +580,7 @@ const editFileTool = createLangChainTool({
       }
 
       const settings = getSettings();
-      if (settings.autoAcceptEdits) {
+      if (settings.autoAcceptEdits || !!_autoAccept) {
         await app.vault.modify(file, modifiedContent);
         return {
           result: "accepted" as ApplyViewResult,

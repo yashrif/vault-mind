@@ -450,7 +450,14 @@ describe("AutonomousAgentChainRunner preset routing", () => {
     expect(result).toContain("This model cannot use tools");
   });
 
-  it("adds prompt profile instructions to the agent system content", async () => {
+  it("passes L1_SYSTEM profile instructions through to the agent system content without duplication", async () => {
+    const profileInstruction = getPromptProfileInstructions("chat_rag");
+    const { LayerToMessagesConverter } = await import("@/context/LayerToMessagesConverter");
+    (LayerToMessagesConverter.convert as jest.Mock).mockReturnValueOnce([
+      { role: "system", content: `Base prompt\n\n${profileInstruction}` },
+      { role: "user", content: "User prompt" },
+    ]);
+
     const preset = {
       id: "chat_rag",
       promptProfile: "chat_rag",
@@ -469,7 +476,10 @@ describe("AutonomousAgentChainRunner preset routing", () => {
       (message: any) => message.constructor.name === "SystemMessage"
     );
 
-    expect(systemMessage.content).toContain(getPromptProfileInstructions("chat_rag"));
+    expect(systemMessage.content).toContain(profileInstruction);
+    // Profile instruction must not appear twice (no double-injection).
+    const occurrences = systemMessage.content.split(profileInstruction).length - 1;
+    expect(occurrences).toBe(1);
   });
 
   it("does not include localSearch guidance for plain Chat when localSearch is unavailable", async () => {

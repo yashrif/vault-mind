@@ -1,7 +1,6 @@
 import React from "react";
 import { Database, Globe, Pen, Sparkles, Wrench, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -76,111 +75,109 @@ const ChatToolControls: React.FC<ChatToolControlsProps> = ({
     return null;
   }
 
-  return (
-    <TooltipProvider delayDuration={0}>
-      {/* Desktop view - show all icons when container is wide enough */}
-      <div className="tw-hidden tw-items-center tw-gap-1.5 @[420px]/chat-input:tw-flex">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost2"
-              size="fit"
-              onClick={handleVaultToggle}
-              className={cn(
-                "tw-text-muted hover:tw-text-accent",
-                vaultToggle && "tw-text-accent tw-bg-accent/10"
-              )}
-            >
-              <Database className="tw-size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="tw-px-1 tw-py-0.5">Toggle vault search</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost2"
-              size="fit"
-              onClick={handleWebToggle}
-              className={cn(
-                "tw-text-muted hover:tw-text-accent",
-                webToggle && "tw-text-accent tw-bg-accent/10"
-              )}
-            >
-              <Globe className="tw-size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="tw-px-1 tw-py-0.5">Toggle web search</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost2"
-              size="fit"
-              onClick={handleComposerToggle}
-              className={cn(
-                "tw-text-muted hover:tw-text-accent",
-                composerToggle && "tw-text-accent tw-bg-accent/10"
-              )}
-            >
-              <span className="tw-flex tw-items-center tw-gap-0.5">
-                <Sparkles className="tw-size-2" />
-                <Pen className="tw-size-3" />
-              </span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="tw-px-1 tw-py-0.5">
-            Toggle composer (note editing)
-          </TooltipContent>
-        </Tooltip>
-      </div>
+  const toolOptions = [
+    {
+      label: "Vault Search",
+      description: "Search your Obsidian vault for context",
+      active: vaultToggle,
+      icon: Database,
+      onToggle: handleVaultToggle,
+    },
+    {
+      label: "Web Search",
+      description: "Search the web for current information",
+      active: webToggle,
+      icon: Globe,
+      onToggle: handleWebToggle,
+    },
+    {
+      label: "Composer",
+      description: "Allow note editing and composition tools",
+      active: composerToggle,
+      icon: Pen,
+      onToggle: handleComposerToggle,
+      leadingIcon: Sparkles,
+    },
+  ];
+  const activeToolCount = toolOptions.filter((tool) => tool.active).length;
 
-      {/* Mobile view - show overflow dropdown when container is narrow */}
-      <div className="tw-flex tw-items-center tw-gap-0.5 @[420px]/chat-input:tw-hidden">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost2" size="fit" className="tw-text-muted hover:tw-text-accent">
-              <Wrench className="tw-size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="tw-w-56">
-            <DropdownMenuItem
-              onClick={handleVaultToggle}
-              className="tw-flex tw-items-center tw-justify-between"
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost2"
+          size="fit"
+          title="Tools"
+          aria-label={`Tools${activeToolCount > 0 ? `, ${activeToolCount} enabled` : ""}`}
+          className={cn(
+            "tw-relative tw-size-7 tw-px-0 tw-text-muted hover:tw-text-accent",
+            activeToolCount > 0 && "tw-text-accent"
+          )}
+        >
+          <Wrench className="tw-size-4" />
+          {activeToolCount > 0 && (
+            <span
+              data-testid="active-tool-count"
+              className="tw-absolute -tw-right-1 -tw-top-1 tw-flex tw-size-3.5 tw-items-center tw-justify-center tw-rounded-full tw-bg-interactive-accent tw-text-[8px] tw-font-medium tw-leading-none tw-text-on-accent"
             >
-              <div className="tw-flex tw-items-center tw-gap-2">
-                <Database className="tw-size-4" />
-                <span>Vault Search</span>
-              </div>
-              {vaultToggle && <Check className="tw-size-4" />}
-            </DropdownMenuItem>
+              {activeToolCount}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="tw-w-64 tw-p-1">
+        <div className="tw-flex tw-items-center tw-justify-between tw-px-2 tw-py-1.5">
+          <div className="tw-flex tw-items-center tw-gap-2 tw-text-sm tw-font-medium">
+            <Wrench className="tw-size-4 tw-text-accent" />
+            Tools
+          </div>
+          <span className="tw-rounded-sm tw-bg-secondary tw-px-1.5 tw-py-0.5 tw-text-xs tw-text-muted">
+            {activeToolCount}/{toolOptions.length}
+          </span>
+        </div>
+        {toolOptions.map((tool) => {
+          const Icon = tool.icon;
+          const LeadingIcon = tool.leadingIcon;
+          return (
             <DropdownMenuItem
-              onClick={handleWebToggle}
-              className="tw-flex tw-items-center tw-justify-between"
+              key={tool.label}
+              onSelect={(event) => {
+                event.preventDefault();
+                tool.onToggle();
+              }}
+              className="tw-flex tw-items-center tw-gap-2 tw-p-2"
             >
-              <div className="tw-flex tw-items-center tw-gap-2">
-                <Globe className="tw-size-4" />
-                <span>Web Search</span>
-              </div>
-              {webToggle && <Check className="tw-size-4" />}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={handleComposerToggle}
-              className="tw-flex tw-items-center tw-justify-between"
-            >
-              <div className="tw-flex tw-items-center tw-gap-2">
-                <span className="tw-flex tw-items-center tw-gap-0.5">
-                  <Sparkles className="tw-size-2" />
-                  <Pen className="tw-size-3" />
+              <span
+                className={cn(
+                  "tw-flex tw-size-4 tw-shrink-0 tw-items-center tw-justify-center tw-rounded-sm tw-border tw-border-solid",
+                  tool.active
+                    ? "tw-border-interactive-accent tw-bg-interactive-accent tw-text-on-accent"
+                    : "tw-border-border tw-text-transparent"
+                )}
+              >
+                <Check className="tw-size-3" strokeWidth={3} />
+              </span>
+              <span className="tw-flex tw-size-4 tw-shrink-0 tw-items-center tw-justify-center tw-text-muted">
+                {LeadingIcon ? (
+                  <>
+                    <LeadingIcon className="tw-size-2" />
+                    <Icon className="tw-size-3" />
+                  </>
+                ) : (
+                  <Icon className="tw-size-4" />
+                )}
+              </span>
+              <span className="tw-flex tw-min-w-0 tw-flex-1 tw-flex-col">
+                <span className="tw-text-sm tw-leading-tight tw-text-normal">{tool.label}</span>
+                <span className="tw-truncate tw-text-xs tw-leading-tight tw-text-muted">
+                  {tool.description}
                 </span>
-                <span>Composer</span>
-              </div>
-              {composerToggle && <Check className="tw-size-4" />}
+              </span>
             </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </TooltipProvider>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 
