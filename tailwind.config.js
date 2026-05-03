@@ -104,10 +104,10 @@ module.exports = {
       "interactive-accent": "var(--interactive-accent)",
     },
     ringColor: {
-      ring: "var(--interactive-accent)",
+      ring: "hsl(var(--interactive-accent-hsl), <alpha-value>)",
     },
     ringOffsetColor: {
-      ring: "var(--interactive-accent)",
+      ring: "hsl(var(--interactive-accent-hsl), <alpha-value>)",
     },
 
     colors: {
