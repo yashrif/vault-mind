@@ -12,29 +12,43 @@ import {
 } from "@/core/toolUiHelpers";
 import { cn } from "@/lib/utils";
 import { updateSetting, useSettingsValue } from "@/settings/model";
-import { ToolRegistry } from "@/tools/ToolRegistry";
+import { ToolRegistry, type ToolIconName, type ToolUiCategory } from "@/tools/ToolRegistry";
 import {
+  Blocks,
   Brain,
   Calendar,
+  CalendarDays,
+  Check,
+  ClipboardList,
   Code2,
   Database,
+  FileCog,
+  FilePen,
+  FilePlus2,
   FileText,
-  Globe,
+  FolderSearch,
+  Globe2,
   Image,
+  ListTodo,
+  NotebookText,
   PlugZap,
+  RefreshCcw,
   Search,
   Settings,
+  Trash2,
   Wrench,
   X,
+  Youtube,
 } from "lucide-react";
 import React, { useState } from "react";
 import ToolItem from "./ToolItem";
+import ToolActionButton from "./ToolActionButton";
 
 /** Shorthand for a Lucide-style icon component */
 type IconComponent = React.FC<{ className?: string }>;
 
 /** Category icon mapping keyed by ToolUiCategory value */
-const CATEGORY_ICON: Record<string, IconComponent> = {
+const CATEGORY_ICON: Record<ToolUiCategory, IconComponent> = {
   search: Database,
   file: FileText,
   media: Image,
@@ -43,6 +57,23 @@ const CATEGORY_ICON: Record<string, IconComponent> = {
   cli: Code2,
   mcp: PlugZap,
   custom: Settings,
+};
+
+/** UI-only lookup that resolves metadata icon names to actual Lucide components. */
+const ICON_COMPONENT: Record<ToolIconName, IconComponent> = {
+  blocks: Blocks,
+  brain: Brain,
+  calendar: Calendar,
+  "calendar-days": CalendarDays,
+  "clipboard-list": ClipboardList,
+  "file-cog": FileCog,
+  "file-pen": FilePen,
+  "file-plus-2": FilePlus2,
+  "folder-search": FolderSearch,
+  "globe-2": Globe2,
+  "list-todo": ListTodo,
+  "notebook-text": NotebookText,
+  youtube: Youtube,
 };
 
 /** Category colour classes keyed by ToolUiCategory value */
@@ -59,9 +90,6 @@ const CATEGORY_COLOR: Record<string, string> = {
 
 const RAW_ICON_BUTTON_CLASS =
   "!tw-inline-flex !tw-h-auto !tw-min-h-0 !tw-appearance-none !tw-border-0 !tw-bg-transparent !tw-p-0 !tw-shadow-none focus-visible:!tw-outline-none focus-visible:!tw-ring-0";
-
-const RAW_TEXT_BUTTON_CLASS =
-  "!tw-inline-flex !tw-h-auto !tw-min-h-0 !tw-appearance-none !tw-border-0 !tw-bg-transparent !tw-p-0 !tw-shadow-none focus-visible:!tw-outline-none focus-visible:!tw-ring-0 disabled:!tw-opacity-50";
 
 export interface ChatToolsPopoverProps {
   /** "chat" binds to toolDefaults.chat; "agent" binds to toolDefaults.agent */
@@ -81,14 +109,11 @@ export interface ChatToolsPopoverProps {
 }
 
 /**
- * Returns the category icon component for the given tool.
- * For the "search" category, uses Globe for webSearch and Database for others.
+ * Returns the icon component for the given tool, preferring metadata-provided
+ * icon names before falling back to category-level icons.
  */
-function getToolIcon(category: string, toolId: string): IconComponent {
-  if (category === "search" && toolId === "webSearch") {
-    return Globe;
-  }
-  return CATEGORY_ICON[category] ?? Settings;
+function getToolIcon(category: ToolUiCategory, icon?: ToolIconName): IconComponent {
+  return (icon ? ICON_COMPONENT[icon] : undefined) ?? CATEGORY_ICON[category] ?? Settings;
 }
 
 /**
@@ -301,7 +326,7 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
                   const override =
                     surface === "agent" ? getProjectAgentOverride(toolId) : undefined;
                   const hasOverride = override !== undefined && override !== "inherit";
-                  const IconComponent = getToolIcon(tool.metadata.category, toolId);
+                  const IconComponent = getToolIcon(tool.metadata.category, tool.metadata.icon);
                   const iconColor = CATEGORY_COLOR[tool.metadata.category] ?? "tw-text-muted";
 
                   return (
@@ -324,40 +349,19 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
             <Separator />
 
             {/* ── Footer ── */}
-            <div className="tw-flex tw-shrink-0 tw-items-center tw-justify-between tw-px-4 tw-py-3">
-              <div className="tw-flex tw-items-center tw-gap-3">
-                <button
-                  type="button"
-                  className={cn(
-                    RAW_TEXT_BUTTON_CLASS,
-                    "tw-text-xs tw-font-medium tw-text-muted tw-transition-colors hover:tw-text-accent"
-                  )}
-                  onClick={handleEnableAll}
-                >
-                  Enable all
-                </button>
-                <div className="tw-h-3 tw-border-l tw-border-border" />
-                <button
-                  type="button"
-                  className={cn(
-                    RAW_TEXT_BUTTON_CLASS,
-                    "tw-text-xs tw-font-medium tw-text-muted tw-transition-colors hover:tw-text-normal"
-                  )}
-                  onClick={handleReset}
-                >
-                  Reset
-                </button>
-              </div>
-              <button
-                type="button"
-                className={cn(
-                  RAW_TEXT_BUTTON_CLASS,
-                  "tw-text-xs tw-font-medium tw-text-muted tw-transition-colors hover:tw-text-normal"
-                )}
-                onClick={handleClearAll}
-              >
+            <div className="tw-flex tw-shrink-0 tw-items-center tw-justify-between tw-rounded-md tw-bg-primary tw-px-4 tw-py-2">
+              <ToolActionButton onClick={handleEnableAll} accent>
+                <Check className="tw-mr-1.5 tw-size-3.5" />
+                Enable all
+              </ToolActionButton>
+              <ToolActionButton onClick={handleReset}>
+                <RefreshCcw className="tw-mr-1.5 tw-size-3.5" />
+                Reset
+              </ToolActionButton>
+              <ToolActionButton onClick={handleClearAll} danger>
+                <Trash2 className="tw-mr-1.5 tw-size-3.5" />
                 Clear all
-              </button>
+              </ToolActionButton>
             </div>
           </div>
         </PopoverContent>

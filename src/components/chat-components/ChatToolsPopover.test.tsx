@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { useSettingsValue, updateSetting } from "@/settings/model";
 import { getCurrentProject } from "@/aiParams";
 import { ChatToolsPopover } from "./tools/ChatToolsPopover";
@@ -65,20 +65,33 @@ jest.mock("@/lib/utils", () => ({
 }));
 
 jest.mock("lucide-react", () => ({
-  Brain: () => <span />,
-  Calendar: () => <span />,
-  Code2: () => <span />,
-  Database: () => <span />,
-  FileText: () => <span />,
-  Globe: () => <span />,
-  Image: () => <span />,
-  Check: () => <span />,
-  Lock: () => <span />,
-  PlugZap: () => <span />,
-  Search: () => <span />,
-  Settings: () => <span />,
-  Wrench: () => <span />,
-  X: () => <span />,
+  Blocks: () => <span data-testid="icon-blocks" />,
+  Brain: () => <span data-testid="icon-brain" />,
+  Calendar: () => <span data-testid="icon-calendar" />,
+  CalendarDays: () => <span data-testid="icon-calendar-days" />,
+  Check: () => <span data-testid="icon-check" />,
+  ClipboardList: () => <span data-testid="icon-clipboard-list" />,
+  Code2: () => <span data-testid="icon-code2" />,
+  Database: () => <span data-testid="icon-database" />,
+  FileCog: () => <span data-testid="icon-file-cog" />,
+  FilePen: () => <span data-testid="icon-file-pen" />,
+  FilePlus2: () => <span data-testid="icon-file-plus-2" />,
+  FileText: () => <span data-testid="icon-file-text" />,
+  FolderSearch: () => <span data-testid="icon-folder-search" />,
+  Globe2: () => <span data-testid="icon-globe2" />,
+  Globe: () => <span data-testid="icon-globe" />,
+  Image: () => <span data-testid="icon-image" />,
+  ListTodo: () => <span data-testid="icon-list-todo" />,
+  Lock: () => <span data-testid="icon-lock" />,
+  NotebookText: () => <span data-testid="icon-notebook-text" />,
+  PlugZap: () => <span data-testid="icon-plug-zap" />,
+  RefreshCcw: () => <span data-testid="icon-refresh-ccw" />,
+  Search: () => <span data-testid="icon-search" />,
+  Settings: () => <span data-testid="icon-settings" />,
+  Trash2: () => <span data-testid="icon-trash2" />,
+  Wrench: () => <span data-testid="icon-wrench" />,
+  X: () => <span data-testid="icon-x" />,
+  Youtube: () => <span data-testid="icon-youtube" />,
 }));
 
 // ── ToolRegistry Mock ──────────────────────────────────────────────────────────
@@ -100,6 +113,7 @@ const webSearchTool = {
     displayName: "Web Search",
     description: "Search the internet",
     category: "search" as const,
+    icon: "globe-2" as const,
     accessLevel: "costly" as const,
   },
 };
@@ -111,6 +125,7 @@ const localSearchTool = {
     displayName: "Vault Search",
     description: "Search the vault",
     category: "search" as const,
+    icon: "folder-search" as const,
     accessLevel: "costly" as const,
   },
 };
@@ -122,6 +137,7 @@ const writeFileTool = {
     displayName: "Write File",
     description: "Write to files",
     category: "file" as const,
+    icon: "file-plus-2" as const,
     accessLevel: "write" as const,
   },
 };
@@ -133,7 +149,20 @@ const editFileTool = {
     displayName: "Edit File",
     description: "Edit files",
     category: "file" as const,
+    icon: "file-pen" as const,
     accessLevel: "write" as const,
+  },
+};
+
+const customIconTool = {
+  tool: {} as any,
+  metadata: {
+    id: "customIconTool",
+    displayName: "Custom Icon Tool",
+    description: "Uses metadata-driven icon selection",
+    category: "custom" as const,
+    accessLevel: "costly" as const,
+    icon: "youtube" as const,
   },
 };
 
@@ -274,6 +303,39 @@ describe("ChatToolsPopover", () => {
       expect(screen.getByText("Vault Search")).toBeTruthy();
       expect(screen.getByText("Write File")).toBeTruthy();
       expect(screen.getByText("Edit File")).toBeTruthy();
+    });
+
+    it("uses tool-specific icons instead of reusing the category icon", () => {
+      mockGetConfigurableTools.mockReturnValue(allTools);
+      (useSettingsValue as jest.Mock).mockReturnValue(baseSettings);
+
+      render(<ChatToolsPopover surface="agent" />);
+
+      const vaultSearchRow = screen.getByRole("button", { name: /Toggle Vault Search/i });
+      const webSearchRow = screen.getByRole("button", { name: /Toggle Web Search/i });
+      const writeFileRow = screen.getByRole("button", { name: /Toggle Write File/i });
+      const editFileRow = screen.getByRole("button", { name: /Toggle Edit File/i });
+
+      expect(within(vaultSearchRow).getByTestId("icon-folder-search")).toBeTruthy();
+      expect(within(webSearchRow).getByTestId("icon-globe2")).toBeTruthy();
+      expect(within(writeFileRow).getByTestId("icon-file-plus-2")).toBeTruthy();
+      expect(within(editFileRow).getByTestId("icon-file-pen")).toBeTruthy();
+    });
+
+    it("prefers metadata.icon over local tool-id heuristics", () => {
+      mockGetConfigurableTools.mockReturnValue([customIconTool]);
+      (useSettingsValue as jest.Mock).mockReturnValue({
+        toolDefaults: {
+          chat: {},
+          agent: { customIconTool: true },
+          telegram: {},
+        },
+      });
+
+      render(<ChatToolsPopover surface="agent" />);
+
+      const customIconRow = screen.getByRole("button", { name: /Toggle Custom Icon Tool/i });
+      expect(within(customIconRow).getByTestId("icon-youtube")).toBeTruthy();
     });
 
     it("writes to toolDefaults.agent when toggling", () => {

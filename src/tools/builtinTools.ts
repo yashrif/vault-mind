@@ -37,6 +37,7 @@ export const BUILTIN_TOOLS: ToolDefinition[] = [
       displayName: "Vault Search",
       description: "Search through your vault notes",
       category: "search",
+      icon: "folder-search",
       accessLevel: "costly",
       CortexCommands: ["@vault"],
       customPromptInstructions: `For localSearch (searching notes based on their contents in the vault):
@@ -83,6 +84,7 @@ For broad searches:
       description:
         "Search the INTERNET (NOT vault notes) when user explicitly asks for web/online information",
       category: "search",
+      icon: "globe-2",
       accessLevel: "costly",
       CortexCommands: ["@websearch", "@web"],
       customPromptInstructions: `For webSearch:
@@ -208,6 +210,7 @@ Examples:
       displayName: "Write to File",
       description: "Create or rewrite files in your vault",
       category: "file",
+      icon: "file-plus-2",
       accessLevel: "write",
       requiresVault: true,
       timeoutMs: 0, // No timeout - waits for user preview decision
@@ -233,6 +236,7 @@ Examples:
       displayName: "Edit File",
       description: "Make a targeted, single-match edit to an existing file",
       category: "file",
+      icon: "file-pen",
       accessLevel: "write",
       requiresVault: true,
       timeoutMs: 0, // No timeout - waits for user preview decision
@@ -257,6 +261,7 @@ newText: "## Attendees\\n- John Smith\\n- Jane Doe\\n- Bob Johnson"`,
       displayName: "YouTube Transcription",
       description: "Get transcripts from YouTube videos",
       category: "media",
+      icon: "youtube",
       accessLevel: "costly",
       requiresUserMessageContent: true,
       customPromptInstructions: `For youtubeTranscription:
@@ -348,6 +353,7 @@ export function registerMemoryTool(): void {
       description:
         "Save information to user memory when the user explicitly asks to remember something or update the memory",
       category: "memory",
+      icon: "brain",
       accessLevel: "write",
       CortexCommands: ["@memory"],
       isAlwaysEnabled: true,
@@ -374,6 +380,7 @@ export function registerCliTools(): void {
       displayName: "Daily Note",
       description: "Create or read today's daily note, or get its path",
       category: "cli",
+      icon: "calendar-days",
       accessLevel: "mixed",
       requiresVault: true,
       customPromptInstructions: `For obsidianDailyNote:
@@ -397,6 +404,7 @@ export function registerCliTools(): void {
       displayName: "Random Note",
       description: "Read a random note using the official Obsidian CLI",
       category: "cli",
+      icon: "notebook-text",
       accessLevel: "free",
       requiresVault: true,
       customPromptInstructions: `For obsidianRandomRead:
@@ -413,6 +421,7 @@ export function registerCliTools(): void {
       displayName: "Properties",
       description: "Read frontmatter properties from notes or list all property names in the vault",
       category: "cli",
+      icon: "file-cog",
       accessLevel: "mixed",
       requiresVault: true,
       customPromptInstructions: `For obsidianProperties:
@@ -433,6 +442,7 @@ export function registerCliTools(): void {
       displayName: "Tasks",
       description: "List tasks across the vault with filters for status, file, and daily note",
       category: "cli",
+      icon: "list-todo",
       accessLevel: "mixed",
       requiresVault: true,
       customPromptInstructions: `For obsidianTasks:
@@ -481,6 +491,7 @@ export function registerCliTools(): void {
       displayName: "Templates",
       description: "List available templates or read template content",
       category: "cli",
+      icon: "clipboard-list",
       accessLevel: "mixed",
       requiresVault: true,
       customPromptInstructions: `For obsidianTemplates:
@@ -497,6 +508,7 @@ export function registerCliTools(): void {
       displayName: "Bases",
       description: "List Base files, views, query data, or create new items in Obsidian Bases",
       category: "cli",
+      icon: "blocks",
       accessLevel: "mixed",
       requiresVault: true,
       customPromptInstructions: `For obsidianBases:
