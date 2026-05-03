@@ -155,10 +155,11 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
   const { activeWebTabForMentions: currentActiveWebTab } = useActiveWebTabState();
   const projectContextStatus = useProjectContextStatus();
+  const isProjectPreset = currentPresetId === "project_agent";
 
   // Calculate whether to show ProgressCard based on status and user preference
   const shouldShowProgressCard = () => {
-    if (!getCurrentProject()) return false;
+    if (!isProjectPreset || !getCurrentProject()) return false;
 
     if (progressCardVisible !== null) {
       return progressCardVisible;
@@ -177,7 +178,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
    * Hidden in project mode (project card takes priority) and when user explicitly closed it.
    */
   const shouldShowIndexingCard = () => {
-    if (getCurrentProject()) return false;
+    if (isProjectPreset) return false;
     if (indexingCardVisible === false) return false;
     return indexingState.isActive || indexingState.completionStatus !== "none";
   };

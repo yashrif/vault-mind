@@ -121,6 +121,7 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
   const [showTypeahead, setShowTypeahead] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const isAgentMode = isAgentPresetId(presetId);
+  const isProjectPreset = presetId === "project_agent";
 
   const handleTypeaheadClose = () => {
     setShowTypeahead(false);
@@ -270,7 +271,7 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
         ))}
       </div>
 
-      {getCurrentProject() && (
+      {isProjectPreset && getCurrentProject() && (
         <>
           <Separator orientation="vertical" />
           <div className="">
@@ -286,7 +287,7 @@ export const ChatContextMenu: React.FC<ChatContextMenuProps> = ({
         </>
       )}
 
-      {!getCurrentProject() && indexingState.isActive && showIndexingCard && (
+      {!isProjectPreset && indexingState.isActive && showIndexingCard && (
         <>
           <Separator orientation="vertical" />
           <Button variant="ghost2" size="fit" className="tw-text-muted" onClick={showIndexingCard}>

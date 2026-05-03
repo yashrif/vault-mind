@@ -215,7 +215,7 @@ The bar at the very bottom of the input area contains controls on both sides.
 
 - While the AI is **generating**: a **Stop** button (stop-circle icon) — click to interrupt the stream immediately.
 - While **idle**:
-  - **Tools** (wrench icon) — Opens the tools popover. See [Tools Popover](#tools-popover) below.
+  - **Tools** (wrench icon) — Opens the tools popover in plain **Chat** and global **Agent**. It is hidden in **Chat + RAG** and **Project Agent**, where vault retrieval and project scope already have dedicated controls in the mode selector.
   - **Attach file** (paperclip icon) — Opens the file picker to attach images or documents. Tooltip: "Attach file(s)".
   - **Cancel** (edit mode only) — Cancels an in-progress message edit.
   - **Send / Save button** — Labeled "Send" in normal mode, "save" in edit mode. Shows a return-arrow icon. Sends the message or saves the edit.
@@ -228,7 +228,7 @@ You can drag image or document files directly onto the chat panel. A full-panel 
 
 ## Tools Popover
 
-Chat uses the **General / Ask vault** retrieval chip next to the mode selector. Chat and Agent both use the **Tools** popover in the composer footer for configurable tools.
+Plain Chat and global Agent use the **Tools** popover in the composer footer for configurable tools. **Chat + RAG** uses the **General / Ask vault** retrieval chip next to the mode selector instead, and **Project Agent** uses the project scope selector and project tool rules.
 
 The tools popover includes:
 
@@ -238,7 +238,7 @@ The tools popover includes:
 | Web Search   | Globe    | Searches the web for up-to-date information.                |
 | Composer     | File     | Enables the agent to propose and apply edits to your notes. |
 
-Each tool row shows its status, icon, name, and short description. Active tools are highlighted. Project Agent follows the selected project's tool settings and overrides; project-enforced tools are locked in the popover.
+Each tool row shows its status, icon, name, and short description. Active tools are highlighted.
 
 The footer actions are:
 

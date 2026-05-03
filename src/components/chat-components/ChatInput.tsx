@@ -36,6 +36,7 @@ import { $removeActiveWebTabPills } from "./pills/ActiveWebTabPillNode";
 import { $findWebTabPills, $removeWebTabPillsByUrl } from "./pills/WebTabPillNode";
 import LexicalEditor from "./LexicalEditor";
 import { ChatToolsPopover } from "./tools/ChatToolsPopover";
+import { shouldShowChatToolsPopover } from "./tools/chatToolsVisibility";
 
 interface ChatInputProps {
   surface?: "default" | "command-center";
@@ -138,6 +139,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const isCommandCenter = surface === "command-center";
   const isAgentMode = isAgentPresetId(currentPresetId);
   const supportsRichContext = isRichContextPresetId(currentPresetId);
+  const showChatToolsPopover = shouldShowChatToolsPopover(currentPresetId);
 
   // Merge badge-only contextWebTabs with pills-derived webTabsFromPills for display
   // Uses shared normalization policy from urlNormalization.ts
@@ -844,15 +846,17 @@ const ChatInput: React.FC<ChatInputProps> = ({
             </Button>
           ) : (
             <>
-              <ChatToolsPopover
-                surface={isAgentMode ? "agent" : "chat"}
-                setVaultToggle={setVaultToggle}
-                setWebToggle={setWebToggle}
-                setComposerToggle={setComposerToggle}
-                onVaultToggleOff={handleVaultToggleOff}
-                onWebToggleOff={handleWebToggleOff}
-                onComposerToggleOff={handleComposerToggleOff}
-              />
+              {showChatToolsPopover && (
+                <ChatToolsPopover
+                  surface={isAgentMode ? "agent" : "chat"}
+                  setVaultToggle={setVaultToggle}
+                  setWebToggle={setWebToggle}
+                  setComposerToggle={setComposerToggle}
+                  onVaultToggleOff={handleVaultToggleOff}
+                  onWebToggleOff={handleWebToggleOff}
+                  onComposerToggleOff={handleComposerToggleOff}
+                />
+              )}
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
