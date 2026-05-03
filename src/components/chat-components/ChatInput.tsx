@@ -137,9 +137,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const [toolsFromPills, setToolsFromPills] = useState<string[]>([]);
   const [webTabsFromPills, setWebTabsFromPills] = useState<WebTabContext[]>([]);
   const isCommandCenter = surface === "command-center";
+  const isProjectPreset = currentPresetId === "project_agent";
   const isAgentMode = isAgentPresetId(currentPresetId);
   const supportsRichContext = isRichContextPresetId(currentPresetId);
   const showChatToolsPopover = shouldShowChatToolsPopover(currentPresetId);
+  const projectLockedModelKey = isProjectPreset ? (selectedProject?.projectModelKey ?? null) : null;
+  const displayedModelKey = projectLockedModelKey ?? currentModelKey;
+  const isModelSelectionLocked = Boolean(disableModelSwitch || projectLockedModelKey);
 
   // Merge badge-only contextWebTabs with pills-derived webTabsFromPills for display
   // Uses shared normalization policy from urlNormalization.ts
@@ -199,13 +203,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
     return () => clearInterval(interval);
   }, [isProjectLoading, loadingMessages.length]);
-
-  const getDisplayModelKey = (): string => {
-    if (selectedProject && selectedProject.projectModelKey) {
-      return selectedProject.projectModelKey;
-    }
-    return currentModelKey;
-  };
 
   const onSendMessage = () => {
     // Handle edit mode
@@ -821,10 +818,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
               <ModelSelector
                 variant="ghost2"
                 size="fit"
-                disabled={disableModelSwitch}
-                value={getDisplayModelKey()}
+                disabled={isModelSelectionLocked}
+                value={displayedModelKey}
                 onChange={(modelKey) => {
-                  if (!selectedProject?.projectModelKey) {
+                  if (!projectLockedModelKey) {
                     setCurrentModelKey(modelKey);
                   }
                 }}

@@ -2,12 +2,18 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import ChatInput from "@/components/chat-components/ChatInput";
 
+const mockGetCurrentProject = jest.fn();
+const mockSubscribeToProjectChange = jest.fn();
+const mockUseChainPresetId = jest.fn();
+const mockUseModelKey = jest.fn();
+const mockUseProjectLoading = jest.fn();
+
 jest.mock("@/aiParams", () => ({
-  getCurrentProject: jest.fn(() => null),
-  subscribeToProjectChange: jest.fn(() => () => {}),
-  useChainPresetId: jest.fn(() => ["chat"]),
-  useModelKey: jest.fn(() => ["gpt-4.1-mini", jest.fn()]),
-  useProjectLoading: jest.fn(() => [false]),
+  getCurrentProject: () => mockGetCurrentProject(),
+  subscribeToProjectChange: (...args: any[]) => mockSubscribeToProjectChange(...args),
+  useChainPresetId: () => mockUseChainPresetId(),
+  useModelKey: () => mockUseModelKey(),
+  useProjectLoading: () => mockUseProjectLoading(),
 }));
 
 jest.mock("@/components/modals/AddFileModal", () => ({
@@ -29,7 +35,11 @@ jest.mock("@/components/ui/button", () => ({
 }));
 
 jest.mock("@/components/ui/ModelSelector", () => ({
-  ModelSelector: ({ value }: any) => <div data-testid="model-selector">{value}</div>,
+  ModelSelector: ({ value, disabled }: any) => (
+    <div data-testid="model-selector" data-disabled={disabled ? "true" : "false"}>
+      {value}
+    </div>
+  ),
 }));
 
 jest.mock("@/components/ui/tooltip", () => ({
@@ -39,7 +49,7 @@ jest.mock("@/components/ui/tooltip", () => ({
   TooltipTrigger: ({ children }: any) => <>{children}</>,
 }));
 
-jest.mock("./ChatToolsPopover", () => ({
+jest.mock("@/components/chat-components/tools/ChatToolsPopover", () => ({
   ChatToolsPopover: ({ surface }: any) => <div data-testid="chat-tools-popover">{surface}</div>,
 }));
 
@@ -111,12 +121,13 @@ jest.mock("lexical", () => ({
 }));
 
 jest.mock("lucide-react", () => ({
-  CornerDownLeft: () => <span data-testid="send-icon" />,
+  ArrowUp: () => <span data-testid="send-icon" />,
   FileText: () => <span data-testid="file-icon" />,
   Image: () => <span data-testid="image-icon" />,
   Loader2: () => <span data-testid="loader-icon" />,
   Paperclip: () => <span data-testid="paperclip-icon" />,
-  StopCircle: () => <span data-testid="stop-icon" />,
+  Save: () => <span data-testid="save-icon" />,
+  Square: () => <span data-testid="stop-icon" />,
   X: () => <span data-testid="remove-icon" />,
 }));
 
@@ -162,6 +173,11 @@ describe("ChatInput command-center surface", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetCurrentProject.mockReturnValue(null);
+    mockSubscribeToProjectChange.mockReturnValue(jest.fn());
+    mockUseChainPresetId.mockReturnValue(["chat", jest.fn()]);
+    mockUseModelKey.mockReturnValue(["gpt-4.1-mini", jest.fn()]);
+    mockUseProjectLoading.mockReturnValue([false]);
   });
 
   it("renders the command-center affordances when the command-center surface is enabled", () => {
@@ -175,16 +191,49 @@ describe("ChatInput command-center surface", () => {
     expect((container.firstChild as HTMLElement)?.getAttribute("data-surface")).toBe(
       "command-center"
     );
-    expect(screen.getByText("Send")).toBeTruthy();
+    expect(screen.getByTestId("model-selector")).toBeTruthy();
     expect(screen.getByTestId("paperclip-icon")).toBeTruthy();
-    expect(screen.getByTestId("composer-action-divider")).toBeTruthy();
+    expect(screen.getByTestId("send-icon")).toBeTruthy();
   });
 
   it("keeps the default surface affordances unchanged", () => {
     render(<ChatInput {...baseProps} />);
 
-    expect(screen.getByRole("button", { name: "chat" })).toBeTruthy();
+    expect(screen.getByTestId("model-selector")).toBeTruthy();
     expect(screen.getByTestId("image-icon")).toBeTruthy();
     expect(screen.getByTestId("context-control")).toBeTruthy();
+  });
+
+  it.each(["chat", "chat_rag", "agent"] as const)(
+    "keeps the global model selectable in %s even when a project is selected",
+    (presetId) => {
+      mockUseChainPresetId.mockReturnValue([presetId, jest.fn()]);
+      mockGetCurrentProject.mockReturnValue({
+        id: "project-1",
+        name: "Project One",
+        projectModelKey: "project-model",
+      });
+
+      render(<ChatInput {...baseProps} />);
+
+      const selector = screen.getByTestId("model-selector");
+      expect(selector.textContent).toBe("gpt-4.1-mini");
+      expect(selector.getAttribute("data-disabled")).toBe("false");
+    }
+  );
+
+  it("locks the project model only in the project agent preset", () => {
+    mockUseChainPresetId.mockReturnValue(["project_agent", jest.fn()]);
+    mockGetCurrentProject.mockReturnValue({
+      id: "project-1",
+      name: "Project One",
+      projectModelKey: "project-model",
+    });
+
+    render(<ChatInput {...baseProps} />);
+
+    const selector = screen.getByTestId("model-selector");
+    expect(selector.textContent).toBe("project-model");
+    expect(selector.getAttribute("data-disabled")).toBe("true");
   });
 });

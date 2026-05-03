@@ -961,7 +961,6 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
                   selectedFiles={selectedFiles}
                   onAddFile={(files: File[]) => setSelectedFiles((prev) => [...prev, ...files])}
                   setSelectedFiles={setSelectedFiles}
-                  disableModelSwitch={!!getCurrentProject()?.projectModelKey}
                   selectedTextContexts={selectedTextContexts}
                   onRemoveSelectedText={handleRemoveSelectedText}
                   showProgressCard={() => {
