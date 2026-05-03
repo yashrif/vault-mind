@@ -96,6 +96,8 @@ A bridge between Telegram and Cortex. Shows one always-on read-only thread manag
 
 **Telegram tool settings** are configurable under **Settings → Cortex → Telegram → Telegram Tools**. All configurable tools are on by default; toggle individual tools off to prevent the bot from using them. Always-enabled tools (such as time lookup and note reading) are not shown and cannot be disabled.
 
+**Memory and self-learning.** When recent-conversation memory is enabled (**Settings → Cortex → Advanced → Reference Recent Conversation**), the Telegram assistant records each exchange into your vault's `Recent Conversations.md`. The assistant uses this — together with `Saved Memories.md` — to personalize future replies. You can also explicitly ask it to remember a fact ("remember that I prefer short answers") and it will save that to Saved Memories via the `updateMemory` tool.
+
 ---
 
 ## Context Bar

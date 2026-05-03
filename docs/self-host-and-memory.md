@@ -49,6 +49,7 @@ Cortex can reference your recent conversation history to provide more contextual
 - **Enable**: **Settings → Cortex → Advanced → Reference Recent Conversation** (on by default)
 - **How many**: **Settings → Cortex → Advanced → Max Recent Conversations** — default 30, range 10–50
 - All history is stored locally in your vault (no data leaves your machine for this feature)
+- Telegram conversations are included — each reply the assistant sends via the Telegram channel is recorded the same way as a UI chat session.
 
 ### Saved Memories
 
