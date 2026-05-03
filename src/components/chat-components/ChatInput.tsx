@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { ModelSelector } from "@/components/ui/ModelSelector";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ChatToolsPopover } from "./ChatToolsPopover";
 import { ChainModeSelector } from "./ChainModeSelector";
 import {
   mergeWebTabContexts,
@@ -36,6 +35,7 @@ import { $removePillsByToolName, $createToolPillNode } from "./pills/ToolPillNod
 import { $removeActiveWebTabPills } from "./pills/ActiveWebTabPillNode";
 import { $findWebTabPills, $removeWebTabPillsByUrl } from "./pills/WebTabPillNode";
 import LexicalEditor from "./LexicalEditor";
+import { ChatToolsPopover } from "./tools/ChatToolsPopover";
 
 interface ChatInputProps {
   surface?: "default" | "command-center";

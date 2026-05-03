@@ -1,8 +1,8 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { ChatToolsPopover } from "@/components/chat-components/ChatToolsPopover";
 import { useSettingsValue, updateSetting } from "@/settings/model";
 import { getCurrentProject } from "@/aiParams";
+import { ChatToolsPopover } from "./tools/ChatToolsPopover";
 
 // ── UI Primitive Mocks ─────────────────────────────────────────────────────────
 
@@ -158,6 +158,23 @@ describe("ChatToolsPopover", () => {
   // ── surface=chat ─────────────────────────────────────────────────────────────
 
   describe("surface=chat", () => {
+    it("uses a plain settings-style header without an explicit close button", () => {
+      mockGetConfigurableTools.mockReturnValue([webSearchTool]);
+      (useSettingsValue as jest.Mock).mockReturnValue({
+        toolDefaults: {
+          chat: { webSearch: true },
+          agent: {},
+          telegram: {},
+        },
+      });
+
+      render(<ChatToolsPopover surface="chat" />);
+
+      expect(screen.getByRole("heading", { name: "Tools" })).toBeTruthy();
+      expect(screen.getByText("1/1")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: /Close tools popover/i })).toBeNull();
+    });
+
     it("shows only isChatConfigurableTool tools — excludes localSearch and write tools", () => {
       mockGetConfigurableTools.mockReturnValue(allTools);
       (useSettingsValue as jest.Mock).mockReturnValue(baseSettings);

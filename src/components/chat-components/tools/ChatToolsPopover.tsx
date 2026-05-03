@@ -1,34 +1,34 @@
-import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DEFAULT_SETTINGS } from "@/constants";
+import {
+  getProjectAgentOverride,
+  isChatConfigurableTool,
+  isToolChecked,
+} from "@/core/toolUiHelpers";
+import { cn } from "@/lib/utils";
+import { updateSetting, useSettingsValue } from "@/settings/model";
+import { ToolRegistry } from "@/tools/ToolRegistry";
 import {
   Brain,
   Calendar,
-  Check,
   Code2,
   Database,
   FileText,
   Globe,
   Image,
-  Lock,
   PlugZap,
   Search,
   Settings,
   Wrench,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import { DEFAULT_SETTINGS } from "@/constants";
-import { updateSetting, useSettingsValue } from "@/settings/model";
-import { ToolRegistry } from "@/tools/ToolRegistry";
-import {
-  getProjectAgentOverride,
-  isChatConfigurableTool,
-  isToolChecked,
-} from "@/core/toolUiHelpers";
+import React, { useState } from "react";
+import ToolItem from "./ToolItem";
 
 /** Shorthand for a Lucide-style icon component */
 type IconComponent = React.FC<{ className?: string }>;
@@ -60,8 +60,8 @@ const CATEGORY_COLOR: Record<string, string> = {
 const RAW_ICON_BUTTON_CLASS =
   "!tw-inline-flex !tw-h-auto !tw-min-h-0 !tw-appearance-none !tw-border-0 !tw-bg-transparent !tw-p-0 !tw-shadow-none focus-visible:!tw-outline-none focus-visible:!tw-ring-0";
 
-const RAW_ROW_BUTTON_CLASS =
-  "!tw-flex !tw-h-auto !tw-min-h-0 !tw-w-full !tw-appearance-none !tw-border-0 !tw-bg-transparent !tw-shadow-none focus-visible:!tw-outline-none focus-visible:!tw-ring-0 disabled:!tw-opacity-100";
+const RAW_TEXT_BUTTON_CLASS =
+  "!tw-inline-flex !tw-h-auto !tw-min-h-0 !tw-appearance-none !tw-border-0 !tw-bg-transparent !tw-p-0 !tw-shadow-none focus-visible:!tw-outline-none focus-visible:!tw-ring-0 disabled:!tw-opacity-50";
 
 export interface ChatToolsPopoverProps {
   /** "chat" binds to toolDefaults.chat; "agent" binds to toolDefaults.agent */
@@ -208,7 +208,6 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
   return (
     <TooltipProvider delayDuration={0}>
       <Popover open={open} onOpenChange={handleOpenChange}>
-        {/* Trigger: wrench button with active-count badge */}
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
@@ -216,10 +215,7 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
                 <Button
                   variant="ghost2"
                   size="fit"
-                  className={cn(
-                    "tw-text-muted hover:tw-text-accent",
-                    open && "tw-text-accent tw-bg-accent/10"
-                  )}
+                  className={cn("tw-text-muted hover:tw-text-accent", open && "tw-text-accent")}
                   aria-label="Configure tools"
                 >
                   <Wrench className="tw-size-4" />
@@ -246,35 +242,23 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
           side="top"
           align="end"
           sideOffset={8}
-          className="tw-w-80 tw-overflow-hidden tw-rounded-md tw-border tw-border-border tw-bg-primary tw-p-0 tw-shadow-lg"
+          className="tw-w-80 tw-overflow-hidden tw-rounded-md tw-p-0"
         >
-          <div className="tw-flex tw-max-h-[420px] tw-flex-col">
+          <div className="tw-flex tw-max-h-[500px] tw-flex-col">
             {/* ── Header ── */}
-            <div className="tw-shrink-0 tw-border-b tw-border-border tw-px-4 tw-bg-secondary/20">
-              <div className="tw-flex tw-items-center tw-gap-2 tw-py-2.5">
-                <div className="tw-flex tw-size-6 tw-items-center tw-justify-center tw-rounded-md tw-text-accent tw-bg-interactive-accent/10">
-                  <Wrench className="tw-size-3.5" />
-                </div>
-                <span className="tw-text-sm tw-font-semibold tw-text-normal">Tools</span>
-                <span className="tw-rounded-md tw-bg-secondary tw-px-1.5 tw-py-0.5 tw-text-[10px] tw-font-medium tw-text-muted">
+            <div className="tw-shrink-0 tw-border-b tw-px-4">
+              <div className="tw-flex tw-items-center tw-justify-between">
+                <h3 className="tw-font-semibold">Tools</h3>
+                <span className="tw-rounded-md tw-bg-secondary tw-px-1.5 tw-py-0.5 tw-text-xs tw-font-medium tw-text-muted">
                   {activeCount}/{tools.length}
                 </span>
-                <button
-                  type="button"
-                  className={cn(
-                    RAW_ICON_BUTTON_CLASS,
-                    "tw-ml-auto tw-size-6 tw-items-center tw-justify-center tw-rounded-md tw-text-muted tw-transition-colors hover:tw-bg-modifier-hover hover:tw-text-normal"
-                  )}
-                  onClick={() => setOpen(false)}
-                  aria-label="Close tools popover"
-                >
-                  <X className="tw-size-3.5" />
-                </button>
               </div>
             </div>
 
+            <Separator />
+
             {/* ── Search ── */}
-            <div className="tw-shrink-0 tw-border-b tw-border-border tw-p-2">
+            <div className="tw-shrink-0 tw-p-4 tw-pb-3">
               <div className="tw-relative">
                 <Search className="tw-pointer-events-none tw-absolute tw-left-3 tw-top-1/2 tw-size-4 tw--translate-y-1/2 tw-text-muted" />
                 <Input
@@ -282,14 +266,14 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search tools..."
-                  className="!tw-h-10 !tw-rounded-lg !tw-border-border !tw-px-9 !tw-text-xs !tw-bg-secondary/30 placeholder:!tw-text-xs focus-visible:!tw-ring-ring"
+                  className="tw-rounded-md tw-border-border !tw-px-9 !tw-text-sm tw-bg-secondary/30 placeholder:tw-text-sm focus-visible:tw-ring-ring"
                 />
                 {search && (
                   <button
                     type="button"
                     className={cn(
                       RAW_ICON_BUTTON_CLASS,
-                      "tw-absolute tw-right-2 tw-top-1/2 tw-size-6 tw--translate-y-1/2 tw-items-center tw-justify-center tw-rounded-md tw-text-muted tw-transition-colors hover:tw-bg-modifier-hover hover:tw-text-normal"
+                      "tw-absolute tw-right-3 tw-top-1/2 tw-size-4 tw--translate-y-1/2 tw-items-center tw-justify-center tw-text-muted tw-transition-all hover:tw-scale-110 hover:tw-text-normal"
                     )}
                     onClick={() => setSearch("")}
                     aria-label="Clear search"
@@ -300,16 +284,18 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
               </div>
             </div>
 
+            <Separator />
+
             {/* ── Tool list ── */}
-            <ScrollArea className="tw-max-h-[304px] tw-flex-1">
-              <div className="tw-space-y-0.5 tw-p-1.5">
+            <ScrollArea className="tw-flex-1 tw-overflow-y-auto">
+              <div className="tw-px-4 tw-py-2">
                 {filtered.length === 0 && (
                   <div className="tw-flex tw-flex-col tw-items-center tw-gap-1.5 tw-py-8 tw-text-center tw-text-muted">
                     <Search className="tw-size-4 tw-opacity-50" />
                     <span className="tw-text-[12px]">{emptyStateMessage}</span>
                   </div>
                 )}
-                {filtered.map((tool) => {
+                {filtered.map((tool, index) => {
                   const toolId = tool.metadata.id;
                   const checked = isChecked(toolId);
                   const override =
@@ -319,92 +305,59 @@ const ChatToolsPopover: React.FC<ChatToolsPopoverProps> = ({
                   const iconColor = CATEGORY_COLOR[tool.metadata.category] ?? "tw-text-muted";
 
                   return (
-                    <button
+                    <ToolItem
                       key={toolId}
-                      type="button"
-                      className={cn(
-                        RAW_ROW_BUTTON_CLASS,
-                        "tw-group tw-items-start tw-justify-start tw-gap-3 tw-rounded-lg tw-px-2.5 tw-py-2 tw-text-left tw-transition-colors",
-                        hasOverride
-                          ? "tw-cursor-default tw-bg-transparent hover:tw-bg-transparent"
-                          : "hover:tw-bg-modifier-hover"
-                      )}
-                      onClick={() => handleToggle(toolId, !checked)}
-                      disabled={hasOverride}
-                      aria-label={`Toggle ${tool.metadata.displayName}`}
-                    >
-                      <div
-                        aria-hidden="true"
-                        className={cn(
-                          "tw-mt-0.5 tw-flex tw-size-4 tw-shrink-0 tw-items-center tw-justify-center tw-rounded-[4px] tw-border tw-transition-colors",
-                          checked
-                            ? "tw-border-interactive-accent tw-bg-interactive-accent tw-text-on-accent"
-                            : "tw-border-border tw-text-transparent group-hover:tw-border-border-hover",
-                          hasOverride && "tw-opacity-60"
-                        )}
-                      >
-                        <Check className="tw-size-3" />
-                      </div>
-                      <IconComponent
-                        className={cn(
-                          "tw-mt-0.5 tw-size-4 tw-shrink-0",
-                          iconColor,
-                          hasOverride && "tw-opacity-80"
-                        )}
-                      />
-                      <div className="tw-flex tw-min-w-0 tw-flex-1 tw-flex-col tw-gap-0.5">
-                        <span className="tw-truncate tw-text-[12px] tw-font-medium tw-leading-tight tw-text-normal">
-                          {tool.metadata.displayName}
-                        </span>
-                        <span className="tw-truncate tw-text-[11px] tw-leading-tight tw-text-muted">
-                          {tool.metadata.description}
-                        </span>
-                      </div>
-                      {hasOverride && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="tw-mt-0.5 tw-inline-flex tw-shrink-0 tw-items-center tw-gap-1 tw-rounded-md tw-px-1.5 tw-py-1 tw-text-[10px] tw-text-muted tw-bg-secondary/70">
-                              <Lock className="tw-size-3" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>Overridden by current project</TooltipContent>
-                        </Tooltip>
-                      )}
-                    </button>
+                      toolId={toolId}
+                      index={index}
+                      hasOverride={hasOverride}
+                      handleToggle={handleToggle}
+                      checked={checked}
+                      tool={tool}
+                      IconComponent={IconComponent}
+                      iconColor={iconColor}
+                    />
                   );
                 })}
               </div>
             </ScrollArea>
 
+            <Separator />
+
             {/* ── Footer ── */}
-            <div className="tw-flex tw-shrink-0 tw-items-center tw-justify-between tw-border-t tw-border-border tw-px-3 tw-py-2.5 tw-bg-secondary/20">
+            <div className="tw-flex tw-shrink-0 tw-items-center tw-justify-between tw-px-4 tw-py-3">
               <div className="tw-flex tw-items-center tw-gap-3">
-                <Button
-                  variant="ghost2"
-                  size="fit"
-                  className="tw-h-auto tw-p-0 tw-text-[11px] tw-font-medium tw-text-muted hover:tw-text-accent"
+                <button
+                  type="button"
+                  className={cn(
+                    RAW_TEXT_BUTTON_CLASS,
+                    "tw-text-xs tw-font-medium tw-text-muted tw-transition-colors hover:tw-text-accent"
+                  )}
                   onClick={handleEnableAll}
                 >
                   Enable all
-                </Button>
-                <div className="tw-h-3 tw-w-px tw-border-l tw-border-border" />
-                <Button
-                  variant="ghost2"
-                  size="fit"
-                  className="tw-h-auto tw-p-0 tw-text-[11px] tw-font-medium tw-text-muted hover:tw-text-normal"
+                </button>
+                <div className="tw-h-3 tw-border-l tw-border-border" />
+                <button
+                  type="button"
+                  className={cn(
+                    RAW_TEXT_BUTTON_CLASS,
+                    "tw-text-xs tw-font-medium tw-text-muted tw-transition-colors hover:tw-text-normal"
+                  )}
                   onClick={handleReset}
                 >
                   Reset
-                </Button>
+                </button>
               </div>
-              <Button
-                variant="ghost2"
-                size="fit"
-                className="tw-h-auto tw-p-0 tw-text-[11px] tw-font-medium tw-text-muted hover:tw-text-normal"
+              <button
+                type="button"
+                className={cn(
+                  RAW_TEXT_BUTTON_CLASS,
+                  "tw-text-xs tw-font-medium tw-text-muted tw-transition-colors hover:tw-text-normal"
+                )}
                 onClick={handleClearAll}
               >
                 Clear all
-              </Button>
+              </button>
             </div>
           </div>
         </PopoverContent>
