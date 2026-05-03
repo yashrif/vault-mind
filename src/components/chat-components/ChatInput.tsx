@@ -11,7 +11,7 @@ import { isImageFile } from "@/utils/fileContentExtractor";
 import { Button } from "@/components/ui/button";
 import { ModelSelector } from "@/components/ui/ModelSelector";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChatToolControls } from "./ChatToolControls";
+import { cn } from "@/lib/utils";
 import { ChainModeSelector } from "./ChainModeSelector";
 import {
   mergeWebTabContexts,
@@ -22,7 +22,7 @@ import {
 import { isAgentPresetId, isRichContextPresetId, type ChainPresetId } from "@/runtime/ChainPreset";
 import { SelectedTextContext, WebTabContext } from "@/types/message";
 import { isAllowedFileForNoteContext } from "@/utils";
-import { CornerDownLeft, FileText, Image, Loader2, StopCircle, X } from "lucide-react";
+import { ArrowUp, FileText, Image, Loader2, Paperclip, Save, Square, X } from "lucide-react";
 import { App, Notice, TFile } from "obsidian";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { $getSelection, $isRangeSelection } from "lexical";
@@ -35,8 +35,11 @@ import { $removePillsByToolName, $createToolPillNode } from "./pills/ToolPillNod
 import { $removeActiveWebTabPills } from "./pills/ActiveWebTabPillNode";
 import { $findWebTabPills, $removeWebTabPillsByUrl } from "./pills/WebTabPillNode";
 import LexicalEditor from "./LexicalEditor";
+import { ChatToolsPopover } from "./tools/ChatToolsPopover";
+import { shouldShowChatToolsPopover } from "./tools/chatToolsVisibility";
 
 interface ChatInputProps {
+  surface?: "default" | "command-center";
   inputMessage: string;
   setInputMessage: (message: string) => void;
   handleSendMessage: (metadata?: {
@@ -86,6 +89,7 @@ interface ChatInputProps {
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
+  surface = "default",
   inputMessage,
   setInputMessage,
   handleSendMessage,
@@ -132,8 +136,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const [foldersFromPills, setFoldersFromPills] = useState<string[]>([]);
   const [toolsFromPills, setToolsFromPills] = useState<string[]>([]);
   const [webTabsFromPills, setWebTabsFromPills] = useState<WebTabContext[]>([]);
+  const isCommandCenter = surface === "command-center";
+  const isProjectPreset = currentPresetId === "project_agent";
   const isAgentMode = isAgentPresetId(currentPresetId);
   const supportsRichContext = isRichContextPresetId(currentPresetId);
+  const showChatToolsPopover = shouldShowChatToolsPopover(currentPresetId);
+  const projectLockedModelKey = isProjectPreset ? (selectedProject?.projectModelKey ?? null) : null;
+  const displayedModelKey = projectLockedModelKey ?? currentModelKey;
+  const isModelSelectionLocked = Boolean(disableModelSwitch || projectLockedModelKey);
 
   // Merge badge-only contextWebTabs with pills-derived webTabsFromPills for display
   // Uses shared normalization policy from urlNormalization.ts
@@ -193,13 +203,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
     return () => clearInterval(interval);
   }, [isProjectLoading, loadingMessages.length]);
-
-  const getDisplayModelKey = (): string => {
-    if (selectedProject && selectedProject.projectModelKey) {
-      return selectedProject.projectModelKey;
-    }
-    return currentModelKey;
-  };
 
   const onSendMessage = () => {
     // Handle edit mode
@@ -694,12 +697,19 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <div
-      className="tw-flex tw-w-full tw-flex-col tw-gap-0.5 tw-rounded-md tw-border tw-border-solid tw-border-border tw-px-1 tw-pb-1 tw-pt-2 tw-@container/chat-input"
+      data-surface={surface}
+      className={cn(
+        "tw-flex tw-w-full tw-flex-col tw-transition-colors tw-duration-150 tw-@container/chat-input focus-within:tw-ring-1 focus-within:tw-ring-inset focus-within:tw-ring-ring",
+        isCommandCenter
+          ? "tw-gap-1 tw-rounded-2xl tw-bg-primary-alt tw-p-2"
+          : "tw-gap-0.5 tw-rounded-xl tw-border tw-border-solid tw-border-border tw-px-1 tw-pb-1 tw-pt-2"
+      )}
       ref={containerRef}
     >
       {/* Hide context controls in edit mode - editing only changes text, not context */}
       {!editMode && (
         <ContextControl
+          surface={surface}
           contextNotes={contextNotes}
           includeActiveNote={includeActiveNote}
           activeNote={currentActiveNote}
@@ -759,6 +769,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           </div>
         )}
         <LexicalEditor
+          surface={surface}
           value={inputMessage}
           onChange={(value) => setInputMessage(value)}
           onSubmit={onSendMessage}
@@ -786,7 +797,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
         />
       </div>
 
-      <div className="tw-flex tw-h-6 tw-justify-between tw-gap-1 tw-px-1">
+      <div
+        className={cn(
+          isCommandCenter
+            ? "tw-flex tw-items-center tw-justify-between tw-gap-2 tw-px-1.5 tw-pt-1"
+            : "tw-flex tw-h-6 tw-justify-between tw-gap-1 tw-border-t tw-border-solid tw-border-border tw-px-1"
+        )}
+      >
         {isGenerating ? (
           <div className="tw-flex tw-items-center tw-gap-1 tw-px-1 tw-text-sm tw-text-muted">
             <Loader2 className="tw-size-3 tw-animate-spin" />
@@ -801,10 +818,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
               <ModelSelector
                 variant="ghost2"
                 size="fit"
-                disabled={disableModelSwitch}
-                value={getDisplayModelKey()}
+                disabled={isModelSelectionLocked}
+                value={displayedModelKey}
                 onChange={(modelKey) => {
-                  if (!selectedProject?.projectModelKey) {
+                  if (!projectLockedModelKey) {
                     setCurrentModelKey(modelKey);
                   }
                 }}
@@ -817,40 +834,45 @@ const ChatInput: React.FC<ChatInputProps> = ({
         <div className="tw-flex tw-items-center tw-gap-1">
           {isGenerating ? (
             <Button
-              variant="ghost2"
+              variant="secondary"
               size="fit"
-              className="tw-text-muted"
+              className="tw-size-8 tw-rounded-full tw-transition-all"
               onClick={() => onStopGenerating()}
             >
-              <StopCircle className="tw-size-4" />
-              Stop
+              <Square className="tw-size-4 tw-fill-current tw-stroke-0" />
             </Button>
           ) : (
             <>
-              <ChatToolControls
-                vaultToggle={vaultToggle}
-                setVaultToggle={setVaultToggle}
-                webToggle={webToggle}
-                setWebToggle={setWebToggle}
-                composerToggle={composerToggle}
-                setComposerToggle={setComposerToggle}
-                presetId={currentPresetId}
-                onVaultToggleOff={handleVaultToggleOff}
-                onWebToggleOff={handleWebToggleOff}
-                onComposerToggleOff={handleComposerToggleOff}
-              />
+              {showChatToolsPopover && (
+                <ChatToolsPopover
+                  surface={isAgentMode ? "agent" : "chat"}
+                  setVaultToggle={setVaultToggle}
+                  setWebToggle={setWebToggle}
+                  setComposerToggle={setComposerToggle}
+                  onVaultToggleOff={handleVaultToggleOff}
+                  onWebToggleOff={handleWebToggleOff}
+                  onComposerToggleOff={handleComposerToggleOff}
+                />
+              )}
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       variant="ghost2"
                       size="fit"
-                      className="tw-text-muted hover:tw-text-accent"
+                      className={cn(
+                        "tw-text-muted hover:tw-text-accent",
+                        isCommandCenter && "tw-size-7 tw-rounded-md tw-p-0"
+                      )}
                       onClick={() => {
                         new AddFileModal(app, onAddFile).open();
                       }}
                     >
-                      <Image className="tw-size-4" />
+                      {isCommandCenter ? (
+                        <Paperclip className="tw-size-4" />
+                      ) : (
+                        <Image className="tw-size-4" />
+                      )}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent className="tw-px-1 tw-py-0.5">Attach file(s)</TooltipContent>
@@ -867,13 +889,16 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 </Button>
               )}
               <Button
-                variant="ghost2"
+                variant={isCommandCenter ? "secondary" : "default"}
                 size="fit"
-                className="tw-text-muted"
+                disabled={!inputMessage.trim()}
+                className={cn(
+                  isCommandCenter &&
+                    "tw-size-8 tw-rounded-full tw-px-3 tw-text-sm tw-font-medium tw-transition-all active:tw-scale-95 disabled:tw-shadow-none"
+                )}
                 onClick={() => onSendMessage()}
               >
-                <CornerDownLeft className="!tw-size-3" />
-                <span>{editMode ? "save" : "chat"}</span>
+                {editMode ? <Save className="tw-size-4" /> : <ArrowUp className="tw-size-4" />}
               </Button>
             </>
           )}

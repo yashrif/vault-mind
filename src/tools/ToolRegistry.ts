@@ -6,6 +6,20 @@ import { StructuredTool } from "@langchain/core/tools";
  */
 export type ToolAccessLevel = "free" | "costly" | "write" | "mixed";
 export type ToolOperationAccess = "read" | "write";
+export type ToolIconName =
+  | "blocks"
+  | "brain"
+  | "calendar"
+  | "calendar-days"
+  | "clipboard-list"
+  | "file-cog"
+  | "file-pen"
+  | "file-plus-2"
+  | "folder-search"
+  | "globe-2"
+  | "list-todo"
+  | "notebook-text"
+  | "youtube";
 export type ToolUiCategory =
   | "search"
   | "time"
@@ -26,6 +40,7 @@ export interface ToolMetadata {
   displayName: string;
   description: string;
   category: ToolUiCategory;
+  icon?: ToolIconName; // Optional UI hint; resolved to an actual icon in the UI layer
   accessLevel: ToolAccessLevel;
   operations?: Record<string, ToolOperationAccess>;
   isAlwaysEnabled?: boolean; // Tools that are always available (e.g., time tools)

@@ -6,21 +6,24 @@ The Cortex chat panel is the main way you interact with AI in Obsidian. This gui
 
 ## Layout Overview
 
-The chat panel is divided into three main sections stacked top to bottom:
+The chat panel is divided into two main sections:
 
-1. **Header bar** — Mode selector and toolbar controls
-2. **Messages area** — Conversation history, suggested prompts, and relevant notes
-3. **Input area** — Context bar, text editor, and send controls
+1. **Messages area** — Conversation history, suggested prompts, and relevant notes
+2. **Bottom command center** — Mode controls, toolbar actions, context row, text editor, and send controls
 
 ---
 
-## Header Bar
+## Bottom Command Center
 
-The header runs across the top of the chat panel and contains two groups of controls.
+The bottom command center is the persistent control surface for Chat and Agent. It combines a compact header strip with the composer body so the mode controls, tool settings, and send actions stay in one place.
+
+### Command center header
+
+The header strip contains two groups of controls.
 
 ### Left side: Mode selector
 
-The **mode selector** on the left shows the current chat mode. Click it to switch between Chat, Agent, and Channels. See [Modes and Channels](#modes-and-channels) below for details.
+The **mode selector** on the left shows the current chat mode. Click it to switch between Chat and Agent. In Chat mode it also shows the retrieval chip (**General** or **Ask vault**). In Agent mode it shows the scope chip (**All notes** or the current project). See [Modes and Channels](#modes-and-channels) below for details.
 
 ### Right side: Toolbar icons
 
@@ -47,7 +50,7 @@ From left to right:
 
 ## Modes and Channels
 
-The mode selector controls how Cortex responds and what tools it has access to.
+The mode selector controls how Cortex responds and what tools it has access to for the current Chat or Agent conversation. Channels are opened separately with the **radio/antenna icon** in the command center header.
 
 - **Chat**: conversational mode for general questions and note-aware context.
 - **Chat + RAG**: Chat with vault retrieval enabled. Cortex prefers searching your notes when your request needs vault context.
@@ -77,7 +80,7 @@ The secondary control in Agent mode is a scope selector:
 
 ### Channels
 
-Click the **antenna/radio icon** in the mode selector to open the Channels view. Channels are external messaging integrations that receive and send messages outside Obsidian.
+Click the **antenna/radio icon** in the command center header to open the Channels view. Channels are external messaging integrations that receive and send messages outside Obsidian.
 
 #### Telegram
 
@@ -97,7 +100,7 @@ A bridge between Telegram and Cortex. Shows one always-on read-only thread manag
 
 ## Context Bar
 
-Just above the text editor is the context bar — a row that shows everything Cortex currently has as context for your message.
+Inside the bottom command center, just above the text editor, is the context bar — a row that shows everything Cortex currently has as context for your message.
 
 ### Adding context
 
@@ -178,9 +181,9 @@ Hover over an AI response to reveal action buttons:
 
 ---
 
-## Input Area
+## Composer
 
-The input area at the bottom of the panel is where you compose messages.
+The composer is the lower part of the command center where you write messages, review attached files, configure tools, and send.
 
 ### Text editor
 
@@ -212,10 +215,10 @@ The bar at the very bottom of the input area contains controls on both sides.
 
 - While the AI is **generating**: a **Stop** button (stop-circle icon) — click to interrupt the stream immediately.
 - While **idle**:
-  - **Tool toggles** (see [Tool Toggles](#tool-toggles) below)
-  - **Attach file** (image icon) — Opens the file picker to attach images or documents. Tooltip: "Attach file(s)".
+  - **Tools** (wrench icon) — Opens the tools popover in plain **Chat** and global **Agent**. It is hidden in **Chat + RAG** and **Project Agent**, where vault retrieval and project scope already have dedicated controls in the mode selector.
+  - **Attach file** (paperclip icon) — Opens the file picker to attach images or documents. Tooltip: "Attach file(s)".
   - **Cancel** (edit mode only) — Cancels an in-progress message edit.
-  - **Send / Save button** — Labeled "chat" in normal mode, "save" in edit mode. Shows a return-arrow icon. Sends the message or saves the edit.
+  - **Send / Save button** — Labeled "Send" in normal mode, "save" in edit mode. Shows a return-arrow icon. Sends the message or saves the edit.
 
 ### Drag and drop
 
@@ -223,17 +226,25 @@ You can drag image or document files directly onto the chat panel. A full-panel 
 
 ---
 
-## Tool Toggles
+## Tools Popover
 
-Chat uses the **General / Ask vault** retrieval toggle next to the mode selector. Agent and Project Agent show tool toggles to the left of the send button. On wider panels they show as individual icons; on narrow panels they collapse into a **⋯** dropdown menu.
+Plain Chat and global Agent use the **Tools** popover in the composer footer for configurable tools. **Chat + RAG** uses the **General / Ask vault** retrieval chip next to the mode selector instead, and **Project Agent** uses the project scope selector and project tool rules.
 
-| Toggle       | Icon           | Description                                                 |
-| ------------ | -------------- | ----------------------------------------------------------- |
-| Vault Search | Database       | Searches your vault for relevant notes when responding.     |
-| Web Search   | Globe          | Searches the web for up-to-date information.                |
-| Composer     | Sparkles + Pen | Enables the agent to propose and apply edits to your notes. |
+The tools popover includes:
 
-Active toggles are highlighted. Project Agent follows the selected project's tool settings and overrides.
+| Tool         | Icon     | Description                                                 |
+| ------------ | -------- | ----------------------------------------------------------- |
+| Vault Search | Database | Searches your vault for relevant notes when responding.     |
+| Web Search   | Globe    | Searches the web for up-to-date information.                |
+| Composer     | File     | Enables the agent to propose and apply edits to your notes. |
+
+Each tool row shows its status, icon, name, and short description. Active tools are highlighted.
+
+The footer actions are:
+
+- **Enable all** — Turns on every configurable tool for the current surface
+- **Reset** — Restores the shipped default tool set for the current surface
+- **Clear all** — Turns off every configurable tool for the current surface
 
 ---
 

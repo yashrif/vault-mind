@@ -155,10 +155,11 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
 
   const { activeWebTabForMentions: currentActiveWebTab } = useActiveWebTabState();
   const projectContextStatus = useProjectContextStatus();
+  const isProjectPreset = currentPresetId === "project_agent";
 
   // Calculate whether to show ProgressCard based on status and user preference
   const shouldShowProgressCard = () => {
-    if (!getCurrentProject()) return false;
+    if (!isProjectPreset || !getCurrentProject()) return false;
 
     if (progressCardVisible !== null) {
       return progressCardVisible;
@@ -177,7 +178,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
    * Hidden in project mode (project card takes priority) and when user explicitly closed it.
    */
   const shouldShowIndexingCard = () => {
-    if (getCurrentProject()) return false;
+    if (isProjectPreset) return false;
     if (indexingCardVisible === false) return false;
     return indexingState.isActive || indexingState.completionStatus !== "none";
   };
@@ -927,46 +928,49 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
             </div>
           ) : (
             <>
-              <ChatControls
-                onNewChat={handleNewChat}
-                onSaveAsNote={() => handleSaveAsNote()}
-                onLoadHistory={handleLoadChatHistory}
-                onModeChange={handleChainModeChange}
-                chatHistory={chatHistoryItems}
-                onUpdateChatTitle={handleUpdateChatTitle}
-                onDeleteChat={handleDeleteChat}
-                onLoadChat={handleLoadChat}
-                onOpenSourceFile={handleOpenSourceFile}
-                latestTokenCount={latestTokenCount}
-                onChannelsToggle={() => setChannelsActive(true)}
-              />
-              <ChatInput
-                inputMessage={inputMessage}
-                setInputMessage={setInputMessage}
-                handleSendMessage={handleSendMessage}
-                isGenerating={loading}
-                onStopGenerating={() => handleStopGenerating(ABORT_REASON.USER_STOPPED)}
-                app={app}
-                contextNotes={contextNotes}
-                setContextNotes={setContextNotes}
-                includeActiveNote={includeActiveNote}
-                setIncludeActiveNote={setIncludeActiveNote}
-                includeActiveWebTab={includeActiveWebTab}
-                setIncludeActiveWebTab={setIncludeActiveWebTab}
-                activeWebTab={currentActiveWebTab}
-                selectedFiles={selectedFiles}
-                onAddFile={(files: File[]) => setSelectedFiles((prev) => [...prev, ...files])}
-                setSelectedFiles={setSelectedFiles}
-                disableModelSwitch={!!getCurrentProject()?.projectModelKey}
-                selectedTextContexts={selectedTextContexts}
-                onRemoveSelectedText={handleRemoveSelectedText}
-                showProgressCard={() => {
-                  setProgressCardVisible(true);
-                }}
-                showIndexingCard={() => {
-                  setIndexingCardVisible(true);
-                }}
-              />
+              <div className="tw-shrink-0">
+                <ChatControls
+                  onNewChat={handleNewChat}
+                  onSaveAsNote={() => handleSaveAsNote()}
+                  onLoadHistory={handleLoadChatHistory}
+                  onModeChange={handleChainModeChange}
+                  surface="command-center"
+                  chatHistory={chatHistoryItems}
+                  onUpdateChatTitle={handleUpdateChatTitle}
+                  onDeleteChat={handleDeleteChat}
+                  onLoadChat={handleLoadChat}
+                  onOpenSourceFile={handleOpenSourceFile}
+                  latestTokenCount={latestTokenCount}
+                  onChannelsToggle={() => setChannelsActive(true)}
+                />
+                <ChatInput
+                  surface="command-center"
+                  inputMessage={inputMessage}
+                  setInputMessage={setInputMessage}
+                  handleSendMessage={handleSendMessage}
+                  isGenerating={loading}
+                  onStopGenerating={() => handleStopGenerating(ABORT_REASON.USER_STOPPED)}
+                  app={app}
+                  contextNotes={contextNotes}
+                  setContextNotes={setContextNotes}
+                  includeActiveNote={includeActiveNote}
+                  setIncludeActiveNote={setIncludeActiveNote}
+                  includeActiveWebTab={includeActiveWebTab}
+                  setIncludeActiveWebTab={setIncludeActiveWebTab}
+                  activeWebTab={currentActiveWebTab}
+                  selectedFiles={selectedFiles}
+                  onAddFile={(files: File[]) => setSelectedFiles((prev) => [...prev, ...files])}
+                  setSelectedFiles={setSelectedFiles}
+                  selectedTextContexts={selectedTextContexts}
+                  onRemoveSelectedText={handleRemoveSelectedText}
+                  showProgressCard={() => {
+                    setProgressCardVisible(true);
+                  }}
+                  showIndexingCard={() => {
+                    setIndexingCardVisible(true);
+                  }}
+                />
+              </div>
             </>
           )}
         </div>

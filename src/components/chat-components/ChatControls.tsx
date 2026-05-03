@@ -173,6 +173,7 @@ interface ChatControlsProps {
   onSaveAsNote: () => Promise<void>;
   onLoadHistory: () => void;
   onModeChange: (presetId: ChainPresetId) => void | Promise<void>;
+  surface?: "default" | "command-center";
   showModeSelector?: boolean;
   chatHistory: ChatHistoryItem[];
   onUpdateChatTitle: (id: string, newTitle: string) => Promise<void>;
@@ -189,6 +190,7 @@ export function ChatControls({
   onSaveAsNote,
   onLoadHistory,
   onModeChange,
+  surface = "default",
   showModeSelector = true,
   chatHistory,
   onUpdateChatTitle,
@@ -200,15 +202,37 @@ export function ChatControls({
   onChannelsToggle,
 }: ChatControlsProps) {
   const settings = useSettingsValue();
+  const isCommandCenter = surface === "command-center";
 
   return (
-    <div className="tw-flex tw-w-full tw-items-center tw-justify-between tw-p-1">
-      <div className="tw-flex tw-flex-1 tw-items-center tw-gap-1">
+    <div
+      data-surface={surface}
+      className={cn(
+        "tw-flex tw-w-full tw-items-center tw-justify-between",
+        isCommandCenter ? "tw-gap-3 tw-px-1 tw-pb-2.5" : "tw-p-1"
+      )}
+    >
+      <div
+        className={cn(
+          "tw-flex tw-flex-1 tw-items-center",
+          isCommandCenter ? "tw-min-w-0 tw-gap-1.5" : "tw-gap-1"
+        )}
+      >
         {showModeSelector && !channelsActive && (
-          <ChainModeSelector onSelectChain={onModeChange} className="tw-ml-1" />
+          <ChainModeSelector
+            onSelectChain={onModeChange}
+            className={cn(isCommandCenter ? "tw-min-w-0" : "tw-ml-1")}
+          />
         )}
         {showModeSelector && channelsActive && (
-          <span className="tw-ml-2 tw-text-sm tw-font-medium tw-text-accent">Channels</span>
+          <span
+            className={cn(
+              "tw-text-sm tw-font-medium tw-text-accent",
+              isCommandCenter ? "tw-ml-0" : "tw-ml-2"
+            )}
+          >
+            Channels
+          </span>
         )}
         {onChannelsToggle && (
           <Tooltip>
@@ -227,9 +251,9 @@ export function ChatControls({
           </Tooltip>
         )}
       </div>
-      <div className="tw-flex tw-items-center tw-gap-1">
+      <div className={cn("tw-flex tw-items-center", isCommandCenter ? "tw-gap-0.5" : "tw-gap-1")}>
         {!channelsActive && (
-          <div className="tw-mr-2">
+          <div className={cn(isCommandCenter ? "tw-pr-1" : "tw-mr-2")}>
             <TokenCounter tokenCount={latestTokenCount ?? null} />
           </div>
         )}

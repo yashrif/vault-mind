@@ -124,4 +124,18 @@ describe("ChatControls", () => {
     expect(screen.getByTitle("Save Chat as Note")).toBeTruthy();
     expect(screen.getByTitle("Advanced Settings")).toBeTruthy();
   });
+
+  it("exposes command-center surface metadata when requested", () => {
+    const { container } = render(
+      React.createElement(ChatControls as any, {
+        ...baseProps,
+        onChannelsToggle: jest.fn(),
+        surface: "command-center",
+      })
+    );
+
+    expect((container.firstChild as HTMLElement)?.getAttribute("data-surface")).toBe(
+      "command-center"
+    );
+  });
 });
