@@ -100,37 +100,37 @@ both Telegram and the Obsidian input bar.
 
 ## Files Added
 
-| File | Purpose |
-|------|---------|
-| `src/channels/telegram/TelegramTypes.ts` | `TelegramStoredMessage`, `TelegramMeta`, Telegram API DTOs |
-| `src/channels/telegram/TelegramClient.ts` | `fetch`-based Bot API client |
-| `src/channels/telegram/TelegramStore.ts` | Persistent append-only store |
-| `src/channels/telegram/TelegramChannelService.ts` | Poll lifecycle manager |
-| `src/channels/telegram/TelegramChatView.tsx` | React thread view + input bar |
-| `src/channels/telegram/TelegramAgent.ts` | AI reply orchestrator (Phase 2a) |
-| `src/settings/v2/components/TelegramSettings.tsx` | Settings tab (toggle + token + verify) |
-| `src/channels/telegram/__tests__/TelegramClient.test.ts` | 12 unit tests |
-| `src/channels/telegram/__tests__/TelegramStore.test.ts` | 18 unit tests |
-| `src/channels/telegram/__tests__/TelegramChannelService.test.ts` | 7 unit tests |
-| `src/channels/telegram/__tests__/TelegramAgent.test.ts` | 6 unit tests (Phase 2a) |
+| File                                                             | Purpose                                                    |
+| ---------------------------------------------------------------- | ---------------------------------------------------------- |
+| `src/channels/telegram/TelegramTypes.ts`                         | `TelegramStoredMessage`, `TelegramMeta`, Telegram API DTOs |
+| `src/channels/telegram/TelegramClient.ts`                        | `fetch`-based Bot API client                               |
+| `src/channels/telegram/TelegramStore.ts`                         | Persistent append-only store                               |
+| `src/channels/telegram/TelegramChannelService.ts`                | Poll lifecycle manager                                     |
+| `src/channels/telegram/TelegramChatView.tsx`                     | React thread view + input bar                              |
+| `src/channels/telegram/TelegramAgent.ts`                         | AI reply orchestrator (Phase 2a)                           |
+| `src/settings/v2/components/TelegramSettings.tsx`                | Settings tab (toggle + token + verify)                     |
+| `src/channels/telegram/__tests__/TelegramClient.test.ts`         | 12 unit tests                                              |
+| `src/channels/telegram/__tests__/TelegramStore.test.ts`          | 18 unit tests                                              |
+| `src/channels/telegram/__tests__/TelegramChannelService.test.ts` | 7 unit tests                                               |
+| `src/channels/telegram/__tests__/TelegramAgent.test.ts`          | 6 unit tests (Phase 2a)                                    |
 
 ## Files Modified
 
-| File | Change |
-|------|--------|
-| `src/chainFactory.ts` | Added `TELEGRAM_CHAIN = "telegram"` |
-| `src/settings/model.ts` | Added `telegramEnabled`, `telegramBotApiKey` fields |
-| `src/constants.ts` | Added defaults for both fields |
-| `src/main.ts` | Lifecycle wiring for `TelegramChannelService` + Phase 2a agent wiring |
-| `src/settings/v2/SettingsMainV2.tsx` | Registered Telegram settings tab |
-| `src/settings/v2/components/BasicSettings.tsx` | Added Telegram to chain dropdown |
-| `src/components/chat-components/SuggestedPrompts.tsx` | Added `TELEGRAM_CHAIN` entry to `PROMPT_KEYS` |
-| `src/components/chat-components/ChatControls.tsx` | Hide/adapt controls for Telegram mode |
-| `src/components/Chat.tsx` | Branch render for `TELEGRAM_CHAIN` |
-| `src/channels/telegram/TelegramClient.ts` | Added `sendMessage(chatId, text)` method (Phase 2a) |
-| `src/channels/telegram/TelegramStore.ts` | Added `appendBotMessage(text)`, `setOnLocalMessage(handler)` (Phase 2a) |
-| `src/channels/telegram/TelegramChannelService.ts` | Added `agent` field, `setAgent()`, `onMessageStored` dispatch (Phase 2a) |
-| `src/LLMProviders/chainManager.ts` | Added `ChainType.TELEGRAM_CHAIN` case in `getChainRunner()` (Phase 2a) |
+| File                                                  | Change                                                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------------ |
+| `src/chainFactory.ts`                                 | Added `TELEGRAM_CHAIN = "telegram"`                                      |
+| `src/settings/model.ts`                               | Added `telegramEnabled`, `telegramBotApiKey` fields                      |
+| `src/constants.ts`                                    | Added defaults for both fields                                           |
+| `src/main.ts`                                         | Lifecycle wiring for `TelegramChannelService` + Phase 2a agent wiring    |
+| `src/settings/v2/SettingsMainV2.tsx`                  | Registered Telegram settings tab                                         |
+| `src/settings/v2/components/BasicSettings.tsx`        | Added Telegram to chain dropdown                                         |
+| `src/components/chat-components/SuggestedPrompts.tsx` | Added `TELEGRAM_CHAIN` entry to `PROMPT_KEYS`                            |
+| `src/components/chat-components/ChatControls.tsx`     | Hide/adapt controls for Telegram mode                                    |
+| `src/components/Chat.tsx`                             | Branch render for `TELEGRAM_CHAIN`                                       |
+| `src/channels/telegram/TelegramClient.ts`             | Added `sendMessage(chatId, text)` method (Phase 2a)                      |
+| `src/channels/telegram/TelegramStore.ts`              | Added `appendBotMessage(text)`, `setOnLocalMessage(handler)` (Phase 2a)  |
+| `src/channels/telegram/TelegramChannelService.ts`     | Added `agent` field, `setAgent()`, `onMessageStored` dispatch (Phase 2a) |
+| `src/LLMProviders/chainManager.ts`                    | Added `ChainType.TELEGRAM_CHAIN` case in `getChainRunner()` (Phase 2a)   |
 
 ---
 
@@ -146,6 +146,7 @@ non-primary routing to `other-chats/`, `resetView()` cursor advance, pre/post-re
 401 stops loop + Notice, store-then-commit offset ordering, mobile no-op.
 
 **Phase 2a scenarios (TelegramAgent):**
+
 - Ignores bot-source messages (prevents reply loops)
 - Processes both telegram-source (from Bot API) and obsidian-source (UI) messages
 - Serial queue enforcement — second message waits for first to complete
@@ -171,6 +172,7 @@ non-primary routing to `other-chats/`, `resetView()` cursor advance, pre/post-re
 ## Known Limitations (Phase 2a)
 
 - **Memory pollution**: `MemoryManager` is a plugin-wide singleton. Telegram replies rehydrate it from the thread before each chain call; the UI chat rehydrates it before its calls. If both run concurrently during a brief window, one overwrites the other's history. Mitigated by:
+
   - Single-user plugin (no concurrent interactions expected)
   - UI chat regenerates memory on next send/regenerate
   - **Future fix**: Phase 3 will create isolated MemoryManager per channel
@@ -181,46 +183,52 @@ non-primary routing to `other-chats/`, `resetView()` cursor advance, pre/post-re
 
 ## Backlog (not built)
 
-| Phase | Feature | Notes |
-|-------|---------|-------|
-| 2b | Outbound echo: obsidian-typed messages relayed back to Telegram | Separate from AI replies; for message sync |
-| 2b | Markdown `parse_mode` for bot replies | Phase 2a ships plain text only |
-| 2b | Streaming partial replies to Telegram | Edit message as AI responds — deferred for cost/complexity |
-| 3 | Dedicated Telegram memory isolation | Phase 2a shares singleton MemoryManager; rehydrates per-call |
-| 3 | Primary-chat-rebind UI in settings | Allow user to switch primary chat without re-binding |
-| 3 | `telegramAllowedChatIds` allowlist | Restrict replies to specific chats |
-| 4 | Multi-chat UI (surfacing `other-chats/` entries) | Display conversations from non-primary chats |
-| 5 | Webhook mode | Replace polling with push notifications |
+| Phase | Feature                                                         | Notes                                                        |
+| ----- | --------------------------------------------------------------- | ------------------------------------------------------------ |
+| 2b    | Outbound echo: obsidian-typed messages relayed back to Telegram | Separate from AI replies; for message sync                   |
+| 2b    | Markdown `parse_mode` for bot replies                           | Phase 2a ships plain text only                               |
+| 2b    | Streaming partial replies to Telegram                           | Edit message as AI responds — deferred for cost/complexity   |
+| 3     | Dedicated Telegram memory isolation                             | Phase 2a shares singleton MemoryManager; rehydrates per-call |
+| 3     | Primary-chat-rebind UI in settings                              | Allow user to switch primary chat without re-binding         |
+| 3     | `telegramAllowedChatIds` allowlist                              | Restrict replies to specific chats                           |
+| 4     | Multi-chat UI (surfacing `other-chats/` entries)                | Display conversations from non-primary chats                 |
+| 5     | Webhook mode                                                    | Replace polling with push notifications                      |
 
 ---
 
 ## Review Logs (2026-04-20)
 
 ### Log 01 — External baseline (`openclaw-telegram-channel-report.md`)
+
 - Established reliability target: restartable polling cycles, strict offset safety, dedupe, webhook hardening, and idempotency-aware retry boundaries.
 - Recommended adapter-first architecture and phased rollout (foundation → inbound → end-to-end → hardening → groups/topics → webhook).
 
 ### Log 02 — First deep review (`telegram-channel-review-analysis.md`)
+
 - Flagged critical memory isolation risk from shared memory pointer mutation and major context-quality risk from `update_id`-based exclusion.
 - Requested lifecycle cleanup for isolated memory subscriptions and stronger outbound/send-path tests.
 - Status at this point: **Request Changes**.
 
 ### Log 03 — Follow-up fixes (`telegram-channel-review-analysis-2.md`)
+
 - Fixed: explicit allowlist binding, obsidian-source reply behavior, pre-bind local-send guard, true exponential backoff, serialized store writes, and cold-start allowlist revalidation.
 - Planned then tracked: channel-scoped memory isolation and explicit Telegram chain scoping API.
 - Test snapshot updated to 4 suites / 45 tests passing.
 
 ### Log 04 — Isolation/onboarding review (`telegram-channel-review-findings.md`)
+
 - Confirmed: request-scoped memory override wiring, fallback persistence behavior, and onboarding visibility improvements.
 - Reported remaining gaps at that time: agent disposal lifecycle, legacy `local_id` normalization, and additional coverage/doc alignment.
 - Status at this point: **Request Changes**.
 
 ### Log 05 — Agentic integration review (`telegram-agentic-integration-review-report.md`)
+
 - Confirmed agentic routing correctness through `TELEGRAM_CHAIN` with isolated request-scoped memory.
 - Raised two key issues: stale local callback path after disable and allowlist parsing edge case (`0` from empty tokens).
 - Full validation snapshot captured: 102 suites / 1918 tests passing.
 
 ### Log 06 — Current closure update
+
 - User-confirmed fix applied for the reported blocking issue.
 - Consolidated state: Telegram channel is functionally stable with review-driven hardening applied; remaining backlog items stay in Phase 2b+ and Phase 3+ scope above.
 
@@ -229,10 +237,12 @@ non-primary routing to `other-chats/`, `resetView()` cursor advance, pre/post-re
 **Feature:** Extended the chat attachment button from images-only to all file types supported by the agentic pipeline (`ALLOWED_NOTE_CONTEXT_EXTENSIONS`): PDFs, DOCX, plain text, spreadsheets, audio (transcription via Groq), and code files.
 
 **Architecture — two-path routing at send time:**
+
 - Images → base64 `image_url` multimodal content (unchanged path)
 - All other files → text extraction → `MessageContext.attachedFileContents[]` → ContextManager pipeline → L3_TURN envelope segments
 
 **Two bugs found and fixed during development:**
+
 1. Initial implementation added non-image text as `{ type: "text" }` items to `content[]`. Both `LLMChainRunner` and `ToolChainRunner` overwrite/ignore these — only `image_url` items survive. Fixed by routing file text through `MessageContext.attachedFileContents` instead.
 2. `attachedFilesAddition` was added to `finalProcessedMessage` (legacy string) but not passed to `buildPromptContextEnvelope`. Chain runners use the context envelope for LLM requests. Fixed by adding `attachedFilesContext` to `BuildPromptContextEnvelopeParams` and wiring it into L3_TURN `appendParsedSegments`.
 
